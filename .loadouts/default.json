@@ -1,0 +1,12 @@
+{
+    "name": "default",
+    "description": "Standard loadout for development.",
+    "fragments": [
+        "project-structure.md",
+        "build-commands.md",
+        "coding-style.md",
+        "testing-guidelines.md",
+        "git-guidelines.md",
+        "security-config.md"
+    ]
+}

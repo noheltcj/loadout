@@ -103,7 +103,14 @@ Run checks and tests:
 
 ## ⚡ Quick Start — CLI Usage
 
-It's recommended to add CLAUDE.md and AGENTS.md to your .gitignore as these will be managed by the tool.
+It's recommended to add CLAUDE.md, AGENTS.md, and .loadout.json to your .gitignore as these will be managed by the tool:
+
+```gitignore
+# Loadout CLI generated files and config
+.loadout.json
+CLAUDE.md
+AGENTS.md
+```
 
 ```bash
 # Display your current loadout

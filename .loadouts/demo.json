@@ -1,0 +1,9 @@
+{
+    "name": "demo",
+    "description": "Demo loadout for testing",
+    "fragments": [
+        "base.md",
+        "code-assistant.md",
+        "drunken-sailor.md"
+    ]
+}

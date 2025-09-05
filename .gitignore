@@ -23,6 +23,10 @@
 *.kexe
 *.klib
 *.dSYM/
+*.framework/
+*.bundle/
+konan/
+kotlin-native-prebuilt/
 
 # Distributions and temps
 **/distributions/
@@ -30,3 +34,18 @@
 
 # Logs
 *.log
+
+# IDE and editor
+.vscode/
+*.swp
+*.swo
+*~
+
+# System files
+Thumbs.db
+ehthumbs.db
+
+# Loadout CLI generated files and config
+.loadout.json
+CLAUDE.md
+AGENTS.md
