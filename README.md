@@ -1,90 +1,172 @@
 # 🎒 Loadout CLI
 
 > Composable, shareable `.md` system prompts for agentic AI coding systems.  
-> Manage your `AGENTS.md`, `CLAUDE.md`, and related files with a clean, CLI-driven workflow.
+> A Kotlin Multiplatform (KMP) CLI for composing `AGENTS.md`, `CLAUDE.md`, and other prompt fragments into production-ready `.md` profiles.
 
 ---
 
 ## 📖 Overview
 
-**Loadout CLI** helps you manage system prompts as modular Markdown files.  
-Instead of maintaining large, monolithic prompts, you can split them into smaller reusable components and compose them into a final `.md` profile for your AI agent.
+**Loadout CLI** is a command-line tool implemented with Kotlin Multiplatform to provide a single, well-tested binary on macOS, Linux, and Windows. It encourages a modular, maintainable workflow for system prompts by letting you compose short Markdown fragments into final agent specifications.
 
-This approach makes prompts:
-- **Composable** – reuse common fragments across agents.
-- **Maintainable** – edit smaller, focused files instead of one long spec.
-- **Shareable** – publish or version control loadouts with your team.
+Key benefits:
+- **Cross-platform single binary** via Kotlin MPP native/jvm targets.
+- **CLI-first**: designed to be scriptable and CI-friendly.
+- **Composable**: re-use fragments across agents and projects.
+- **Open Source**: source-first workflow and easy local builds.
 
 ---
 
 ## ✨ Features
 
-- Build final `.md` files from multiple sources.
-- Compose prompts like “loadouts” for different tasks or agent personalities.
-- Clean CLI interface for local development and automation.
-- Open source and extensible for future integrations.
+- Compose multiple `.md` fragments into one final `.md` file.
+- Simple, consistent CLI with piping and file output support.
+- Designed for fast local development and CI integration.
+- Extensible architecture (plugins/transform hooks planned).
 
 ---
 
-## 🚀 Installation
+## ✅ Prerequisites (for development / building)
+
+- Java 11+ (to run Gradle tasks / JVM-based distributions)
+- Git
+- macOS / Linux / Windows terminal (PowerShell / WSL supported)
+- `./gradlew` is available in the repo (Gradle wrapper)
+
+> The project targets Kotlin Multiplatform; for production native builds we use the appropriate target (JVM / native) configured in Gradle. You do **not** need a local Kotlin toolchain to run most release binaries.
+
+---
+
+## 🚀 Recommended Install Methods
+
+### 1) Homebrew (macOS / Linux)
+When we publish bottles, the easiest way for macOS and Linux users will be Homebrew:
 
 ```bash
-# With npm
-npm install -g loadout-cli
+# Install the CLI
+brew install loadout
 
-# Or with pnpm
-pnpm add -g loadout-cli
+# After install, run:
+loadout --help
 ```
 
 ---
 
-## ⚡ Quick Start
-
-1. Create a few `.md` fragments:
-
-```markdown
-# style.md
-- Concise explanations
-- Uses clean markdown formatting
-```
-
-```markdown
-# debugging.md
-- Always request stack traces
-- Suggest minimal reproduction steps
-```
-
-2. Build your agent profile:
+### 2) GitHub Releases (Manual install)
+If you prefer manual installation or are on a platform without a package manager, download a release archive:
 
 ```bash
-loadout build style.md debugging.md --out CLAUDE.md
+# Download and extract (example for macOS x86_64)
+curl -L -o loadout.tar.gz \
+  "https://github.com/noheltcj/loadout/releases/download/v0.1.0/loadout-cli-macos-x86_64.tar.gz"
+tar -xzf loadout.tar.gz
+# Move the binary into your PATH
+sudo mv loadout /usr/local/bin/loadout
+loadout --version
 ```
-
-3. Result: a fully composed `CLAUDE.md` ready to use with your AI system.
 
 ---
 
-## 🖥 CLI Usage
+### 3) Build from source (recommended for contributors)
+
+The repository includes Gradle build scripts that support JVM and native targets. From the project root:
 
 ```bash
-# Compose multiple markdown files into one output
-loadout build <files...> --out <output>
+# Clone
+git clone https://github.com/noheltcj/loadout.git
+cd loadout
 
-# Example
-loadout build core.md style.md debugging.md --out final.md
+# Use the Gradle wrapper to build (JVM distribution)
+./gradlew :cli:installDist
+
+# After successful build, the runnable will be at:
+# cli/build/install/loadout-cli/bin/loadout
+./cli/build/install/loadout-cli/bin/loadout --help
 ```
 
-Options:
-- `--out, -o` : Output file (default: `stdout`)
-- `--watch, -w` : Rebuild automatically when input files change (coming soon)
+If the project includes native targets (Kotlin/Native or GraalVM native-image), there will be additional Gradle tasks such as:
+
+```bash
+# Example native-ish assemble (task name will depend on the build setup)
+./gradlew :cli:assemble
+# Or a more specific native task (configured in the project)
+./gradlew :cli:assembleMacosX64
+```
+
+Run checks and tests:
+
+```bash
+./gradlew check
+```
 
 ---
 
-## 🧑‍🤝‍🧑 Community
+## ⚡ Quick Start — CLI Usage
 
-- Contribute improvements via pull requests.
-- Share your loadout compositions and best practices.
-- Open issues for feature requests or discussions.
+It's recommended to add CLAUDE.md and AGENTS.md to your .gitignore as these will be managed by the tool.
+
+```bash
+# Display your current loadout
+loadout
+
+# List available loadouts
+loadout list
+
+# Swap to a loadout
+loadout use <name>
+# Preview without writing files
+loadout use <name> --dry-run
+ 
+
+# Create an empty loadout
+loadout create <name> \
+  --desc "Short description"
+
+# Create a loadout with fragments
+loadout create <name> \
+  --desc "Short description" \
+  --fragments prompts/base.md prompts/tools.md
+
+# Add a local fragment to your loadout
+loadout add prompts/new-tool.md --to <name> --after prompts/base.md
+
+# Remove a local fragment from your loadout
+loadout remove prompts/old-experiment.md --from <name>
+```
+
+---
+
+## 🛠 CLI Options
+- `--config <file>`: Path to config (e.g. `.loadout.yml`).
+- `--dry-run`: Preview actions and composition; no changes.
+- `--output <dir>`: Override output directory for generated files.
+- `--json`: Emit machine-readable output for `list` / `inspect`.
+- `--version` / `--help`: Print version or help.
+
+Commands execute by default and update outputs; use `--dry-run` to preview without making changes.
+
+(Exact flags depend on the current CLI implementation; use `loadout --help`.)
+
+---
+
+## 🧑‍💻 Development notes
+
+- The CLI codebase uses Kotlin Multiplatform to share logic, tooling, and serializable entities with the backend.
+- Prefer the Gradle wrapper (`./gradlew`) so CI and contributors run the same toolchain.
+- Keep core composition logic platform-agnostic; CLI plumbing lives under `cli/` module.
+
+---
+
+## 🧑‍🤝‍🧑 Contributing
+
+Contributions are welcome. Here's a typical workflow:
+
+1. Fork the repo.
+2. Create a feature branch: `git checkout -b feature/your-feature`.
+3. Run tests: `./gradlew check`.
+4. Open a PR with a clear description and small, focused commits.
+
+See `CONTRIBUTING.md` for detailed guidelines (code style, commit conventions, CI checks).
 
 ---
 
@@ -94,4 +176,4 @@ Options:
 
 ---
 
-**Loadout CLI** – a cleaner way to manage and share system prompts.
+**Loadout CLI** — a cross-platform, professional way to manage, compose, and share system prompts.

@@ -1,0 +1,32 @@
+# OS-specific
+.DS_Store
+
+# IntelliJ IDEA
+.idea/
+*.iml
+*.iws
+*.ipr
+
+# Gradle
+.gradle/
+**/build/
+**/out/
+.kotlin/
+
+# Keep Gradle wrapper in VCS
+!gradle/wrapper/gradle-wrapper.properties
+!gradle/wrapper/gradle-wrapper.jar
+!gradlew
+!gradlew.bat
+
+# Kotlin/Native outputs
+*.kexe
+*.klib
+*.dSYM/
+
+# Distributions and temps
+**/distributions/
+**/tmp/
+
+# Logs
+*.log
