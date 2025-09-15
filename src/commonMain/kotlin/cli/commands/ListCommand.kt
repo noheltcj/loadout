@@ -22,6 +22,10 @@ class ListCommand(
         .flag(default = false)
         .help("Output as JSON")
     
+    private val verbose by option("--verbose", "-v")
+        .flag(default = false)
+        .help("Enable verbose output")
+    
     // TODO: Inherit global --config option from main CLI
 
     override fun run() {
@@ -54,6 +58,12 @@ class ListCommand(
                 echo("  ${loadout.description}")
             }
             echo("  Fragments: ${loadout.fragments.size}")
+            
+            if (verbose) {
+                loadout.fragments.forEachIndexed { index, fragment ->
+                    echo("    ${index + 1}. $fragment")
+                }
+            }
             echo()
         }
     }
