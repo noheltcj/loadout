@@ -25,7 +25,7 @@ class LoadoutService(
                         description = description,
                         fragments = fragments
                     )
-                    
+
                     val validationErrors = loadout.validate()
                     if (validationErrors.isNotEmpty()) {
                         Result.Error(LoadoutError.ValidationError("loadout", validationErrors.first()))
@@ -33,6 +33,36 @@ class LoadoutService(
                         loadoutRepository.save(loadout).map { loadout }
                     }
                 }
+            }
+    }
+
+    fun createLoadoutFromClone(
+        name: String,
+        cloneFrom: String,
+        description: String? = null,
+        additionalFragments: List<String> = emptyList()
+    ): Result<Loadout, LoadoutError> {
+        return getLoadout(cloneFrom)
+            .flatMap { sourceLoadout ->
+                validateLoadoutName(name)
+                    .flatMap { validName ->
+                        if (loadoutRepository.exists(validName)) {
+                            Result.Error(LoadoutError.LoadoutAlreadyExists(validName))
+                        } else {
+                            val loadout = Loadout(
+                                name = validName,
+                                description = description ?: sourceLoadout.description,
+                                fragments = sourceLoadout.fragments + additionalFragments
+                            )
+
+                            val validationErrors = loadout.validate()
+                            if (validationErrors.isNotEmpty()) {
+                                Result.Error(LoadoutError.ValidationError("loadout", validationErrors.first()))
+                            } else {
+                                loadoutRepository.save(loadout).map { loadout }
+                            }
+                        }
+                    }
             }
     }
     

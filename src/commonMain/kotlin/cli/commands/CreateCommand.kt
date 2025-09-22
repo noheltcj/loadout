@@ -24,22 +24,34 @@ class CreateCommand(
     private val fragments by option("--fragment", "-f")
         .multiple()
         .help("Initial fragments to include (can be specified multiple times)")
-    
-    // TODO: Add --clone option to create by copying an existing loadout
-    // TODO: Inherit global --config option from main CLI
-    // TODO: Inherit global --dry-run option from main CLI
-    // TODO: Inherit global --json option from main CLI
-    // TODO: Support --fragments as documented in README (currently --fragment)
-    
+
+    private val cloneFrom by option("--clone")
+        .help("Create by copying an existing loadout")
+
     override fun run() {
-        when (val result = loadoutService.createLoadout(
-            name = name,
-            description = description.orEmpty(),
-            fragments = fragments
-        )) {
+        val result = if (cloneFrom != null) {
+            loadoutService.createLoadoutFromClone(
+                name = name,
+                cloneFrom = cloneFrom!!,
+                description = description,
+                additionalFragments = fragments
+            )
+        } else {
+            loadoutService.createLoadout(
+                name = name,
+                description = description.orEmpty(),
+                fragments = fragments
+            )
+        }
+
+        when (result) {
             is Result.Success -> {
                 val loadout = result.value
-                echo("Created loadout '${loadout.name}'")
+                if (cloneFrom != null) {
+                    echo("Created loadout '${loadout.name}' (cloned from '$cloneFrom')")
+                } else {
+                    echo("Created loadout '${loadout.name}'")
+                }
                 
                 if (loadout.description.isNotBlank()) {
                     echo("Description: ${loadout.description}")
