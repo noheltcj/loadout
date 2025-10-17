@@ -7,15 +7,29 @@ import application.CompositionEngine
 import infrastructure.*
 
 fun main(args: Array<String>) {
-    val dependencies = initializeDependencies()
+    val (loadoutService, compositionEngine) = initializeDependencies()
     
-    LoadoutCli()
+    LoadoutCli(
+        loadoutService = loadoutService,
+        compositionEngine = compositionEngine
+    )
         .subcommands(
-            ListCommand(dependencies.loadoutService),
-            CreateCommand(dependencies.loadoutService),
-            UseCommand(dependencies.loadoutService, dependencies.compositionEngine),
-            AddCommand(dependencies.loadoutService),
-            RemoveCommand(dependencies.loadoutService)
+            ListCommand(
+                loadoutService = loadoutService
+            ),
+            CreateCommand(
+                loadoutService = loadoutService
+            ),
+            UseCommand(
+                loadoutService = loadoutService,
+                compositionEngine = compositionEngine
+            ),
+            AddCommand(
+                loadoutService = loadoutService
+            ),
+            RemoveCommand(
+                loadoutService = loadoutService
+            )
         )
         .main(args)
 }

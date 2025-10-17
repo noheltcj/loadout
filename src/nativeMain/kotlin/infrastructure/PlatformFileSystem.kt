@@ -8,7 +8,7 @@ import platform.posix.*
 @OptIn(ExperimentalForeignApi::class)
 actual class PlatformFileSystem actual constructor() : FileSystem {
     
-    override fun readFile(path: String): Result<String, LoadoutError> {
+    actual override fun readFile(path: String): Result<String, LoadoutError> {
         return try {
             val file = fopen(path, "r") ?: return Result.Error(
                 LoadoutError.FileSystemError("Cannot open file: $path")
@@ -38,7 +38,7 @@ actual class PlatformFileSystem actual constructor() : FileSystem {
         }
     }
     
-    override fun writeFile(path: String, content: String): Result<Unit, LoadoutError> {
+    actual override fun writeFile(path: String, content: String): Result<Unit, LoadoutError> {
         return try {
             val file = fopen(path, "w") ?: return Result.Error(
                 LoadoutError.FileSystemError("Cannot create file: $path")
@@ -61,16 +61,16 @@ actual class PlatformFileSystem actual constructor() : FileSystem {
         }
     }
     
-    override fun fileExists(path: String): Boolean {
+    actual override fun fileExists(path: String): Boolean {
         return access(path, F_OK) == 0
     }
     
-    override fun createDirectory(path: String): Result<Unit, LoadoutError> {
+    actual override fun createDirectory(path: String): Result<Unit, LoadoutError> {
         return if (fileExists(path)) {
             Result.Success(Unit)
         } else {
             try {
-                val result = mkdir(path, (S_IRWXU or S_IRGRP or S_IXGRP or S_IROTH or S_IXOTH).toUShort())
+                val result = platformMkdir(path)
                 if (result == 0) {
                     Result.Success(Unit)
                 } else {
@@ -82,7 +82,7 @@ actual class PlatformFileSystem actual constructor() : FileSystem {
         }
     }
     
-    override fun listFiles(directory: String, extension: String?): Result<List<String>, LoadoutError> {
+    actual override fun listFiles(directory: String, extension: String?): Result<List<String>, LoadoutError> {
         return try {
             val files = mutableListOf<String>()
             val dir = opendir(directory) ?: return Result.Error(
@@ -116,7 +116,7 @@ actual class PlatformFileSystem actual constructor() : FileSystem {
         }
     }
     
-    override fun deleteFile(path: String): Result<Unit, LoadoutError> {
+    actual override fun deleteFile(path: String): Result<Unit, LoadoutError> {
         return try {
             val result = unlink(path)
             if (result == 0) {
@@ -131,9 +131,15 @@ actual class PlatformFileSystem actual constructor() : FileSystem {
     
     private fun isDirectory(path: String): Boolean {
         memScoped {
-            val stat = alloc<stat>()
-            if (stat(path, stat.ptr) != 0) return false
-            return (stat.st_mode.toUInt() and S_IFMT.toUInt()) == S_IFDIR.toUInt()
+            val statBuf = alloc<stat>()
+            val result = stat(path, statBuf.ptr)
+            if (result != 0) {
+                return false
+            }
+
+            /* Allowing this opt-in since this is still what we would be after across differing platform implementations. */
+            @OptIn(UnsafeNumber::class)
+            return (statBuf.st_mode.toUInt() and S_IFMT.toUInt()) == S_IFDIR.toUInt()
         }
     }
 }

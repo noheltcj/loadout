@@ -8,7 +8,10 @@ import infrastructure.*
 import domain.LoadoutError
 import common.Result
 
-class LoadoutCli : CliktCommand(
+class LoadoutCli(
+    private val loadoutService: LoadoutService,
+    private val compositionEngine: CompositionEngine
+) : CliktCommand(
     name = "loadout",
     help = "Composable, shareable .md system prompts for agentic AI coding systems",
     invokeWithoutSubcommand = true
@@ -37,10 +40,6 @@ class LoadoutCli : CliktCommand(
 
     override fun run() {
         if (currentContext.invokedSubcommand != null) return
-        
-        val dependencies = initializeDependencies()
-        val loadoutService = dependencies.loadoutService
-        val compositionEngine = dependencies.compositionEngine
         
         when (val result = loadoutService.getCurrentLoadout()) {
             is Result.Success -> {
@@ -75,21 +74,7 @@ class LoadoutCli : CliktCommand(
             }
         }
     }
-    
-    private fun initializeDependencies(): Dependencies {
-        val fileSystem = PlatformFileSystem()
-        val serializer = JsonSerializer()
-        
-        val configRepository = FileBasedConfigRepository(fileSystem, serializer)
-        val loadoutRepository = FileBasedLoadoutRepository(fileSystem, serializer)
-        val fragmentRepository = FileBasedFragmentRepository(fileSystem)
-        
-        return Dependencies(
-            loadoutService = LoadoutService(loadoutRepository, configRepository),
-            compositionEngine = CompositionEngine(fragmentRepository)
-        )
-    }
-    
+
     private fun handleError(error: LoadoutError) {
         echo("Error: ${error.message}", err = true)
         if (verbose && error.cause != null) {
@@ -97,9 +82,4 @@ class LoadoutCli : CliktCommand(
         }
         throw ProgramResult(1)
     }
-    
-    private data class Dependencies(
-        val loadoutService: LoadoutService,
-        val compositionEngine: CompositionEngine
-    )
 }

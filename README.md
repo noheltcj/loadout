@@ -10,7 +10,6 @@
 **Loadout CLI** is a command-line tool implemented with Kotlin Multiplatform to provide a single, well-tested binary on macOS, Linux, and Windows. It encourages a modular, maintainable workflow for system prompts by letting you compose short Markdown fragments into final agent specifications.
 
 Key benefits:
-- **Cross-platform single binary** via Kotlin MPP native/jvm targets.
 - **CLI-first**: designed to be scriptable and CI-friendly.
 - **Composable**: re-use fragments across agents and projects.
 - **Open Source**: source-first workflow and easy local builds.
@@ -19,10 +18,9 @@ Key benefits:
 
 ## ✨ Features
 
-- Compose multiple `.md` fragments into one final `.md` file.
+- Compose multiple `.md` files selectively into one final `.md` file.
 - Simple, consistent CLI with piping and file output support.
 - Designed for fast local development and CI integration.
-- Extensible architecture (plugins/transform hooks planned).
 
 ---
 
@@ -33,7 +31,7 @@ Key benefits:
 - macOS / Linux / Windows terminal (PowerShell / WSL supported)
 - `./gradlew` is available in the repo (Gradle wrapper)
 
-> The project targets Kotlin Multiplatform; for production native builds we use the appropriate target (JVM / native) configured in Gradle. You do **not** need a local Kotlin toolchain to run most release binaries.
+> The project targets Kotlin Multiplatform; for production native builds we use the appropriate target configured in Gradle. You do **not** need a local Kotlin toolchain to run most release binaries.
 
 ---
 
@@ -44,7 +42,8 @@ When we publish bottles, the easiest way for macOS and Linux users will be Homeb
 
 ```bash
 # Install the CLI
-brew install loadout
+brew tap noheltcj/loadout-tap
+brew install noheltcj/loadout
 
 # After install, run:
 loadout --help
@@ -52,13 +51,13 @@ loadout --help
 
 ---
 
-### 2) GitHub Releases (Manual install)
+### 2) GitHub Releases (Windows / Manual install)
 If you prefer manual installation or are on a platform without a package manager, download a release archive:
 
 ```bash
 # Download and extract (example for macOS x86_64)
 curl -L -o loadout.tar.gz \
-  "https://github.com/noheltcj/loadout/releases/download/v0.1.0/loadout-cli-macos-x86_64.tar.gz"
+  "https://github.com/noheltcj/loadout/releases/download/v0.1.0/loadout-cli-mingw-x86.tar.gz"
 tar -xzf loadout.tar.gz
 # Move the binary into your PATH
 sudo mv loadout /usr/local/bin/loadout
@@ -76,27 +75,21 @@ The repository includes Gradle build scripts that support JVM and native targets
 git clone https://github.com/noheltcj/loadout.git
 cd loadout
 
-# Use the Gradle wrapper to build (JVM distribution)
-./gradlew :cli:installDist
+# Use the Gradle wrapper to build the native executable
+./gradlew build
 
-# After successful build, the runnable will be at:
-# cli/build/install/loadout-cli/bin/loadout
-./cli/build/install/loadout-cli/bin/loadout --help
+# After successful build, the release binary will be at:
+# build/bin/<your_cpu_architecture>/releaseExecutable/loadout.kexe
+./build/bin/<your_cpu_architecture>/releaseExecutable/loadout.kexe --help
 ```
 
 If the project includes native targets (Kotlin/Native or GraalVM native-image), there will be additional Gradle tasks such as:
 
 ```bash
 # Example native-ish assemble (task name will depend on the build setup)
-./gradlew :cli:assemble
+./gradlew assemble
 # Or a more specific native task (configured in the project)
-./gradlew :cli:assembleMacosX64
-```
-
-Run checks and tests:
-
-```bash
-./gradlew check
+./gradlew assembleMacosX64
 ```
 
 ---
