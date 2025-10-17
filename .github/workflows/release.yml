@@ -1,0 +1,139 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag (e.g., v0.1.0)'
+        required: true
+        type: string
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 11
+        uses: actions/setup-java@v4
+        with:
+          java-version: '11'
+          distribution: 'temurin'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
+
+      - name: Build all release executables
+        run: |
+          ./gradlew linkReleaseExecutableMacosX64
+          ./gradlew linkReleaseExecutableMacosArm64
+          ./gradlew linkReleaseExecutableLinuxX64
+          ./gradlew linkReleaseExecutableLinuxArm64
+
+      - name: Create tarballs
+        run: |
+          mkdir -p release-assets
+
+          # Function to package a target
+          package_target() {
+            local target=$1
+            local artifact_name=$2
+
+            echo "Packaging $target as $artifact_name..."
+
+            # Find the executable
+            EXECUTABLE=$(find build/bin/${target}/releaseExecutable -type f -name "*.kexe" | head -n 1)
+
+            if [ -z "$EXECUTABLE" ]; then
+              echo "Error: Could not find executable for $target"
+              exit 1
+            fi
+
+            # Create temporary directory for this target
+            mkdir -p "packaging-${target}"
+            cp "$EXECUTABLE" "packaging-${target}/loadout"
+            chmod +x "packaging-${target}/loadout"
+
+            # Create tarball
+            tar -czf "release-assets/${artifact_name}.tar.gz" -C "packaging-${target}" loadout
+
+            echo "Created: ${artifact_name}.tar.gz"
+            ls -lh "release-assets/${artifact_name}.tar.gz"
+          }
+
+          # Package each target
+          package_target "macosX64" "loadout-macos-x64"
+          package_target "macosArm64" "loadout-macos-arm64"
+          package_target "linuxX64" "loadout-linux-x64"
+          package_target "linuxArm64" "loadout-linux-arm64"
+
+      - name: Calculate checksums
+        run: |
+          cd release-assets
+          sha256sum *.tar.gz > SHA256SUMS
+          cat SHA256SUMS
+
+      - name: Determine release tag
+        id: tag
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            TAG="${{ github.event.inputs.tag }}"
+          else
+            TAG="${{ github.ref_name }}"
+          fi
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "Release tag: $TAG"
+
+      - name: Create Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="${{ steps.tag.outputs.tag }}"
+          VERSION="${TAG#v}"
+
+          # Check if release already exists
+          if gh release view "$TAG" 2>/dev/null; then
+            echo "Release $TAG already exists. Deleting it..."
+            gh release delete "$TAG" --yes
+          fi
+
+          # Create release notes
+          cat > release-notes.md << 'EOF'
+          # Loadout $VERSION
+
+          ## Installation
+
+          ### Homebrew (macOS and Linux)
+          ```bash
+          brew install noheltcj/loadout/loadout
+          ```
+
+          ### Manual Installation
+          Download the appropriate binary for your platform from the assets below, extract it, and add it to your PATH.
+
+          ## Checksums
+          ```
+          $(cat release-assets/SHA256SUMS)
+          ```
+          EOF
+
+          # Substitute variables in release notes
+          sed -i "s/\$VERSION/$VERSION/g" release-notes.md
+          sed -i "/\$(cat release-assets\/SHA256SUMS)/r release-assets/SHA256SUMS" release-notes.md
+          sed -i "/\$(cat release-assets\/SHA256SUMS)/d" release-notes.md
+
+          # Create the release
+          gh release create "$TAG" \
+            --title "Release $VERSION" \
+            --notes-file release-notes.md \
+            release-assets/*.tar.gz \
+            release-assets/SHA256SUMS
+
+          echo "Release $TAG created successfully!"
