@@ -1,22 +1,35 @@
 name: Update Homebrew Formula
 
 on:
-  release:
-    types: [published]
+  workflow_run:
+    workflows: ["Release"]
+    types: [completed]
+    branches: [main]
 
 jobs:
   update-formula:
     runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     steps:
       - name: Checkout release
         uses: actions/checkout@v4
+
+      - name: Get latest release tag
+        id: get_tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # Get the latest release tag
+          TAG=$(gh release list --limit 1 --json tagName --jq '.[0].tagName')
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "Latest release tag: $TAG"
 
       - name: Download release artifacts
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          # Get the tag name from the release
-          TAG="${{ github.event.release.tag_name }}"
+          # Get the tag name from the previous step
+          TAG="${{ steps.get_tag.outputs.tag }}"
           VERSION="${TAG#v}"  # Remove 'v' prefix
 
           echo "Downloading artifacts for version $VERSION..."
@@ -52,7 +65,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.TAP_REPO_TOKEN }}
         run: |
-          TAG="${{ github.event.release.tag_name }}"
+          TAG="${{ steps.get_tag.outputs.tag }}"
           VERSION="${TAG#v}"
 
           # Clone the tap repository
@@ -111,12 +124,13 @@ jobs:
           git push origin "$BRANCH"
 
           # Create pull request
+          RELEASE_URL="https://github.com/${{ github.repository }}/releases/tag/${TAG}"
           gh pr create \
             --repo noheltcj/loadout-tap \
             --title "Update formula to version $VERSION" \
             --body "Automated update to version $VERSION from release ${TAG}
 
-          **Release Notes:** ${{ github.event.release.html_url }}
+          **Release Notes:** ${RELEASE_URL}
 
           **Checksums:**
           - macOS ARM64: \`${{ steps.checksums.outputs.macos_arm64 }}\`
