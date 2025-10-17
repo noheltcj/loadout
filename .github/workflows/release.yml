@@ -105,29 +105,24 @@ jobs:
           fi
 
           # Create release notes
-          cat > release-notes.md << 'EOF'
-          # Loadout $VERSION
+          cat > release-notes.md << EOF
+          # Loadout ${VERSION}
 
           ## Installation
 
           ### Homebrew (macOS and Linux)
-          ```bash
+          \`\`\`bash
           brew install noheltcj/loadout/loadout
-          ```
+          \`\`\`
 
           ### Manual Installation
           Download the appropriate binary for your platform from the assets below, extract it, and add it to your PATH.
 
           ## Checksums
-          ```
+          \`\`\`
           $(cat release-assets/SHA256SUMS)
-          ```
+          \`\`\`
           EOF
-
-          # Substitute variables in release notes
-          sed -i "s/\$VERSION/$VERSION/g" release-notes.md
-          sed -i "/\$(cat release-assets\/SHA256SUMS)/r release-assets/SHA256SUMS" release-notes.md
-          sed -i "/\$(cat release-assets\/SHA256SUMS)/d" release-notes.md
 
           # Create the release
           gh release create "$TAG" \
