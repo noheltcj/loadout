@@ -1,3 +1,7 @@
+import org.jetbrains.kotlin.gradle.plugin.KotlinSourceSet
+import org.jetbrains.kotlin.gradle.plugin.KotlinTarget
+import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeTarget
+
 plugins {
     kotlin("multiplatform") version "2.0.20"
     kotlin("plugin.serialization") version "2.0.20"
@@ -11,21 +15,13 @@ repositories {
 }
 
 kotlin {
-    val hostOs = System.getProperty("os.name")
-    val nativeTarget = when {
-        hostOs == "Mac OS X" -> macosX64("native")
-        hostOs == "Linux" -> linuxX64("native")
-        hostOs.startsWith("Windows") -> mingwX64("native")
-        else -> throw GradleException("Host OS is not supported in Kotlin/Native.")
-    }
+    macosX64().configureBinaries()
+    macosArm64().configureBinaries()
 
-    nativeTarget.apply {
-        binaries {
-            executable {
-                entryPoint = "main"
-            }
-        }
-    }
+    linuxArm64().configureBinaries()
+    linuxX64().configureBinaries()
+
+    mingwX64().configureBinaries()
 
     sourceSets {
         val commonMain by getting {
@@ -36,23 +32,39 @@ kotlin {
             }
         }
 
-        val commonTest by getting {
-            dependencies {
-                implementation(kotlin("test"))
-                implementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.1")
-            }
-        }
-
-        val nativeMain by getting {
+        val nativeMain by registering {
             dependsOn(commonMain)
         }
 
-        val nativeTest by getting {
-            dependsOn(commonTest)
-        }
+        val linuxX64Main by extending(nativeMain)
+        val linuxArm64Main by extending(nativeMain)
+
+        val macosX64Main by extending(nativeMain)
+        val macosArm64Main by extending(nativeMain)
+
+        val mingwX64Main by extending(nativeMain)
     }
 }
 
 tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> {
     kotlinOptions.jvmTarget = "11"
+}
+
+fun NamedDomainObjectContainer<KotlinSourceSet>.extending(
+    parentSourceSet: NamedDomainObjectProvider<KotlinSourceSet>,
+    configure: KotlinSourceSet.() -> Unit = {}
+): NamedDomainObjectCollectionDelegateProvider<KotlinSourceSet> {
+    val parent by parentSourceSet
+    return getting {
+        dependsOn(parent)
+        configure()
+    }
+}
+
+fun KotlinNativeTarget.configureBinaries() {
+    binaries {
+        executable {
+            entryPoint = "main"
+        }
+    }
 }

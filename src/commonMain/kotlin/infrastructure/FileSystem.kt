@@ -12,4 +12,11 @@ interface FileSystem {
     fun deleteFile(path: String): Result<Unit, LoadoutError>
 }
 
-expect class PlatformFileSystem() : FileSystem
+expect class PlatformFileSystem() : FileSystem {
+    override fun readFile(path: String): Result<String, LoadoutError>
+    override fun writeFile(path: String, content: String): Result<Unit, LoadoutError>
+    override fun fileExists(path: String): Boolean
+    override fun createDirectory(path: String): Result<Unit, LoadoutError>
+    override fun listFiles(directory: String, extension: String?): Result<List<String>, LoadoutError>
+    override fun deleteFile(path: String): Result<Unit, LoadoutError>
+}
