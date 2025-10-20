@@ -69,8 +69,8 @@ jobs:
           VERSION="${TAG#v}"
 
           # Clone the tap repository
-          git clone https://x-access-token:${GH_TOKEN}@github.com/noheltcj/loadout-tap.git
-          cd loadout-tap
+          git clone https://x-access-token:${GH_TOKEN}@github.com/noheltcj/homebrew-loadout.git
+          cd homebrew-loadout
 
           # Configure git
           git config user.name "github-actions[bot]"
@@ -126,7 +126,7 @@ jobs:
           # Create pull request
           RELEASE_URL="https://github.com/${{ github.repository }}/releases/tag/${TAG}"
           gh pr create \
-            --repo noheltcj/loadout-tap \
+            --repo noheltcj/homebrew-loadout \
             --title "Update formula to version $VERSION" \
             --body "Automated update to version $VERSION from release ${TAG}
 

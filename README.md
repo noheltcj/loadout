@@ -42,7 +42,7 @@ When we publish bottles, the easiest way for macOS and Linux users will be Homeb
 
 ```bash
 # Install the CLI
-brew tap noheltcj/loadout-tap
+brew tap noheltcj/loadout
 brew install noheltcj/loadout
 
 # After install, run:
