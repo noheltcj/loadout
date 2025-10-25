@@ -15,23 +15,11 @@ class LoadoutCli(
     help = "Composable, shareable .md system prompts for agentic AI coding systems",
     invokeWithoutSubcommand = true
 ) {
-    
-    private val configPath by option("--config", "-c")
-        .help("Path to configuration file")
-    
-    private val outputDir by option("--output", "-o")
-        .help("Override output directory for generated files")
-    
-    private val dryRun by option("--dry-run")
-        .flag(default = false)
-        .help("Preview actions without making changes")
-    
     private val verbose by option("--verbose", "-v")
         .flag(default = false)
         .help("Enable verbose output")
 
     // TODO: Add --version option as documented in README
-    // TODO: Finish implementing the options above
 
     override fun run() {
         if (currentContext.invokedSubcommand != null) return

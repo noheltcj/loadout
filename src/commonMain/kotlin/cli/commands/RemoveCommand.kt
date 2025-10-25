@@ -21,9 +21,6 @@ class RemoveCommand(
     private val loadoutName by option("--from")
         .required()
         .help("Name of the loadout to remove the fragment from")
-    
-    // TODO: Inherit global --config option from main CLI
-    // TODO: Inherit global --dry-run option from main CLI
 
     override fun run() {
         when (val result = loadoutService.removeFragmentFromLoadout(

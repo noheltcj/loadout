@@ -23,9 +23,9 @@ class UseCommand(
     
     private val name by argument(help = "Name of the loadout to use")
     
-    private val dryRun by option("--dry-run")
+    private val stdOutOnly by option("--std-out")
         .flag(default = false)
-        .help("Preview without writing files")
+        .help("Print to std-out without writing files")
     
     private val outputDir by option("--output", "-o")
         .help("Override output directory")
@@ -41,13 +41,8 @@ class UseCommand(
                     is Result.Success -> {
                         val composedOutput = composeResult.value
                         
-                        if (dryRun) {
-                            echo("DRY RUN: Would switch to loadout '$name'")
-                            echo("Content preview (first 200 chars):")
-                            echo(composedOutput.content.take(200))
-                            if (composedOutput.content.length > 200) {
-                                echo("... (${composedOutput.content.length - 200} more characters)")
-                            }
+                        if (stdOutOnly) {
+                            echo(composedOutput.content)
                         } else {
                             when (val setCurrentResult = loadoutService.setCurrentLoadout(name)) {
                                 is Result.Success -> {

@@ -20,7 +20,7 @@ class LoadoutCompositionService(
                 loadoutName = loadout.name,
                 content = "",
                 fragmentCount = 0,
-                metadata = CompositionMetadata.Companion.from("", emptyList(), now)
+                metadata = CompositionMetadata.from("", emptyList(), now)
             )
             return Result.Success(emptyOutput)
         }
@@ -28,7 +28,7 @@ class LoadoutCompositionService(
         return loadFragments(loadout.fragments)
             .map { fragmentContents ->
                 val composedContent = composeContent(fragmentContents)
-                val metadata = CompositionMetadata.Companion.from(composedContent, loadout.fragments, now)
+                val metadata = CompositionMetadata.from(composedContent, loadout.fragments, now)
 
                 ComposedOutput(
                     loadoutName = loadout.name,

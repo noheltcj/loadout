@@ -25,9 +25,6 @@ class AddCommand(
     private val afterFragment by option("--after")
         .help("Insert the fragment after this existing fragment")
     
-    // TODO: Inherit global --config option from main CLI
-    // TODO: Inherit global --dry-run option from main CLI
-
     override fun run() {
         when (val result = loadoutService.addFragmentToLoadout(
             loadoutName = loadoutName,
