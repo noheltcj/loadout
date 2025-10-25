@@ -6,14 +6,16 @@ import com.github.ajalt.clikt.parameters.arguments.argument
 import com.github.ajalt.clikt.parameters.options.flag
 import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.options.help
-import application.LoadoutService
-import application.CompositionEngine
-import common.Result
-import infrastructure.PlatformFileSystem
+import domain.service.LoadoutService
+import domain.entity.packaging.Result
+import domain.entity.ComposedOutput
+import domain.service.LoadoutCompositionService
+import domain.repository.FileRepository
 
 class UseCommand(
+    private val fileRepository: FileRepository,
     private val loadoutService: LoadoutService,
-    private val compositionEngine: CompositionEngine
+    private val composeLoadout: LoadoutCompositionService
 ) : CliktCommand(
     name = "use",
     help = "Switch to and compose a loadout"
@@ -21,35 +23,28 @@ class UseCommand(
     
     private val name by argument(help = "Name of the loadout to use")
     
-    private val dryRun by option("--dry-run")
+    private val stdOutOnly by option("--std-out")
         .flag(default = false)
-        .help("Preview without writing files")
+        .help("Print to std-out without writing files")
     
     private val outputDir by option("--output", "-o")
         .help("Override output directory")
     
     // TODO: Inherit global --config option from main CLI
-    // TODO: Inherit global --json option from main CLI
-    
+
     override fun run() {
         when (val result = loadoutService.getLoadout(name)) {
             is Result.Success -> {
                 val loadout = result.value
                 
-                when (val composeResult = compositionEngine.composeLoadout(loadout)) {
+                when (val composeResult = composeLoadout(loadout)) {
                     is Result.Success -> {
                         val composedOutput = composeResult.value
                         
-                        if (dryRun) {
-                            echo("DRY RUN: Would switch to loadout '$name'")
-                            echo("Content preview (first 200 chars):")
-                            echo(composedOutput.content.take(200))
-                            if (composedOutput.content.length > 200) {
-                                echo("... (${composedOutput.content.length - 200} more characters)")
-                            }
+                        if (stdOutOnly) {
+                            echo(composedOutput.content)
                         } else {
-                            val setCurrentResult = loadoutService.setCurrentLoadout(name)
-                            when (setCurrentResult) {
+                            when (val setCurrentResult = loadoutService.setCurrentLoadout(name)) {
                                 is Result.Success -> {
                                     writeComposedFiles(composedOutput, outputDir ?: ".")
                                     echo("Switched to loadout '$name'")
@@ -77,22 +72,21 @@ class UseCommand(
         }
     }
     
-    private fun writeComposedFiles(composedOutput: domain.ComposedOutput, outputDir: String) {
-        val fileSystem = PlatformFileSystem()
+    private fun writeComposedFiles(composedOutput: ComposedOutput, outputDir: String) {
         val content = composedOutput.toFileContent(includeMetadata = true)
         
         val claudePath = "$outputDir/CLAUDE.md"
         val agentsPath = "$outputDir/AGENTS.md"
         // TODO: Directly translate fragments to cursor rules
         
-        when (val claudeResult = fileSystem.writeFile(claudePath, content)) {
+        when (val claudeResult = fileRepository.writeFile(claudePath, content)) {
             is Result.Success -> Unit
             is Result.Error -> {
                 echo("Warning: Failed to write CLAUDE.md: ${claudeResult.error.message}", err = true)
             }
         }
         
-        when (val agentsResult = fileSystem.writeFile(agentsPath, content)) {
+        when (val agentsResult = fileRepository.writeFile(agentsPath, content)) {
             is Result.Success -> Unit
             is Result.Error -> {
                 echo("Warning: Failed to write AGENTS.md: ${agentsResult.error.message}", err = true)

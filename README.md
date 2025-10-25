@@ -18,27 +18,16 @@ Key benefits:
 
 ## ✨ Features
 
-- Compose multiple `.md` files selectively into one final `.md` file.
-- Simple, consistent CLI with piping and file output support.
+- Compose multiple `.md` files selectively into one final `AGENTS.md` (Claude is supported as well).
+- Simple, consistent CLI.
 - Designed for fast local development and CI integration.
-
----
-
-## ✅ Prerequisites (for development / building)
-
-- Java 11+ (to run Gradle tasks / JVM-based distributions)
-- Git
-- macOS / Linux / Windows terminal (PowerShell / WSL supported)
-- `./gradlew` is available in the repo (Gradle wrapper)
-
-> The project targets Kotlin Multiplatform; for production native builds we use the appropriate target configured in Gradle. You do **not** need a local Kotlin toolchain to run most release binaries.
 
 ---
 
 ## 🚀 Recommended Install Methods
 
 ### 1) Homebrew (macOS / Linux)
-When we publish bottles, the easiest way for macOS and Linux users will be Homebrew:
+The easiest way for macOS and Linux users is to use Homebrew:
 
 ```bash
 # Install the CLI
@@ -114,9 +103,9 @@ loadout list
 
 # Swap to a loadout
 loadout use <name>
+
 # Preview without writing files
-loadout use <name> --dry-run
- 
+loadout use <name> --std-out
 
 # Create an empty loadout
 loadout create <name> \
@@ -125,25 +114,20 @@ loadout create <name> \
 # Create a loadout with fragments
 loadout create <name> \
   --desc "Short description" \
-  --fragments prompts/base.md prompts/tools.md
+  --fragment fragments/project-structure.md \
+  --fragment ~/.loadout/fragments/mvi-architecture.md
 
-# Add a local fragment to your loadout
-loadout add prompts/new-tool.md --to <name> --after prompts/base.md
+# Add a fragment to your loadout
+loadout add prompts/new-tool.md --to <name>
 
-# Remove a local fragment from your loadout
+# Remove a fragment from your loadout
 loadout remove prompts/old-experiment.md --from <name>
 ```
 
 ---
 
 ## 🛠 CLI Options
-- `--config <file>`: Path to config (e.g. `.loadout.yml`).
-- `--dry-run`: Preview actions and composition; no changes.
-- `--output <dir>`: Override output directory for generated files.
-- `--json`: Emit machine-readable output for `list` / `inspect`.
-- `--version` / `--help`: Print version or help.
-
-Commands execute by default and update outputs; use `--dry-run` to preview without making changes.
+- `--std-out`: Print the new AGENTS.md to standard output; no changes.
 
 (Exact flags depend on the current CLI implementation; use `loadout --help`.)
 
@@ -176,4 +160,4 @@ See `CONTRIBUTING.md` for detailed guidelines (code style, commit conventions, C
 
 ---
 
-**Loadout CLI** — a cross-platform, professional way to manage, compose, and share system prompts.
+**Loadout CLI** — a cross-platform way to manage, compose, and share system prompts for agent agnostic task specialization.

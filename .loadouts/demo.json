@@ -5,5 +5,10 @@
         "base.md",
         "code-assistant.md",
         "drunken-sailor.md"
-    ]
+    ],
+    "metadata": {
+        "createdAt": 1725516060000,
+        "updatedAt": 1725516060000,
+        "version": "1.0.0"
+    }
 }

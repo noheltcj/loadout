@@ -6,8 +6,8 @@ import com.github.ajalt.clikt.parameters.arguments.argument
 import com.github.ajalt.clikt.parameters.options.multiple
 import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.options.help
-import application.LoadoutService
-import common.Result
+import domain.service.LoadoutService
+import domain.entity.packaging.Result
 
 class CreateCommand(
     private val loadoutService: LoadoutService
