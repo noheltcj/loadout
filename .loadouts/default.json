@@ -2,11 +2,14 @@
     "name": "default",
     "description": "Standard loadout for development.",
     "fragments": [
-        "project-structure.md",
-        "build-commands.md",
-        "coding-style.md",
-        "testing-guidelines.md",
-        "git-guidelines.md",
-        "security-config.md"
-    ]
+        "fragments/project-structure.md",
+        "fragments/coding-style.md",
+        "fragments/git-guidelines.md",
+        "fragments/security-config.md",
+        "fragments/build-commands.md"
+    ],
+    "metadata": {
+        "createdAt": 1729814400000,
+        "updatedAt": 1761432716000
+    }
 }

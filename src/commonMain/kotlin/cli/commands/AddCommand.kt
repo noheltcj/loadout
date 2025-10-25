@@ -6,8 +6,8 @@ import com.github.ajalt.clikt.parameters.arguments.argument
 import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.options.required
 import com.github.ajalt.clikt.parameters.options.help
-import application.LoadoutService
-import common.Result
+import domain.service.LoadoutService
+import domain.entity.packaging.Result
 
 class AddCommand(
     private val loadoutService: LoadoutService
@@ -27,8 +27,7 @@ class AddCommand(
     
     // TODO: Inherit global --config option from main CLI
     // TODO: Inherit global --dry-run option from main CLI
-    // TODO: Inherit global --json option from main CLI
-    
+
     override fun run() {
         when (val result = loadoutService.addFragmentToLoadout(
             loadoutName = loadoutName,

@@ -2,15 +2,14 @@ package cli
 
 import com.github.ajalt.clikt.core.*
 import com.github.ajalt.clikt.parameters.options.*
-import application.LoadoutService
-import application.CompositionEngine
-import infrastructure.*
-import domain.LoadoutError
-import common.Result
+import domain.service.LoadoutService
+import domain.entity.error.LoadoutError
+import domain.entity.packaging.Result
+import domain.service.LoadoutCompositionService
 
 class LoadoutCli(
     private val loadoutService: LoadoutService,
-    private val compositionEngine: CompositionEngine
+    private val composeLoadout: LoadoutCompositionService
 ) : CliktCommand(
     name = "loadout",
     help = "Composable, shareable .md system prompts for agentic AI coding systems",
@@ -30,11 +29,7 @@ class LoadoutCli(
     private val verbose by option("--verbose", "-v")
         .flag(default = false)
         .help("Enable verbose output")
-    
-    private val json by option("--json")
-        .flag(default = false)
-        .help("Output machine-readable JSON")
-    
+
     // TODO: Add --version option as documented in README
     // TODO: Finish implementing the options above
 
@@ -57,7 +52,7 @@ class LoadoutCli(
                         }
                     }
                     
-                    when (val composeResult = compositionEngine.composeLoadout(currentLoadout)) {
+                    when (val composeResult = composeLoadout(currentLoadout)) {
                         is Result.Success -> {
                             echo("\nComposed output: ${composeResult.value.content.length} characters")
                         }

@@ -5,11 +5,10 @@ import com.github.ajalt.clikt.core.ProgramResult
 import com.github.ajalt.clikt.parameters.options.flag
 import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.options.help
-import application.LoadoutService
-import common.Result
-import domain.LoadoutError
-import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.Json
+import domain.service.LoadoutService
+import domain.entity.packaging.Result
+import domain.entity.error.LoadoutError
+import domain.entity.Loadout
 
 class ListCommand(
     private val loadoutService: LoadoutService
@@ -17,11 +16,7 @@ class ListCommand(
     name = "list",
     help = "List all available loadouts"
 ) {
-    
-    private val json by option("--json")
-        .flag(default = false)
-        .help("Output as JSON")
-    
+
     private val verbose by option("--verbose", "-v")
         .flag(default = false)
         .help("Enable verbose output")
@@ -38,17 +33,13 @@ class ListCommand(
                     return
                 }
                 
-                if (json) {
-                    outputJson(loadouts.map { LoadoutSummary.from(it) })
-                } else {
-                    outputTable(loadouts)
-                }
+                outputTable(loadouts)
             }
-            is Result.Error -> handleError(result.error)
+            is Result.Error -> echoError(result.error)
         }
     }
     
-    private fun outputTable(loadouts: List<domain.Loadout>) {
+    private fun outputTable(loadouts: List<Loadout>) {
         echo("Available loadouts:")
         echo()
         
@@ -67,38 +58,9 @@ class ListCommand(
             echo()
         }
     }
-    
-    private fun outputJson(loadouts: List<LoadoutSummary>) {
-        val jsonString = Json.encodeToString(LoadoutListResponse.serializer(), LoadoutListResponse(loadouts))
-        echo(jsonString)
-    }
-    
-    private fun handleError(error: LoadoutError) {
+
+    private fun echoError(error: LoadoutError) {
         echo("Error: ${error.message}", err = true)
         throw ProgramResult(1)
     }
 }
-
-@Serializable
-private data class LoadoutSummary(
-    val name: String,
-    val description: String,
-    val fragmentCount: Int,
-    val createdAt: Long,
-    val updatedAt: Long
-) {
-    companion object {
-        fun from(loadout: domain.Loadout): LoadoutSummary = LoadoutSummary(
-            name = loadout.name,
-            description = loadout.description,
-            fragmentCount = loadout.fragments.size,
-            createdAt = loadout.metadata.createdAt,
-            updatedAt = loadout.metadata.updatedAt
-        )
-    }
-}
-
-@Serializable
-private data class LoadoutListResponse(
-    val loadouts: List<LoadoutSummary>
-)

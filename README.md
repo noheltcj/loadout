@@ -140,7 +140,6 @@ loadout remove prompts/old-experiment.md --from <name>
 - `--config <file>`: Path to config (e.g. `.loadout.yml`).
 - `--dry-run`: Preview actions and composition; no changes.
 - `--output <dir>`: Override output directory for generated files.
-- `--json`: Emit machine-readable output for `list` / `inspect`.
 - `--version` / `--help`: Print version or help.
 
 Commands execute by default and update outputs; use `--dry-run` to preview without making changes.
