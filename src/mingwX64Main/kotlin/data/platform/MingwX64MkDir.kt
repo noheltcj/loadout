@@ -1,7 +1,7 @@
 package data.platform
 
 import kotlinx.cinterop.ExperimentalForeignApi
-import platform.posix.*
+import platform.posix.mkdir
 
 @OptIn(ExperimentalForeignApi::class)
 internal actual fun platformMkdir(path: String): Int {

@@ -15,29 +15,27 @@ fun main(args: Array<String>) {
             loadoutService = loadoutService,
             composeLoadout = loadoutCompositionService,
             checkLoadoutSync = checkLoadoutSync
-        )
-            .subcommands(
-                ListCommand(
-                    loadoutService = loadoutService
-                ),
-                CreateCommand(
-                    loadoutService = loadoutService
-                ),
-                UseCommand(
-                    loadoutService = loadoutService,
-                    composeLoadout = loadoutCompositionService,
-                ),
-                SyncCommand(
-                    loadoutService = loadoutService,
-                    composeLoadout = loadoutCompositionService,
-                ),
-                AddCommand(
-                    loadoutService = loadoutService
-                ),
-                RemoveCommand(
-                    loadoutService = loadoutService
-                )
+        ).subcommands(
+            ListCommand(
+                loadoutService = loadoutService
+            ),
+            CreateCommand(
+                loadoutService = loadoutService
+            ),
+            UseCommand(
+                loadoutService = loadoutService,
+                composeLoadout = loadoutCompositionService,
+            ),
+            SyncCommand(
+                loadoutService = loadoutService,
+                composeLoadout = loadoutCompositionService,
+            ),
+            AddCommand(
+                loadoutService = loadoutService
+            ),
+            RemoveCommand(
+                loadoutService = loadoutService
             )
-            .main(args)
+        ).main(args)
     }
 }

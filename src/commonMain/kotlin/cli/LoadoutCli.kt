@@ -1,24 +1,26 @@
 package cli
 
-import com.github.ajalt.clikt.core.*
-import com.github.ajalt.clikt.parameters.options.*
-import domain.service.LoadoutService
+import com.github.ajalt.clikt.core.CliktCommand
+import com.github.ajalt.clikt.core.ProgramResult
+import com.github.ajalt.clikt.parameters.options.flag
+import com.github.ajalt.clikt.parameters.options.help
+import com.github.ajalt.clikt.parameters.options.option
 import domain.entity.error.LoadoutError
 import domain.entity.packaging.Result
 import domain.service.LoadoutCompositionService
+import domain.service.LoadoutService
 import domain.usecase.CheckLoadoutSyncUseCase
-import platform.posix.exit
 import kotlin.system.exitProcess
 
 class LoadoutCli(
     private val loadoutService: LoadoutService,
     private val composeLoadout: LoadoutCompositionService,
-    private val checkLoadoutSync: CheckLoadoutSyncUseCase
+    private val checkLoadoutSync: CheckLoadoutSyncUseCase,
 ) : CliktCommand(
-    name = "loadout",
-    help = "Composable, shareable .md system prompts for agentic AI coding systems",
-    invokeWithoutSubcommand = true,
-) {
+        name = "loadout",
+        help = "Composable, shareable .md system prompts for agentic AI coding systems",
+        invokeWithoutSubcommand = true,
+    ) {
     private val verbose by option("--verbose", "-v")
         .flag(default = false)
         .help("Enable verbose output")

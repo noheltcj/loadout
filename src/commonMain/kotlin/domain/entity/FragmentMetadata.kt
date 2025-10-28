@@ -6,5 +6,5 @@ import kotlinx.serialization.Serializable
 data class FragmentMetadata(
     val description: String = "",
     val createdAt: Long,
-    val updatedAt: Long
+    val updatedAt: Long,
 )

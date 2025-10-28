@@ -8,7 +8,7 @@ sealed interface LoadoutError {
 
     data class ConfigurationError(
         override val message: String,
-        override val cause: Throwable? = null
+        override val cause: Throwable? = null,
     ) : LoadoutError
 
     data class LoadoutNotFound(val name: String) : LoadoutError {
@@ -25,24 +25,24 @@ sealed interface LoadoutError {
 
     data class InvalidFragment(
         val path: String,
-        override val cause: Throwable? = null
+        override val cause: Throwable? = null,
     ) : LoadoutError {
         override val message: String = "Invalid fragment: $path"
     }
 
     data class FileSystemError(
         override val message: String,
-        override val cause: Throwable? = null
+        override val cause: Throwable? = null,
     ) : LoadoutError
 
     data class SerializationError(
         override val message: String,
-        override val cause: SerializationException
+        override val cause: SerializationException,
     ) : LoadoutError
 
     data class ValidationError(
         val field: String,
-        val validationMessage: String
+        val validationMessage: String,
     ) : LoadoutError {
         override val message: String = "Validation error in '$field': $validationMessage"
     }

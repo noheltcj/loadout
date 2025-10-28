@@ -4,7 +4,7 @@ import com.github.ajalt.clikt.core.CliktCommand
 import domain.entity.WriteComposedFilesResult
 
 fun CliktCommand.echoFilesGenerated(composedContentLength: Int) {
-    echo("Generated files (${composedContentLength} characters):")
+    echo("Generated files ($composedContentLength characters):")
     echo("  • CLAUDE.md")
     echo("  • AGENTS.md")
 }

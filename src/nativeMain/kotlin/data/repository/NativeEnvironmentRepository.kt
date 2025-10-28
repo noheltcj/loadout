@@ -1,15 +1,20 @@
 package data.repository
 
 import domain.repository.EnvironmentRepository
-import kotlinx.cinterop.*
-import platform.posix.*
+import kotlinx.cinterop.ExperimentalForeignApi
+import kotlinx.cinterop.alloc
+import kotlinx.cinterop.convert
+import kotlinx.cinterop.memScoped
+import kotlinx.cinterop.ptr
+import kotlinx.cinterop.toKString
+import platform.posix.CLOCK_REALTIME
 import platform.posix.clock_gettime
+import platform.posix.getenv
+import platform.posix.timespec
 
 @OptIn(ExperimentalForeignApi::class)
 class NativeEnvironmentRepository : EnvironmentRepository {
-    override fun getHomeDirectory(): String? {
-        return getenv("HOME")?.toKString()
-    }
+    override fun getHomeDirectory(): String? = getenv("HOME")?.toKString()
 
     override fun currentTimeMillis(): Long {
         memScoped {

@@ -5,23 +5,24 @@ import domain.entity.CompositionMetadata
 import domain.entity.Loadout
 import domain.entity.error.LoadoutError
 import domain.entity.packaging.Result
-import domain.repository.FragmentRepository
 import domain.repository.EnvironmentRepository
+import domain.repository.FragmentRepository
 
 class LoadoutCompositionService(
     private val fragmentRepository: FragmentRepository,
-    private val environmentRepository: EnvironmentRepository
+    private val environmentRepository: EnvironmentRepository,
 ) {
     operator fun invoke(loadout: Loadout): Result<ComposedOutput, LoadoutError> {
         val now = environmentRepository.currentTimeMillis()
 
         if (loadout.fragments.isEmpty()) {
-            val emptyOutput = ComposedOutput(
-                loadoutName = loadout.name,
-                content = "",
-                fragmentCount = 0,
-                metadata = CompositionMetadata.from("", emptyList(), now)
-            )
+            val emptyOutput =
+                ComposedOutput(
+                    loadoutName = loadout.name,
+                    content = "",
+                    fragmentCount = 0,
+                    metadata = CompositionMetadata.from("", emptyList(), now),
+                )
             return Result.Success(emptyOutput)
         }
 
@@ -34,7 +35,7 @@ class LoadoutCompositionService(
                     loadoutName = loadout.name,
                     content = composedContent,
                     fragmentCount = loadout.fragments.size,
-                    metadata = metadata
+                    metadata = metadata,
                 )
             }
     }
@@ -69,10 +70,9 @@ class LoadoutCompositionService(
         return Result.Success(contents)
     }
 
-    private fun composeContent(fragmentContents: List<String>): String {
-        return fragmentContents
+    private fun composeContent(fragmentContents: List<String>): String =
+        fragmentContents
             .map { content -> content.trim() }
             .filter { it.isNotBlank() }
             .joinToString(separator = "\n\n")
-    }
 }

@@ -9,14 +9,13 @@ import domain.repository.FileRepository
 
 class WriteComposedFilesUseCase(
     private val fileRepository: FileRepository,
-    private val configRepository: ConfigRepository
+    private val configRepository: ConfigRepository,
 ) {
-
     operator fun invoke(
         composedOutput: ComposedOutput,
-        outputDir: String
-    ): Result<WriteComposedFilesResult, LoadoutError> {
-        return configRepository.loadConfig().flatMap { config ->
+        outputDir: String,
+    ): Result<WriteComposedFilesResult, LoadoutError> =
+        configRepository.loadConfig().flatMap { config ->
             val currentHash = composedOutput.metadata.contentHash
             val storedHash = config.compositionHash
 
@@ -27,10 +26,10 @@ class WriteComposedFilesUseCase(
                 val claudePath = "$outputDir/CLAUDE.md"
                 val agentsPath = "$outputDir/AGENTS.md"
 
-                fileRepository.writeFile(claudePath, content)
+                fileRepository
+                    .writeFile(claudePath, content)
                     .flatMap { fileRepository.writeFile(agentsPath, content) }
                     .map { WriteComposedFilesResult.Overwritten }
             }
         }
-    }
 }

@@ -5,29 +5,28 @@ import com.github.ajalt.clikt.core.CliktCommand
 import com.github.ajalt.clikt.core.ProgramResult
 import com.github.ajalt.clikt.parameters.arguments.argument
 import com.github.ajalt.clikt.parameters.options.flag
-import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.options.help
-import domain.service.LoadoutService
+import com.github.ajalt.clikt.parameters.options.option
 import domain.entity.packaging.Result
 import domain.service.LoadoutCompositionService
+import domain.service.LoadoutService
 
 class UseCommand(
     private val loadoutService: LoadoutService,
-    private val composeLoadout: LoadoutCompositionService
+    private val composeLoadout: LoadoutCompositionService,
 ) : CliktCommand(
-    name = "use",
-    help = "Switch to and compose a loadout"
-) {
-    
+        name = "use",
+        help = "Switch to and compose a loadout"
+    ) {
     private val loadoutName by argument("name", help = "Name of the loadout to use")
-    
+
     private val stdOutOnly by option("--std-out")
         .flag(default = false)
         .help("Print to std-out without writing files")
-    
+
     private val outputDir by option("--output", "-o")
         .help("Override output directory")
-    
+
     // TODO: Inherit global --config option from main CLI
 
     override fun run() {
@@ -35,15 +34,21 @@ class UseCommand(
         when (val result = loadoutService.getLoadout(loadoutName)) {
             is Result.Success -> {
                 val loadout = result.value
-                
+
                 when (val composeResult = composeLoadout(loadout)) {
                     is Result.Success -> {
                         val composedOutput = composeResult.value
-                        
+
                         if (stdOutOnly) {
                             echo(composedOutput.content)
                         } else {
-                            when (val setLoadoutResult = loadoutService.setCurrentLoadout(composedOutput, outputDir ?: ".")) {
+                            when (
+                                val setLoadoutResult =
+                                    loadoutService.setCurrentLoadout(
+                                        composedOutput,
+                                        outputDir ?: "."
+                                    )
+                            ) {
                                 is Result.Success -> {
                                     echoComposedFilesWriteResult(
                                         result = setLoadoutResult.value,
