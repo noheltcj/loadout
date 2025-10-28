@@ -64,21 +64,12 @@ The repository includes Gradle build scripts that support JVM and native targets
 git clone https://github.com/noheltcj/loadout.git
 cd loadout
 
-# Use the Gradle wrapper to build the native executable
-./gradlew build
+# Use the Gradle wrapper to assemble the correct release executable for your system
+# Supported Architectures: LinuxArm64, LinuxX64, MacosArm64, MacosX64, and MingwX64
+./gradlew linkReleaseExecutable<YourTargetArchitecture>
 
-# After successful build, the release binary will be at:
-# build/bin/<your_cpu_architecture>/releaseExecutable/loadout.kexe
-./build/bin/<your_cpu_architecture>/releaseExecutable/loadout.kexe --help
-```
-
-If the project includes native targets (Kotlin/Native or GraalVM native-image), there will be additional Gradle tasks such as:
-
-```bash
-# Example native-ish assemble (task name will depend on the build setup)
-./gradlew assemble
-# Or a more specific native task (configured in the project)
-./gradlew assembleMacosX64
+# After successful build, the release binary will be available
+./build/bin/<targetArchitectureCamelCase>/releaseExecutable/loadout.kexe --help
 ```
 
 ---
@@ -86,12 +77,14 @@ If the project includes native targets (Kotlin/Native or GraalVM native-image), 
 ## ⚡ Quick Start — CLI Usage
 
 It's recommended to add CLAUDE.md, AGENTS.md, and .loadout.json to your .gitignore as these will be managed by the tool:
-
 ```gitignore
 # Loadout CLI generated files and config
 .loadout.json
 CLAUDE.md
 AGENTS.md
+
+# Uncomment if you don't want to share loadouts with your team (not recommended)
+#.loadouts
 ```
 
 ```bash
@@ -118,10 +111,13 @@ loadout create <name> \
   --fragment ~/.loadout/fragments/mvi-architecture.md
 
 # Add a fragment to your loadout
-loadout add prompts/new-tool.md --to <name>
+loadout add path/to/fragments/desired_fragment.md --to <loadout_name>
 
 # Remove a fragment from your loadout
-loadout remove prompts/old-experiment.md --from <name>
+loadout remove path/to/fragments/undesired_fragment.md --from <loadout_name>
+
+# After modifying a loadout or the content of a fragment, don't forget to sync your changes:
+loadout sync
 ```
 
 ---

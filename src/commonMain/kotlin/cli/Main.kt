@@ -4,6 +4,7 @@ import cli.commands.AddCommand
 import cli.commands.CreateCommand
 import cli.commands.ListCommand
 import cli.commands.RemoveCommand
+import cli.commands.SyncCommand
 import cli.commands.UseCommand
 import cli.di.withApplicationScope
 import com.github.ajalt.clikt.core.subcommands
@@ -12,7 +13,8 @@ fun main(args: Array<String>) {
     withApplicationScope {
         LoadoutCli(
             loadoutService = loadoutService,
-            composeLoadout = loadoutCompositionService
+            composeLoadout = loadoutCompositionService,
+            checkLoadoutSync = checkLoadoutSync
         )
             .subcommands(
                 ListCommand(
@@ -22,9 +24,12 @@ fun main(args: Array<String>) {
                     loadoutService = loadoutService
                 ),
                 UseCommand(
-                    fileRepository = fileRepository,
                     loadoutService = loadoutService,
-                    composeLoadout = loadoutCompositionService
+                    composeLoadout = loadoutCompositionService,
+                ),
+                SyncCommand(
+                    loadoutService = loadoutService,
+                    composeLoadout = loadoutCompositionService,
                 ),
                 AddCommand(
                     loadoutService = loadoutService

@@ -17,7 +17,8 @@ class RemoveCommand(
 ) {
     
     private val fragmentPath by argument(help = "Path to the fragment to remove")
-    
+
+    // TODO: Make this optional and default to the current loadout
     private val loadoutName by option("--from")
         .required()
         .help("Name of the loadout to remove the fragment from")

@@ -9,6 +9,8 @@ import data.serialization.JsonSerializer
 import domain.service.LoadoutCompositionService
 import domain.repository.FileRepository
 import domain.repository.EnvironmentRepository
+import domain.usecase.CheckLoadoutSyncUseCase
+import domain.usecase.WriteComposedFilesUseCase
 
 fun withApplicationScope(scopedBlock: ApplicationScope.() -> Unit) {
     val fileRepository = provideFileRepository()
@@ -18,20 +20,43 @@ fun withApplicationScope(scopedBlock: ApplicationScope.() -> Unit) {
     val globalFragmentsDirectory = environmentRepository.getHomeDirectory()
         ?.let { home -> "$home/.loadout/fragments" }
 
-    val configRepository = FileBasedConfigRepository(fileRepository, serializer)
-    val loadoutRepository = FileBasedLoadoutRepository(fileRepository, serializer)
+    val configRepository = FileBasedConfigRepository(fileRepository = fileRepository, serializer = serializer)
+    val loadoutRepository = FileBasedLoadoutRepository(fileRepository = fileRepository, serializer = serializer)
     val fragmentRepository = FileBasedFragmentRepository(
         fileRepository = fileRepository,
         environmentRepository = environmentRepository,
         globalFragmentsDirectory = globalFragmentsDirectory
     )
 
+    val loadoutCompositionService = LoadoutCompositionService(
+        fragmentRepository = fragmentRepository,
+        environmentRepository = environmentRepository
+    )
+    val checkLoadoutSync = CheckLoadoutSyncUseCase(
+        configRepository = configRepository,
+        loadoutRepository = loadoutRepository,
+        compositionService = loadoutCompositionService
+    )
+    val writeComposedFiles = WriteComposedFilesUseCase(
+        fileRepository = fileRepository,
+        configRepository = configRepository
+    )
+    val loadoutService = LoadoutService(
+        loadoutRepository = loadoutRepository,
+        configRepository = configRepository,
+        environmentRepository = environmentRepository,
+        checkLoadoutSync = checkLoadoutSync,
+        writeComposedFiles = writeComposedFiles
+    )
+
     scopedBlock(
         ApplicationScope(
             fileRepository = fileRepository,
             environmentRepository = environmentRepository,
-            loadoutService = LoadoutService(loadoutRepository, configRepository, environmentRepository),
-            loadoutCompositionService = LoadoutCompositionService(fragmentRepository, environmentRepository)
+            loadoutService = loadoutService,
+            loadoutCompositionService = loadoutCompositionService,
+            checkLoadoutSync = checkLoadoutSync,
+            writeComposedFiles = writeComposedFiles
         )
     )
 }
@@ -41,6 +66,8 @@ data class ApplicationScope(
     val environmentRepository: EnvironmentRepository,
     val loadoutService: LoadoutService,
     val loadoutCompositionService: LoadoutCompositionService,
+    val checkLoadoutSync: CheckLoadoutSyncUseCase,
+    val writeComposedFiles: WriteComposedFilesUseCase,
 )
 
 expect fun provideFileRepository(): FileRepository
