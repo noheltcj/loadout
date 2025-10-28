@@ -10,15 +10,15 @@ import domain.repository.LoadoutRepository
 class FileBasedLoadoutRepository(
     private val fileRepository: FileRepository,
     private val serializer: JsonSerializer,
-    private val loadoutsDirectory: String = ".loadouts"
+    private val loadoutsDirectory: String = ".loadouts",
 ) : LoadoutRepository {
-
     init {
         fileRepository.createDirectory(loadoutsDirectory)
     }
 
     override fun findAll(): Result<List<Loadout>, LoadoutError> {
-        return fileRepository.listFiles(loadoutsDirectory, "json")
+        return fileRepository
+            .listFiles(loadoutsDirectory, "json")
             .flatMap { files ->
                 val loadouts = mutableListOf<Loadout>()
                 for (file in files) {
@@ -42,14 +42,14 @@ class FileBasedLoadoutRepository(
 
     override fun save(loadout: Loadout): Result<Unit, LoadoutError> {
         val filePath = getLoadoutFilePath(loadout.name)
-        return serializer.serialize(loadout, Loadout.serializer())
+        return serializer
+            .serialize(loadout, Loadout.serializer())
             .mapError { serializationException ->
                 LoadoutError.SerializationError(
                     message = "Failed to serialize loadout: ${serializationException.message}",
-                    serializationException
+                    serializationException,
                 ) as LoadoutError
-            }
-            .flatMap { json ->
+            }.flatMap { json ->
                 fileRepository.writeFile(filePath, json)
             }
     }
@@ -63,17 +63,16 @@ class FileBasedLoadoutRepository(
         }
     }
 
-    override fun exists(name: String): Boolean {
-        return fileRepository.fileExists(getLoadoutFilePath(name))
-    }
+    override fun exists(name: String): Boolean = fileRepository.fileExists(getLoadoutFilePath(name))
 
     private fun getLoadoutFilePath(name: String): String = "$loadoutsDirectory/$name.json"
 
-    private fun loadLoadoutFromFile(filePath: String): Result<Loadout, LoadoutError> {
-        return fileRepository.readFile(filePath)
+    private fun loadLoadoutFromFile(filePath: String): Result<Loadout, LoadoutError> =
+        fileRepository
+            .readFile(filePath)
             .flatMap { content ->
-                serializer.deserialize(content, Loadout.serializer())
+                serializer
+                    .deserialize(content, Loadout.serializer())
                     .mapError { LoadoutError.FileSystemError("Failed to parse loadout: ${it.message}", it) }
             }
-    }
 }

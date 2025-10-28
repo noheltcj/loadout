@@ -7,5 +7,5 @@ data class Fragment(
     val name: String,
     val path: String,
     val content: String,
-    val metadata: FragmentMetadata
+    val metadata: FragmentMetadata,
 )

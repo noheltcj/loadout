@@ -5,6 +5,7 @@ import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeTarget
 plugins {
     kotlin("multiplatform") version "2.0.20"
     kotlin("plugin.serialization") version "2.0.20"
+    id("org.jmailen.kotlinter") version "5.2.0"
 }
 
 group = "com.noheltcj"

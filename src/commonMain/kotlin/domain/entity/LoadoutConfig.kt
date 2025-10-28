@@ -7,4 +7,3 @@ data class LoadoutConfig(
     val currentLoadoutName: String?,
     val compositionHash: String?,
 )
-

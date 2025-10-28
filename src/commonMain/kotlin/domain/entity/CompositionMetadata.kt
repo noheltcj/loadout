@@ -8,10 +8,14 @@ data class CompositionMetadata(
     val fragmentPaths: List<String> = emptyList(),
     val totalLines: Int = 0,
     val totalCharacters: Int = 0,
-    val contentHash: String
+    val contentHash: String,
 ) {
     companion object {
-        fun from(content: String, fragmentPaths: List<String>, currentTimeMillis: Long): CompositionMetadata =
+        fun from(
+            content: String,
+            fragmentPaths: List<String>,
+            currentTimeMillis: Long,
+        ): CompositionMetadata =
             CompositionMetadata(
                 generatedAt = currentTimeMillis,
                 fragmentPaths = fragmentPaths,
@@ -20,8 +24,11 @@ data class CompositionMetadata(
                 contentHash = calculateHash(content)
             )
 
-        private fun calculateHash(content: String): String {
-            return content.hashCode().toUInt().toString(16).padStart(8, '0')
-        }
+        private fun calculateHash(content: String): String =
+            content
+                .hashCode()
+                .toUInt()
+                .toString(16)
+                .padStart(8, '0')
     }
 }

@@ -1,37 +1,36 @@
 package data.repository
 
-import domain.entity.packaging.Result
 import domain.entity.Fragment
 import domain.entity.FragmentMetadata
 import domain.entity.error.LoadoutError
+import domain.entity.packaging.Result
+import domain.repository.EnvironmentRepository
 import domain.repository.FileRepository
 import domain.repository.FragmentRepository
-import domain.repository.EnvironmentRepository
 
 class FileBasedFragmentRepository(
     private val fileRepository: FileRepository,
     private val environmentRepository: EnvironmentRepository,
     private val fragmentsDirectory: String = "fragments",
-    private val globalFragmentsDirectory: String?
+    private val globalFragmentsDirectory: String?,
 ) : FragmentRepository {
-    
-    override fun findByPath(path: String): Result<Fragment?, LoadoutError> {
-        return if (!fileRepository.fileExists(path)) {
+    override fun findByPath(path: String): Result<Fragment?, LoadoutError> =
+        if (!fileRepository.fileExists(path)) {
             Result.Success(null)
         } else {
-            fileRepository.readFile(path)
+            fileRepository
+                .readFile(path)
                 .map { content ->
                     val now = environmentRepository.currentTimeMillis()
                     Fragment(
                         name = path.deriveFragmentNameFromPath(),
                         path = path,
                         content = content,
-                        metadata = FragmentMetadata(createdAt = now, updatedAt = now)
+                        metadata = FragmentMetadata(createdAt = now, updatedAt = now),
                     )
                 }
         }
-    }
-    
+
     override fun findAll(): Result<List<Fragment>, LoadoutError> {
         val directories = listOfNotNull(fragmentsDirectory, globalFragmentsDirectory)
 
@@ -41,8 +40,7 @@ class FileBasedFragmentRepository(
                     is Result.Success -> result.value
                     is Result.Error -> return result
                 }
-            }
-            .let { filePaths ->
+            }.let { filePaths ->
                 val fragments = mutableListOf<Fragment>()
                 for (filePath in filePaths) {
                     when (val result = findByPath(filePath)) {
@@ -53,19 +51,20 @@ class FileBasedFragmentRepository(
                 Result.Success(fragments.sortedBy { it.path })
             }
     }
-    
-    override fun loadContent(path: String): Result<String, LoadoutError> {
-        return if (!fileRepository.fileExists(path)) {
+
+    override fun loadContent(path: String): Result<String, LoadoutError> =
+        if (!fileRepository.fileExists(path)) {
             Result.Error(LoadoutError.FragmentNotFound(path))
         } else {
-            fileRepository.readFile(path)
+            fileRepository
+                .readFile(path)
                 .mapError {
                     LoadoutError.InvalidFragment(path, it.cause)
                 }
         }
-    }
 
-    private fun String.deriveFragmentNameFromPath(): String = this
-        .substringAfterLast("/")
-        .substringBeforeLast(".")
+    private fun String.deriveFragmentNameFromPath(): String =
+        this
+            .substringAfterLast("/")
+            .substringBeforeLast(".")
 }

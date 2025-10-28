@@ -3,19 +3,18 @@ package cli.commands
 import com.github.ajalt.clikt.core.CliktCommand
 import com.github.ajalt.clikt.core.ProgramResult
 import com.github.ajalt.clikt.parameters.arguments.argument
+import com.github.ajalt.clikt.parameters.options.help
 import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.options.required
-import com.github.ajalt.clikt.parameters.options.help
-import domain.service.LoadoutService
 import domain.entity.packaging.Result
+import domain.service.LoadoutService
 
 class RemoveCommand(
-    private val loadoutService: LoadoutService
+    private val loadoutService: LoadoutService,
 ) : CliktCommand(
-    name = "remove",
-    help = "Remove a fragment from a loadout"
-) {
-    
+        name = "remove",
+        help = "Remove a fragment from a loadout"
+    ) {
     private val fragmentPath by argument(help = "Path to the fragment to remove")
 
     // TODO: Make this optional and default to the current loadout
@@ -24,14 +23,17 @@ class RemoveCommand(
         .help("Name of the loadout to remove the fragment from")
 
     override fun run() {
-        when (val result = loadoutService.removeFragmentFromLoadout(
-            loadoutName = loadoutName,
-            fragmentPath = fragmentPath
-        )) {
+        when (
+            val result =
+                loadoutService.removeFragmentFromLoadout(
+                    loadoutName = loadoutName,
+                    fragmentPath = fragmentPath
+                )
+        ) {
             is Result.Success -> {
                 val updatedLoadout = result.value
                 echo("Removed fragment '$fragmentPath' from loadout '$loadoutName'")
-                
+
                 if (updatedLoadout.fragments.isEmpty()) {
                     echo("Loadout is now empty.")
                 } else {

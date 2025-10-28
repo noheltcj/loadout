@@ -4,21 +4,20 @@ import cli.commands.extension.echoComposedFilesWriteResult
 import com.github.ajalt.clikt.core.CliktCommand
 import com.github.ajalt.clikt.core.ProgramResult
 import com.github.ajalt.clikt.parameters.options.flag
-import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.options.help
-import domain.service.LoadoutService
+import com.github.ajalt.clikt.parameters.options.option
 import domain.entity.packaging.Result
 import domain.service.LoadoutCompositionService
+import domain.service.LoadoutService
 import domain.usecase.WriteComposedFilesUseCase
 
 class SyncCommand(
     private val loadoutService: LoadoutService,
     private val composeLoadout: LoadoutCompositionService,
 ) : CliktCommand(
-    name = "sync",
-    help = "Re-compose and synchronize the current loadout"
-) {
-
+        name = "sync",
+        help = "Re-compose and synchronize the current loadout"
+    ) {
     private val stdOutOnly by option("--std-out")
         .flag(default = false)
         .help("Print to std-out without writing files")
@@ -44,7 +43,13 @@ class SyncCommand(
                         if (stdOutOnly) {
                             echo(composedOutput.content)
                         } else {
-                            when (val setLoadoutResult = loadoutService.setCurrentLoadout(composedOutput, outputDir ?: ".")) {
+                            when (
+                                val setLoadoutResult =
+                                    loadoutService.setCurrentLoadout(
+                                        composedOutput,
+                                        outputDir ?: "."
+                                    )
+                            ) {
                                 is Result.Success -> {
                                     echoComposedFilesWriteResult(
                                         result = setLoadoutResult.value,

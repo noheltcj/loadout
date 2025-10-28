@@ -8,8 +8,8 @@ import domain.entity.WriteComposedFilesResult
 import domain.entity.error.LoadoutError
 import domain.entity.packaging.Result
 import domain.repository.ConfigRepository
-import domain.repository.LoadoutRepository
 import domain.repository.EnvironmentRepository
+import domain.repository.LoadoutRepository
 import domain.usecase.CheckLoadoutSyncUseCase
 import domain.usecase.WriteComposedFilesUseCase
 import kotlin.collections.plus
@@ -19,26 +19,26 @@ class LoadoutService(
     private val configRepository: ConfigRepository,
     private val environmentRepository: EnvironmentRepository,
     private val checkLoadoutSync: CheckLoadoutSyncUseCase,
-    private val writeComposedFiles: WriteComposedFilesUseCase
+    private val writeComposedFiles: WriteComposedFilesUseCase,
 ) {
-
     fun createLoadout(
         name: String,
         description: String,
-        fragments: List<String>
-    ): Result<Loadout, LoadoutError> {
-        return validateLoadoutName(name)
+        fragments: List<String>,
+    ): Result<Loadout, LoadoutError> =
+        validateLoadoutName(name)
             .flatMap { validName ->
                 if (loadoutRepository.exists(validName)) {
                     Result.Error(LoadoutError.LoadoutAlreadyExists(validName))
                 } else {
                     val now = environmentRepository.currentTimeMillis()
-                    val loadout = Loadout(
-                        name = validName,
-                        description = description,
-                        fragments = fragments,
-                        metadata = LoadoutMetadata(createdAt = now, updatedAt = now)
-                    )
+                    val loadout =
+                        Loadout(
+                            name = validName,
+                            description = description,
+                            fragments = fragments,
+                            metadata = LoadoutMetadata(createdAt = now, updatedAt = now)
+                        )
 
                     val validationErrors = loadout.validate()
                     if (validationErrors.isNotEmpty()) {
@@ -48,30 +48,29 @@ class LoadoutService(
                     }
                 }
             }
-    }
 
     fun createLoadoutFromClone(
         name: String,
         cloneFrom: String,
         description: String? = null,
-        additionalFragments: List<String> = emptyList()
-    ): Result<Loadout, LoadoutError> {
-        return getLoadout(cloneFrom)
+        additionalFragments: List<String> = emptyList(),
+    ): Result<Loadout, LoadoutError> =
+        getLoadout(cloneFrom)
             .flatMap { sourceLoadout ->
                 validateLoadoutName(name)
                     .map { sourceLoadout to it }
-            }
-            .flatMap { (sourceLoadout, validName) ->
+            }.flatMap { (sourceLoadout, validName) ->
                 if (loadoutRepository.exists(validName)) {
                     Result.Error(LoadoutError.LoadoutAlreadyExists(validName))
                 } else {
                     val now = environmentRepository.currentTimeMillis()
-                    val loadout = Loadout(
-                        name = validName,
-                        description = description ?: sourceLoadout.description,
-                        fragments = sourceLoadout.fragments + additionalFragments,
-                        metadata = LoadoutMetadata(createdAt = now, updatedAt = now)
-                    )
+                    val loadout =
+                        Loadout(
+                            name = validName,
+                            description = description ?: sourceLoadout.description,
+                            fragments = sourceLoadout.fragments + additionalFragments,
+                            metadata = LoadoutMetadata(createdAt = now, updatedAt = now)
+                        )
 
                     val validationErrors = loadout.validate()
                     if (validationErrors.isNotEmpty()) {
@@ -81,20 +80,17 @@ class LoadoutService(
                     }
                 }
             }
-    }
 
-    fun getLoadout(name: String): Result<Loadout, LoadoutError> {
-        return loadoutRepository.findByName(name)
+    fun getLoadout(name: String): Result<Loadout, LoadoutError> =
+        loadoutRepository
+            .findByName(name)
             .flatMap { loadout ->
                 loadout
                     ?.let { Result.Success(it) }
                     ?: Result.Error(LoadoutError.LoadoutNotFound(name))
             }
-    }
 
-    fun getAllLoadouts(): Result<List<Loadout>, LoadoutError> {
-        return loadoutRepository.findAll()
-    }
+    fun getAllLoadouts(): Result<List<Loadout>, LoadoutError> = loadoutRepository.findAll()
 
     fun updateLoadout(loadout: Loadout): Result<Loadout, LoadoutError> {
         if (!loadoutRepository.exists(loadout.name)) {
@@ -109,41 +105,40 @@ class LoadoutService(
         return loadoutRepository.save(loadout).map { loadout }
     }
 
-    fun deleteLoadout(name: String): Result<Unit, LoadoutError> {
-        return loadoutRepository.delete(name)
-    }
+    fun deleteLoadout(name: String): Result<Unit, LoadoutError> = loadoutRepository.delete(name)
 
     fun addFragmentToLoadout(
         loadoutName: String,
         fragmentPath: String,
-        afterFragment: String? = null
+        afterFragment: String? = null,
     ): Result<Loadout, LoadoutError> {
         val now = environmentRepository.currentTimeMillis()
         return getLoadout(loadoutName)
             .map { loadout ->
                 loadout.addFragment(fragmentPath, afterFragment, now)
-            }
-            .flatMap { updatedLoadout ->
+            }.flatMap { updatedLoadout ->
                 updateLoadout(updatedLoadout)
             }
     }
 
     fun removeFragmentFromLoadout(
         loadoutName: String,
-        fragmentPath: String
+        fragmentPath: String,
     ): Result<Loadout, LoadoutError> {
         val now = environmentRepository.currentTimeMillis()
         return getLoadout(loadoutName)
             .map { loadout ->
                 loadout.removeFragment(fragmentPath, now)
-            }
-            .flatMap { updatedLoadout ->
+            }.flatMap { updatedLoadout ->
                 updateLoadout(updatedLoadout)
             }
     }
 
-    fun setCurrentLoadout(composedOutput: ComposedOutput, outputDir: String): Result<WriteComposedFilesResult, LoadoutError> {
-        return writeComposedFiles(composedOutput, outputDir = outputDir)
+    fun setCurrentLoadout(
+        composedOutput: ComposedOutput,
+        outputDir: String,
+    ): Result<WriteComposedFilesResult, LoadoutError> =
+        writeComposedFiles(composedOutput, outputDir = outputDir)
             .map { composedOutput to it }
             .flatMap { (composedOutput, writeResult) ->
                 when (writeResult) {
@@ -157,7 +152,8 @@ class LoadoutService(
                             )
                     }
                     WriteComposedFilesResult.AlreadyUpToDate -> {
-                        configRepository.loadConfig()
+                        configRepository
+                            .loadConfig()
                             .flatMap { config ->
                                 if (config.currentLoadoutName == composedOutput.loadoutName) {
                                     Result.Success(Unit)
@@ -171,29 +167,29 @@ class LoadoutService(
                                 }
                             }
                     }
-                }
-                    .map { writeResult }
+                }.map { writeResult }
             }
-    }
 
-    fun getCurrentLoadout(): Result<Loadout?, LoadoutError> {
-        return configRepository.loadConfig()
+    fun getCurrentLoadout(): Result<Loadout?, LoadoutError> =
+        configRepository
+            .loadConfig()
             .flatMap { config ->
                 config.currentLoadoutName?.let { currentName ->
                     getLoadout(currentName).map { it as Loadout? }
                 } ?: Result.Success(null)
             }
-    }
 
-    private fun validateLoadoutName(name: String): Result<String, LoadoutError> {
-        return if (name.isBlank()) {
+    private fun validateLoadoutName(name: String): Result<String, LoadoutError> =
+        if (name.isBlank()) {
             Result.Error(LoadoutError.ValidationError("name", "Name cannot be blank"))
         } else if (!name.matches(Regex("^[a-zA-Z0-9_-]+$"))) {
             Result.Error(
-                LoadoutError.ValidationError("name",
-                "Name must contain only alphanumeric characters, underscores, and hyphens"))
+                LoadoutError.ValidationError(
+                    "name",
+                    "Name must contain only alphanumeric characters, underscores, and hyphens"
+                )
+            )
         } else {
             Result.Success(name)
         }
-    }
 }
