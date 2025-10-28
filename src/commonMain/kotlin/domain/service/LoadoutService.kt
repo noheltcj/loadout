@@ -1,18 +1,25 @@
 package domain.service
 
+import domain.entity.ComposedOutput
 import domain.entity.Loadout
+import domain.entity.LoadoutConfig
 import domain.entity.LoadoutMetadata
+import domain.entity.WriteComposedFilesResult
 import domain.entity.error.LoadoutError
 import domain.entity.packaging.Result
 import domain.repository.ConfigRepository
 import domain.repository.LoadoutRepository
 import domain.repository.EnvironmentRepository
+import domain.usecase.CheckLoadoutSyncUseCase
+import domain.usecase.WriteComposedFilesUseCase
 import kotlin.collections.plus
 
 class LoadoutService(
     private val loadoutRepository: LoadoutRepository,
     private val configRepository: ConfigRepository,
-    private val environmentRepository: EnvironmentRepository
+    private val environmentRepository: EnvironmentRepository,
+    private val checkLoadoutSync: CheckLoadoutSyncUseCase,
+    private val writeComposedFiles: WriteComposedFilesUseCase
 ) {
 
     fun createLoadout(
@@ -52,33 +59,35 @@ class LoadoutService(
         return getLoadout(cloneFrom)
             .flatMap { sourceLoadout ->
                 validateLoadoutName(name)
-                    .flatMap { validName ->
-                        if (loadoutRepository.exists(validName)) {
-                            Result.Error(LoadoutError.LoadoutAlreadyExists(validName))
-                        } else {
-                            val now = environmentRepository.currentTimeMillis()
-                            val loadout = Loadout(
-                                name = validName,
-                                description = description ?: sourceLoadout.description,
-                                fragments = sourceLoadout.fragments + additionalFragments,
-                                metadata = LoadoutMetadata(createdAt = now, updatedAt = now)
-                            )
+                    .map { sourceLoadout to it }
+            }
+            .flatMap { (sourceLoadout, validName) ->
+                if (loadoutRepository.exists(validName)) {
+                    Result.Error(LoadoutError.LoadoutAlreadyExists(validName))
+                } else {
+                    val now = environmentRepository.currentTimeMillis()
+                    val loadout = Loadout(
+                        name = validName,
+                        description = description ?: sourceLoadout.description,
+                        fragments = sourceLoadout.fragments + additionalFragments,
+                        metadata = LoadoutMetadata(createdAt = now, updatedAt = now)
+                    )
 
-                            val validationErrors = loadout.validate()
-                            if (validationErrors.isNotEmpty()) {
-                                Result.Error(LoadoutError.ValidationError("loadout", validationErrors.first()))
-                            } else {
-                                loadoutRepository.save(loadout).map { loadout }
-                            }
-                        }
+                    val validationErrors = loadout.validate()
+                    if (validationErrors.isNotEmpty()) {
+                        Result.Error(LoadoutError.ValidationError("loadout", validationErrors.first()))
+                    } else {
+                        loadoutRepository.save(loadout).map { loadout }
                     }
+                }
             }
     }
 
     fun getLoadout(name: String): Result<Loadout, LoadoutError> {
         return loadoutRepository.findByName(name)
             .flatMap { loadout ->
-                loadout?.let { Result.Success(it) }
+                loadout
+                    ?.let { Result.Success(it) }
                     ?: Result.Error(LoadoutError.LoadoutNotFound(name))
             }
     }
@@ -133,16 +142,38 @@ class LoadoutService(
             }
     }
 
-    fun setCurrentLoadout(name: String): Result<Unit, LoadoutError> {
-        return if (!loadoutRepository.exists(name)) {
-            Result.Error(LoadoutError.LoadoutNotFound(name))
-        } else {
-            configRepository.loadConfig()
-                .flatMap { config ->
-                    val updatedConfig = config.copy(currentLoadoutName = name)
-                    configRepository.saveConfig(updatedConfig)
+    fun setCurrentLoadout(composedOutput: ComposedOutput, outputDir: String): Result<WriteComposedFilesResult, LoadoutError> {
+        return writeComposedFiles(composedOutput, outputDir = outputDir)
+            .map { composedOutput to it }
+            .flatMap { (composedOutput, writeResult) ->
+                when (writeResult) {
+                    WriteComposedFilesResult.Overwritten -> {
+                        configRepository
+                            .saveConfig(
+                                LoadoutConfig(
+                                    currentLoadoutName = composedOutput.loadoutName,
+                                    compositionHash = composedOutput.metadata.contentHash
+                                )
+                            )
+                    }
+                    WriteComposedFilesResult.AlreadyUpToDate -> {
+                        configRepository.loadConfig()
+                            .flatMap { config ->
+                                if (config.currentLoadoutName == composedOutput.loadoutName) {
+                                    Result.Success(Unit)
+                                } else {
+                                    configRepository.saveConfig(
+                                        LoadoutConfig(
+                                            currentLoadoutName = composedOutput.loadoutName,
+                                            compositionHash = composedOutput.metadata.contentHash
+                                        )
+                                    )
+                                }
+                            }
+                    }
                 }
-        }
+                    .map { writeResult }
+            }
     }
 
     fun getCurrentLoadout(): Result<Loadout?, LoadoutError> {

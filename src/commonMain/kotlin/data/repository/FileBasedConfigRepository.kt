@@ -20,7 +20,12 @@ class FileBasedConfigRepository(
         val path = configPath ?: DEFAULT_CONFIG_FILE
         
         return if (!fileRepository.fileExists(path)) {
-            Result.Success(LoadoutConfig(currentLoadoutName = null))
+            Result.Success(
+                LoadoutConfig(
+                    currentLoadoutName = null,
+                    compositionHash = null
+                )
+            )
         } else {
             fileRepository.readFile(path)
                 .flatMap { content ->
