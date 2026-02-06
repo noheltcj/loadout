@@ -45,7 +45,7 @@ kotlin-native-prebuilt/
 Thumbs.db
 ehthumbs.db
 
-# Loadout CLI generated files and config
+# Loadout CLI - Shared Mode
 .loadout.json
-CLAUDE.md
 AGENTS.md
+CLAUDE.md

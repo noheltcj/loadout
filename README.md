@@ -76,20 +76,31 @@ cd loadout
 
 ## ⚡ Quick Start — CLI Usage
 
-It's recommended to add CLAUDE.md, AGENTS.md, and .loadout.json to your .gitignore as these will be managed by the tool:
-```gitignore
-# Loadout CLI generated files and config
-.loadout.json
-CLAUDE.md
-AGENTS.md
+Before using Loadout in a project, run the init command:
+```bash
+# Initialize with shared loadouts (default, recommended for teams)
+loadout init
 
-# Uncomment if you don't want to share loadouts with your team (not recommended)
-#.loadouts
+# Or initialize with local-only configuration
+loadout init --mode local
 ```
+
+The `init` command does the following:
+1. **Configures `.gitignore`** with appropriate patterns for your chosen mode
+2. **Creates a starter fragment** at `fragments/loadout-architect.md` (if it doesn't exist)
+3. **Creates a "default" loadout** with the starter fragment and activates it (if no loadouts exist)
+
+**Modes:**
+- **Shared mode** (default): Generated files are ignored, but loadout definitions (`.loadouts/`, `fragments/`) are committed and shared with your team
+- **Local mode**: Everything including loadout configurations is ignored and remains local to each developer
 
 ```bash
 # Display your current loadout
 loadout
+
+# Initialize project for Loadout
+loadout init                    # shared mode (default)
+loadout init --mode local       # local-only mode
 
 # List available loadouts
 loadout list

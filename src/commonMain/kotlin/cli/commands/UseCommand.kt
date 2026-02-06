@@ -1,6 +1,7 @@
 package cli.commands
 
 import cli.commands.extension.echoComposedFilesWriteResult
+import cli.outputPaths
 import com.github.ajalt.clikt.core.CliktCommand
 import com.github.ajalt.clikt.core.ProgramResult
 import com.github.ajalt.clikt.parameters.arguments.argument
@@ -14,6 +15,7 @@ import domain.service.LoadoutService
 class UseCommand(
     private val loadoutService: LoadoutService,
     private val composeLoadout: LoadoutCompositionService,
+    private val defaultOutputPaths: List<String>,
 ) : CliktCommand(
         name = "use",
         help = "Switch to and compose a loadout"
@@ -42,12 +44,11 @@ class UseCommand(
                         if (stdOutOnly) {
                             echo(composedOutput.content)
                         } else {
+                            val outputPaths = outputDir?.let { outputPaths(it) } ?: defaultOutputPaths
+
                             when (
                                 val setLoadoutResult =
-                                    loadoutService.setCurrentLoadout(
-                                        composedOutput,
-                                        outputDir ?: "."
-                                    )
+                                    loadoutService.setCurrentLoadout(composedOutput, outputPaths)
                             ) {
                                 is Result.Success -> {
                                     echoComposedFilesWriteResult(

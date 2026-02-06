@@ -1,5 +1,6 @@
 package data.repository
 
+import cli.Constants
 import data.serialization.JsonSerializer
 import domain.entity.Loadout
 import domain.entity.error.LoadoutError
@@ -10,7 +11,7 @@ import domain.repository.LoadoutRepository
 class FileBasedLoadoutRepository(
     private val fileRepository: FileRepository,
     private val serializer: JsonSerializer,
-    private val loadoutsDirectory: String = ".loadouts",
+    private val loadoutsDirectory: String = Constants.LOADOUTS_DIR,
 ) : LoadoutRepository {
     init {
         fileRepository.createDirectory(loadoutsDirectory)

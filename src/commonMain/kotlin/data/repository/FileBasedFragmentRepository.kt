@@ -1,5 +1,6 @@
 package data.repository
 
+import cli.Constants
 import domain.entity.Fragment
 import domain.entity.FragmentMetadata
 import domain.entity.error.LoadoutError
@@ -11,7 +12,7 @@ import domain.repository.FragmentRepository
 class FileBasedFragmentRepository(
     private val fileRepository: FileRepository,
     private val environmentRepository: EnvironmentRepository,
-    private val fragmentsDirectory: String = "fragments",
+    private val fragmentsDirectory: String = Constants.FRAGMENTS_DIR,
     private val globalFragmentsDirectory: String?,
 ) : FragmentRepository {
     override fun findByPath(path: String): Result<Fragment?, LoadoutError> =

@@ -1,5 +1,6 @@
 package data.repository
 
+import cli.Constants
 import data.serialization.JsonSerializer
 import domain.entity.LoadoutConfig
 import domain.entity.error.LoadoutError
@@ -11,12 +12,8 @@ class FileBasedConfigRepository(
     private val fileRepository: FileRepository,
     private val serializer: JsonSerializer,
 ) : ConfigRepository {
-    companion object {
-        private const val DEFAULT_CONFIG_FILE = ".loadout.json"
-    }
-
     override fun loadConfig(configPath: String?): Result<LoadoutConfig, LoadoutError> {
-        val path = configPath ?: DEFAULT_CONFIG_FILE
+        val path = configPath ?: Constants.CONFIG_FILE
 
         return if (!fileRepository.fileExists(path)) {
             Result.Success(
@@ -40,7 +37,7 @@ class FileBasedConfigRepository(
         config: LoadoutConfig,
         configPath: String?,
     ): Result<Unit, LoadoutError> {
-        val path = configPath ?: DEFAULT_CONFIG_FILE
+        val path = configPath ?: Constants.CONFIG_FILE
 
         return serializer
             .serialize(config, LoadoutConfig.serializer())
@@ -57,5 +54,5 @@ class FileBasedConfigRepository(
             }
     }
 
-    override fun getDefaultConfigPath(): String = DEFAULT_CONFIG_FILE
+    override fun getDefaultConfigPath(): String = Constants.CONFIG_FILE
 }

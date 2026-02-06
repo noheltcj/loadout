@@ -1,5 +1,6 @@
 package cli.di
 
+import cli.outputPaths
 import data.repository.FileBasedConfigRepository
 import data.repository.FileBasedFragmentRepository
 import data.repository.FileBasedLoadoutRepository
@@ -20,6 +21,8 @@ fun withApplicationScope(scopedBlock: ApplicationScope.() -> Unit) {
         environmentRepository
             .getHomeDirectory()
             ?.let { home -> "$home/.loadout/fragments" }
+
+    val defaultOutputPaths = outputPaths()
 
     val configRepository = FileBasedConfigRepository(fileRepository = fileRepository, serializer = serializer)
     val loadoutRepository = FileBasedLoadoutRepository(fileRepository = fileRepository, serializer = serializer)
@@ -51,7 +54,6 @@ fun withApplicationScope(scopedBlock: ApplicationScope.() -> Unit) {
             loadoutRepository = loadoutRepository,
             configRepository = configRepository,
             environmentRepository = environmentRepository,
-            checkLoadoutSync = checkLoadoutSync,
             writeComposedFiles = writeComposedFiles
         )
 
@@ -62,7 +64,8 @@ fun withApplicationScope(scopedBlock: ApplicationScope.() -> Unit) {
             loadoutService = loadoutService,
             loadoutCompositionService = loadoutCompositionService,
             checkLoadoutSync = checkLoadoutSync,
-            writeComposedFiles = writeComposedFiles
+            writeComposedFiles = writeComposedFiles,
+            defaultOutputPaths = defaultOutputPaths
         )
     )
 }
@@ -74,6 +77,7 @@ data class ApplicationScope(
     val loadoutCompositionService: LoadoutCompositionService,
     val checkLoadoutSync: CheckLoadoutSyncUseCase,
     val writeComposedFiles: WriteComposedFilesUseCase,
+    val defaultOutputPaths: List<String>,
 )
 
 expect fun provideFileRepository(): FileRepository
