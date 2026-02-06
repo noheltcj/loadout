@@ -9,7 +9,7 @@ plugins {
 }
 
 group = "com.noheltcj"
-version = "0.1.0"
+version = "0.4.0"
 
 repositories {
     mavenCentral()
