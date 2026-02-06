@@ -11,9 +11,16 @@ class WriteComposedFilesUseCase(
     private val fileRepository: FileRepository,
     private val configRepository: ConfigRepository,
 ) {
+    /**
+     * Writes the composed output to the specified file paths.
+     *
+     * @param composedOutput The composed content to write
+     * @param outputPaths List of file paths to write the content to
+     * @return Result indicating whether files were written or already up to date
+     */
     operator fun invoke(
         composedOutput: ComposedOutput,
-        outputDir: String,
+        outputPaths: List<String>,
     ): Result<WriteComposedFilesResult, LoadoutError> =
         configRepository.loadConfig().flatMap { config ->
             val currentHash = composedOutput.metadata.contentHash
@@ -22,14 +29,24 @@ class WriteComposedFilesUseCase(
             if (currentHash == storedHash) {
                 Result.Success(WriteComposedFilesResult.AlreadyUpToDate)
             } else {
-                val content = composedOutput.toFileContent(includeMetadata = true)
-                val claudePath = "$outputDir/CLAUDE.md"
-                val agentsPath = "$outputDir/AGENTS.md"
-
-                fileRepository
-                    .writeFile(claudePath, content)
-                    .flatMap { fileRepository.writeFile(agentsPath, content) }
-                    .map { WriteComposedFilesResult.Overwritten }
+                writeToAllPaths(composedOutput, outputPaths)
             }
         }
+
+    private fun writeToAllPaths(
+        composedOutput: ComposedOutput,
+        outputPaths: List<String>,
+    ): Result<WriteComposedFilesResult, LoadoutError> {
+        val content = composedOutput.toFileContent(includeMetadata = true)
+
+        // Write to all output paths sequentially
+        for (path in outputPaths) {
+            when (val result = fileRepository.writeFile(path, content)) {
+                is Result.Error -> return result
+                is Result.Success -> { /* Continue to next file */ }
+            }
+        }
+
+        return Result.Success(WriteComposedFilesResult.Overwritten)
+    }
 }

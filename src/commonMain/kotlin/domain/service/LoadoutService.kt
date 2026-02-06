@@ -18,7 +18,6 @@ class LoadoutService(
     private val loadoutRepository: LoadoutRepository,
     private val configRepository: ConfigRepository,
     private val environmentRepository: EnvironmentRepository,
-    private val checkLoadoutSync: CheckLoadoutSyncUseCase,
     private val writeComposedFiles: WriteComposedFilesUseCase,
 ) {
     fun createLoadout(
@@ -136,9 +135,9 @@ class LoadoutService(
 
     fun setCurrentLoadout(
         composedOutput: ComposedOutput,
-        outputDir: String,
+        outputPaths: List<String>,
     ): Result<WriteComposedFilesResult, LoadoutError> =
-        writeComposedFiles(composedOutput, outputDir = outputDir)
+        writeComposedFiles(composedOutput, outputPaths)
             .map { composedOutput to it }
             .flatMap { (composedOutput, writeResult) ->
                 when (writeResult) {

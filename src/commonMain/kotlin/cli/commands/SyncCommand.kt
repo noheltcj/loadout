@@ -1,6 +1,7 @@
 package cli.commands
 
 import cli.commands.extension.echoComposedFilesWriteResult
+import cli.outputPaths
 import com.github.ajalt.clikt.core.CliktCommand
 import com.github.ajalt.clikt.core.ProgramResult
 import com.github.ajalt.clikt.parameters.options.flag
@@ -9,11 +10,11 @@ import com.github.ajalt.clikt.parameters.options.option
 import domain.entity.packaging.Result
 import domain.service.LoadoutCompositionService
 import domain.service.LoadoutService
-import domain.usecase.WriteComposedFilesUseCase
 
 class SyncCommand(
     private val loadoutService: LoadoutService,
     private val composeLoadout: LoadoutCompositionService,
+    private val defaultOutputPaths: List<String>,
 ) : CliktCommand(
         name = "sync",
         help = "Re-compose and synchronize the current loadout"
@@ -43,12 +44,11 @@ class SyncCommand(
                         if (stdOutOnly) {
                             echo(composedOutput.content)
                         } else {
+                            val outputPaths = outputDir?.let { outputPaths(it) } ?: defaultOutputPaths
+
                             when (
                                 val setLoadoutResult =
-                                    loadoutService.setCurrentLoadout(
-                                        composedOutput,
-                                        outputDir ?: "."
-                                    )
+                                    loadoutService.setCurrentLoadout(composedOutput, outputPaths)
                             ) {
                                 is Result.Success -> {
                                     echoComposedFilesWriteResult(

@@ -2,6 +2,7 @@ package cli
 
 import cli.commands.AddCommand
 import cli.commands.CreateCommand
+import cli.commands.InitCommand
 import cli.commands.ListCommand
 import cli.commands.RemoveCommand
 import cli.commands.SyncCommand
@@ -16,6 +17,12 @@ fun main(args: Array<String>) {
             composeLoadout = loadoutCompositionService,
             checkLoadoutSync = checkLoadoutSync
         ).subcommands(
+            InitCommand(
+                fileRepository = fileRepository,
+                loadoutService = loadoutService,
+                composeLoadout = loadoutCompositionService,
+                defaultOutputPaths = defaultOutputPaths
+            ),
             ListCommand(
                 loadoutService = loadoutService
             ),
@@ -25,10 +32,12 @@ fun main(args: Array<String>) {
             UseCommand(
                 loadoutService = loadoutService,
                 composeLoadout = loadoutCompositionService,
+                defaultOutputPaths = defaultOutputPaths
             ),
             SyncCommand(
                 loadoutService = loadoutService,
                 composeLoadout = loadoutCompositionService,
+                defaultOutputPaths = defaultOutputPaths
             ),
             AddCommand(
                 loadoutService = loadoutService
