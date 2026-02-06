@@ -1,6 +1,13 @@
 # 🎒 Loadout CLI
 
-> Composable, shareable `.md` system prompts for agentic AI coding systems.  
+[![GitHub Release](https://img.shields.io/github/v/release/noheltcj/loadout)](https://github.com/noheltcj/loadout/releases)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Lint](https://github.com/noheltcj/loadout/actions/workflows/lint.yml/badge.svg)](https://github.com/noheltcj/loadout/actions/workflows/lint.yml)
+[![macOS](https://img.shields.io/badge/macOS-arm64%20%7C%20x64-blue)](https://github.com/noheltcj/loadout/releases)
+[![Linux](https://img.shields.io/badge/Linux-arm64%20%7C%20x64-blue)](https://github.com/noheltcj/loadout/releases)
+[![Kotlin](https://img.shields.io/badge/Kotlin-Multiplatform-7F52FF?logo=kotlin)](https://kotlinlang.org/docs/multiplatform.html)
+
+> Composable, shareable `.md` system prompts for agentic AI coding systems.
 > A Kotlin Multiplatform (KMP) CLI for composing `AGENTS.md`, `CLAUDE.md`, and other prompt fragments into production-ready `.md` profiles.
 
 ---
