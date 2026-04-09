@@ -1,23 +1,24 @@
 ## Behavior-First Testing
 
-All tests are BDD specs that describe logical paths as human-readable contexts and leaf assertions.
+All tests are BDD specs that read as logical paths from seeded state to observable contract behavior.
 
-### Current Test Layers
+### Test Layers
 
-- `e2e` tests are the primary way to exercise the CLI thoroughly through realistic workflows and isolated workspace state
-- `unit` tests cover focused pure domain behavior and small helper rules that are easy to get wrong
+- Prefer `e2e` coverage for realistic CLI workflows, isolated workspace state, and cross-layer behavior
+- Use `unit` tests for small pure domain rules and contained helper behavior
 
-### Expectations
+### BDD Rules
 
 - Organize specs as nested `given`, `when`, and `it` paths
-- Prefer more `e2e` coverage than `unit` coverage
-- Use `e2e` specs for command flows such as `init`, `create`, `use`, `add`, `remove`, `list`, and `sync`
-- Reserve `unit` specs for composition, validation, hashing, metadata, and other contained domain rules
-- Treat parent contexts as reusable fixtures when the same setup and baseline assertions should appear across multiple specs
-- Inherit parent assertions automatically in nested branches instead of restating them in every child path
-- Let reusable happy-path contexts accept a nested block so deeper cases can build on the same setup without hiding intent
+- `given` describes durable preconditions or seeded state
+- `when` describes the command or action under test, including relevant flags and arguments
+- `it` describes one explicit leaf assertion
+- Nested branches inherit only ancestor `given` and `when` context
+- Never implicitly inherit ancestor or sibling `it` assertions
+- Reusable contexts should expose product-level state, not harness mechanics
+- Let reusable contexts yield nested cases when multiple branches share the same setup
+- Use an explicit post-step `given` when a later workflow step depends on an earlier command result
 - Keep one contract assertion per `it`
-- Keep scenario intent in the spec and move setup-heavy mechanics into helpers or harness code
 - Assert contract-level behavior such as exit codes, persisted state, generated files, and meaningful CLI output
 - Avoid asserting incidental formatting details unless the wording itself is part of the contract
 
@@ -25,21 +26,14 @@ All tests are BDD specs that describe logical paths as human-readable contexts a
 
 ```text
 foo command spec
-- it outputs that foo was called
-- given a loadout was specified [reusable]
-  - it includes output recognizing the target loadout
-  - given the specified loadout is invalid [reusable]
-    - it outputs that the specified loadout does not exist
+- given the target loadout exists [reusable]
+  - when foo is run
+    - it reports the target loadout name
+  - when foo is run with --bar=invalid
+    - it outputs a validation error
     - it exits with result 1
-  - given the specified loadout is valid [reusable, yields nested cases]
-    - given bar flag passed with value `foobar`
-      - it includes output recognizing the use of bar
-      - when `foobar` is invalid
-        - it outputs an error
-        - it does not change any files
-        - it exits with result 1
-      - when `foobar` is valid
-        - ...
+  - when foo is run with --bar=valid
+    - it writes the expected output files
 ```
 
-The important rule is that a child path inherits the setup and assertions of every parent context above it. Reusable contexts should read like product behavior, not helper mechanics.
+Every leaf path should remain unambiguous when read top to bottom. Reusable contexts should read like product behavior, not helper mechanics.
