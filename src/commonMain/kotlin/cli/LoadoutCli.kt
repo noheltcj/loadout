@@ -88,7 +88,8 @@ class LoadoutCli(
                     is LoadoutError.LoadoutAlreadyExists,
                     is LoadoutError.LoadoutNotFound,
                     is LoadoutError.SerializationError,
-                    is LoadoutError.ValidationError -> {
+                    is LoadoutError.ValidationError,
+                    -> {
                         echoError(syncResult.error, verbose)
                         throw ProgramResult(1)
                     }
