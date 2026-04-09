@@ -1,12 +1,12 @@
 package cli.commands
 
+import cli.echoError
 import com.github.ajalt.clikt.core.CliktCommand
 import com.github.ajalt.clikt.core.ProgramResult
 import com.github.ajalt.clikt.parameters.options.flag
 import com.github.ajalt.clikt.parameters.options.help
 import com.github.ajalt.clikt.parameters.options.option
 import domain.entity.Loadout
-import domain.entity.error.LoadoutError
 import domain.entity.packaging.Result
 import domain.service.LoadoutService
 
@@ -34,7 +34,10 @@ class ListCommand(
 
                 outputTable(loadouts)
             }
-            is Result.Error -> echoError(result.error)
+            is Result.Error -> {
+                echoError(result.error, verbose)
+                throw ProgramResult(1)
+            }
         }
     }
 
@@ -56,10 +59,5 @@ class ListCommand(
             }
             echo()
         }
-    }
-
-    private fun echoError(error: LoadoutError) {
-        echo("Error: ${error.message}", err = true)
-        throw ProgramResult(1)
     }
 }

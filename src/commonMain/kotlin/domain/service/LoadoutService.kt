@@ -113,8 +113,12 @@ class LoadoutService(
     ): Result<Loadout, LoadoutError> {
         val now = environmentRepository.currentTimeMillis()
         return getLoadout(loadoutName)
-            .map { loadout ->
-                loadout.addFragment(fragmentPath, afterFragment, now)
+            .flatMap { loadout ->
+                if (fragmentPath in loadout.fragments) {
+                    Result.Error(LoadoutError.FragmentAlreadyInLoadout(fragmentPath, loadoutName))
+                } else {
+                    Result.Success(loadout.addFragment(fragmentPath, afterFragment, now))
+                }
             }.flatMap { updatedLoadout ->
                 updateLoadout(updatedLoadout)
             }
@@ -126,8 +130,12 @@ class LoadoutService(
     ): Result<Loadout, LoadoutError> {
         val now = environmentRepository.currentTimeMillis()
         return getLoadout(loadoutName)
-            .map { loadout ->
-                loadout.removeFragment(fragmentPath, now)
+            .flatMap { loadout ->
+                if (fragmentPath !in loadout.fragments) {
+                    Result.Error(LoadoutError.FragmentNotInLoadout(fragmentPath, loadoutName))
+                } else {
+                    Result.Success(loadout.removeFragment(fragmentPath, now))
+                }
             }.flatMap { updatedLoadout ->
                 updateLoadout(updatedLoadout)
             }

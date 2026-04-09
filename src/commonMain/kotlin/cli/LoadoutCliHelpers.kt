@@ -1,5 +1,8 @@
 package cli
 
+import com.github.ajalt.clikt.core.CliktCommand
+import domain.entity.error.LoadoutError
+
 /**
  * Constructs the list of output file paths for the given directory.
  *
@@ -11,3 +14,11 @@ fun outputPaths(outputDir: String = Constants.DEFAULT_OUTPUT_DIR): List<String> 
         "$outputDir/${Constants.CLAUDE_MD}",
         "$outputDir/${Constants.AGENTS_MD}"
     )
+
+fun CliktCommand.echoError(error: LoadoutError, verbose: Boolean = false) {
+    val cause = error.cause
+    echo(error.message, err = true)
+    if (verbose && cause != null) {
+        echo("Cause: ${cause.message}", err = true)
+    }
+}
