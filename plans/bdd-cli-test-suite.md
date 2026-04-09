@@ -165,6 +165,8 @@ loadout status spec
   - it exits with result 0
 - given a current loadout is set [reusable]
   - it outputs the current loadout name
+  - given the current loadout has a description
+    - it outputs the current loadout description
   - it outputs the fragment count
   - it outputs the composed content length
   - given --verbose was requested
@@ -205,6 +207,8 @@ loadout create spec
 - given a new loadout name was specified [reusable]
   - it creates the loadout definition
   - it outputs that the loadout was created
+  - given no --fragment values were requested
+    - it creates an empty loadout
   - given --desc was requested
     - it persists the description
     - it outputs the description
@@ -285,6 +289,8 @@ loadout add spec
   - given --to was missing
     - it exits with result 1
     - it outputs parser guidance for the missing --to option
+  - given --to referenced a valid loadout that is not currently active
+    - it updates the specified loadout regardless of which loadout is active
   - given --to referenced an invalid loadout
     - it outputs that the specified loadout was not found
     - it exits with result 1
@@ -310,6 +316,8 @@ loadout remove spec
   - given --from was missing
     - it exits with result 1
     - it outputs parser guidance for the missing --from option
+  - given --from referenced a valid loadout that is not currently active
+    - it updates the specified loadout regardless of which loadout is active
   - given --from referenced an invalid loadout
     - it outputs that the specified loadout was not found
     - it exits with result 1
@@ -347,8 +355,10 @@ first-time project workflow spec
 - given an isolated workspace [reusable]
   - when init is run in shared mode
     - it creates and activates the default loadout
-  - when another loadout is created and then used
+  - when the first project-specific loadout is created with one or more fragments and then used
+    - it creates the requested loadout definition
     - it switches the workspace to the new loadout cleanly
+    - it writes composed files for that new loadout
 
 switching between loadouts workflow spec
 - given two valid loadouts exist
@@ -378,3 +388,11 @@ clone then customize workflow spec
   - when the cloned loadout is used
     - it generates output from the customized clone
 ```
+
+## Known Current Gaps
+
+- `loadout create` currently does not validate fragment paths before persisting them.
+- `loadout add` currently does not validate fragment paths before persisting them.
+- `loadout sync --output <dir>` currently short-circuits on a matching hash and skips writing the requested custom output files.
+- Successful `loadout sync` runs are currently followed by a contradictory stale-sync warning because the post-command sync check still sees the previous stored hash.
+- Read-only commands can currently emit a misleading stale-sync warning when the config points at a deleted loadout.
