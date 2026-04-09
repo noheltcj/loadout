@@ -1,461 +1,360 @@
-# Loadout CLI Test Plan
+# Planned E2E Suite
 
-This document defines a comprehensive test plan for the Loadout CLI, organized by functional concept. Each test follows a BDD-style naming convention and includes the command to execute, relevant tags, and expected behavior.
+This is the canonical human-readable outline for the planned `e2e` CLI suite. It is written as reusable logical paths instead of isolated case records so shared contexts, inherited assertions, and missing coverage stay obvious.
 
-## Test Execution Guidelines
+## How To Read This Plan
 
-**IMPORTANT:** Unless a test explicitly expects specific warnings or errors as part of its expected behavior, the presence of **any unexpected warnings or errors** should be considered a **test failure**. This includes but is not limited to:
+- Parent context assertions are automatically included by every nested child path.
+- `[reusable]` means the context should be implemented once as a shared fixture and composed across specs.
+- `[yields nested cases]` means the reusable context should accept a block for deeper nested assertions.
+- Each `it ...` line is one explicit contract assertion.
+- Unless a scenario says otherwise, unexpected warnings, stderr noise, or extra output fail the test.
 
-- Synchronization warnings
-- File system warnings
-- State inconsistency messages
-- Unexpected error messages
-- Stack traces or debug output
+## Reusable Context Inventory
 
-Tests should produce clean, expected output only. Any deviation from the expected behavior indicates a problem that needs to be addressed.
+### Workspace and Repo State
 
----
+```text
+given an isolated workspace [reusable]
+- it uses temporary directories only
+- it never reads from or writes to a developer's real ~/.loadout
+- it starts with no generated CLAUDE.md or AGENTS.md unless a parent context says otherwise
 
-## Display & Status
+given the repo is initialized in shared mode [reusable, yields nested cases]
+- it adds shared-mode Loadout patterns to .gitignore
+- it creates fragments/loadout-architect.md when missing
+- it creates and activates the default loadout when no loadouts exist
 
-### Test: Given no current loadout, when displaying status, then show appropriate message
-**Setup:**
-```bash
-rm -f .loadout.json
+given the repo is initialized in local mode [reusable, yields nested cases]
+- it adds local-only Loadout patterns to .gitignore
+- it ignores .loadouts/ and fragments/
+- it creates and activates the default loadout when no loadouts exist
+
+given existing loadouts already exist before init [reusable]
+- it does not create another default loadout
+- given init created a new starter fragment
+  - it prints guidance for adding the starter fragment manually
+
+given the starter fragment already exists before init [reusable]
+- it reports that the starter fragment already exists
+- it does not overwrite the existing fragment content
 ```
-**Command:** `loadout`
-**Tags:** `display`, `status`, `initial_state`
-**Expected:** Should display a message indicating no loadout is currently active.
 
-### Test: Given an active loadout, when displaying status, then show current loadout details
-**Setup:**
-```bash
-rm -f .loadouts/test-display.json
-loadout create test-display --desc "Display test" --fragment fragments/base.md
-loadout use test-display
+### Loadout Targeting
+
+```text
+given a loadout was specified [reusable]
+- given the specified loadout is invalid [reusable]
+  - it outputs that the specified loadout was not found
+  - it exits with result 1
+- given the specified loadout is valid [reusable, yields nested cases]
+  - it uses that loadout name in success output when the command reports the target
+
+given a new loadout name was specified [reusable]
+- given the requested loadout name already exists [reusable]
+  - it outputs a loadout-already-exists error
+  - it exits with result 1
+- given the requested loadout name is invalid [reusable]
+  - it outputs the validation error
+  - it exits with result 1
 ```
-**Command:** `loadout`
-**Tags:** `display`, `status`, `active_loadout`
-**Expected:** Should display the name of the currently active loadout and its composition metadata.
 
----
+### Current Loadout and Sync State
 
-## Listing
+```text
+given no current loadout is set [reusable]
+- it reports that no current loadout is set when the command requires one
 
-### Test: Given no loadouts exist, when listing loadouts, then show empty state
-**Setup:**
-```bash
-rm -rf .loadouts/*.json
+given a current loadout is set [reusable, yields nested cases]
+- it reads the current loadout from .loadout.json
+- given the current loadout fragments have changed since the last composition [reusable]
+  - it warns that the current loadout is not synchronized
+  - it tells the user to run loadout sync and restart the agent
+
+given the config points at a deleted loadout [reusable]
+- it surfaces the deleted-loadout state explicitly instead of pretending the workspace is merely out of sync
 ```
-**Command:** `loadout list`
-**Tags:** `listing`, `empty_state`
-**Expected:** Should display a message indicating no loadouts are available.
-**ISSUE:** ⚠️ PARTIAL FAILURE - Unexpected synchronization warning appears even when no loadouts exist and .loadout.json references a deleted loadout.
 
-### Test: Given multiple loadouts exist, when listing loadouts, then show all available loadouts
-**Setup:**
-```bash
-rm -f .loadouts/list-test-*.json
-loadout create list-test-alpha --desc "First test loadout"
-loadout create list-test-beta --desc "Second test loadout"
-loadout create list-test-gamma --desc "Third test loadout"
+### Fragments and Output Modes
+
+```text
+given a fragment path was specified [reusable]
+- given the specified fragment path does not exist [reusable]
+  - it outputs a fragment-not-found error
+  - it exits with result 1
+- given the specified fragment path exists [reusable, yields nested cases]
+
+given composed files are written to the default output directory [reusable]
+- it writes CLAUDE.md
+- it writes AGENTS.md
+
+given --std-out was requested [reusable]
+- it prints the composed content to stdout
+- it does not write CLAUDE.md
+- it does not write AGENTS.md
+
+given --output was requested with a custom directory [reusable]
+- it writes CLAUDE.md to the requested directory
+- it writes AGENTS.md to the requested directory
 ```
-**Command:** `loadout list`
-**Tags:** `listing`, `multiple_loadouts`
-**Expected:** Should display a list of all available loadout names with their descriptions.
 
-### Test: Given verbose flag, when listing loadouts, then show detailed information
-**Setup:**
-```bash
-rm -f .loadouts/verbose-test-*.json
-loadout create verbose-test-a --desc "Verbose test A" --fragment fragments/base.md
-loadout create verbose-test-b --desc "Verbose test B" --fragment fragments/base.md --fragment fragments/coding-style.md
+## Planned Specs
+
+### `loadout init` Spec
+
+```text
+loadout init spec
+- given an isolated workspace [reusable]
+  - given shared mode was requested
+    - it creates fragments/loadout-architect.md
+    - it creates the default loadout
+    - it activates the default loadout
+    - it writes CLAUDE.md and AGENTS.md to the default output directory
+    - it prints the shared-mode completion note
+  - given local mode was requested
+    - it configures .gitignore for local-only mode
+    - it creates the default loadout
+    - it activates the default loadout
+    - it writes CLAUDE.md and AGENTS.md to the default output directory
+    - it prints the local-mode completion note
+  - given .gitignore already contains the required patterns
+    - it reports that .gitignore is already configured
+  - given the starter fragment already exists before init [reusable]
+    - it reports that the starter fragment already exists
+    - it does not overwrite the fragment content
+  - given existing loadouts already exist before init [reusable]
+    - it does not create a second default loadout
+    - given init created a new starter fragment
+      - it prints guidance for adding the starter fragment to an existing loadout
 ```
-**Command:** `loadout list --verbose`
-**Tags:** `listing`, `verbose`, `detailed_output`
-**Expected:** Should display additional details about each loadout including fragments and metadata.
 
----
+### `loadout` Status Spec
 
-## Creation
-
-### Test: Given a unique name, when creating empty loadout, then loadout is created successfully
-**Setup:**
-```bash
-rm -f .loadouts/test-loadout.json
+```text
+loadout status spec
+- given no current loadout is set [reusable]
+  - it outputs that no current loadout is set
+  - it exits with result 0
+- given a current loadout is set [reusable]
+  - it outputs the current loadout name
+  - it outputs the fragment count
+  - it outputs the composed content length
+  - given --verbose was requested
+    - it lists the current loadout fragment paths
+  - given composing the current loadout fails
+    - it outputs the composition error
+    - it exits with result 1
+  - given the current loadout fragments have changed since the last composition [reusable]
+    - it outputs the synchronization warning on stderr
+- given the config points at a deleted loadout [reusable]
+  - it outputs that the current loadout no longer exists
+  - it exits with result 1
 ```
-**Command:** `loadout create test-loadout`
-**Tags:** `creation`, `empty_loadout`, `happy_path`
-**Expected:** Should create a new empty loadout named "test-loadout" and confirm creation.
 
-### Test: Given a unique name and description, when creating loadout, then loadout includes metadata
-**Setup:**
-```bash
-rm -f .loadouts/test-loadout.json
+### `loadout list` Spec
+
+```text
+loadout list spec
+- given no loadouts exist
+  - it outputs the empty-state message
+  - it exits with result 0
+- given loadouts exist
+  - it outputs every loadout name
+  - it outputs each loadout's fragment count
+  - it outputs each description when present
+  - given --verbose was requested
+    - it lists fragment paths under each loadout
+- given the current loadout fragments have changed since the last composition [reusable]
+  - it warns after listing loadouts
+- given the config points at a deleted loadout [reusable]
+  - it does not emit a misleading synchronization warning for a loadout that no longer exists
 ```
-**Command:** `loadout create test-loadout --desc "Test description"`
-**Tags:** `creation`, `metadata`, `description`
-**Expected:** Should create a new loadout with the specified description stored in metadata.
 
-### Test: Given a unique name and fragments, when creating loadout, then loadout includes all fragments
-**Setup:**
-```bash
-rm -f .loadouts/test-loadout.json
+### `loadout create` Spec
+
+```text
+loadout create spec
+- given a new loadout name was specified [reusable]
+  - it creates the loadout definition
+  - it outputs that the loadout was created
+  - given --desc was requested
+    - it persists the description
+    - it outputs the description
+  - given one or more --fragment values were requested
+    - it persists the fragments in the given order
+    - it lists the fragments in success output
+  - given --clone was requested with a valid source loadout
+    - it copies the source loadout fragments
+    - it reuses the source description unless a new --desc was provided
+    - given additional --fragment values were requested
+      - it appends the additional fragments after the cloned fragments
+  - given --clone was requested with an invalid source loadout
+    - it outputs that the source loadout was not found
+    - it exits with result 1
+  - given the requested loadout name already exists [reusable]
+    - it does not change the existing loadout definition
+  - given the requested loadout name is invalid [reusable]
+    - it does not create the loadout definition
+  - given one of the requested fragment paths does not exist [planned contract]
+    - it outputs a fragment-not-found error
+    - it does not create the loadout definition
+    - it exits with result 1
 ```
-**Command:** `loadout create test-loadout --fragment fragments/base.md --fragment fragments/coding-style.md`
-**Tags:** `creation`, `fragment_management`, `multiple_fragments`
-**Expected:** Should create a new loadout containing both specified fragments in the order provided.
 
-### Test: Given an existing loadout, when creating with clone option, then new loadout copies original
-**Setup:**
-```bash
-rm -f .loadouts/test-loadout.json .loadouts/cloned-loadout.json
-loadout create test-loadout --desc "Original loadout" --fragment fragments/base.md --fragment fragments/coding-style.md
+### `loadout use` Spec
+
+```text
+loadout use spec
+- given a loadout was specified [reusable]
+  - given the specified loadout is invalid [reusable]
+    - it does not change the current loadout
+  - given the specified loadout is valid [reusable, yields nested cases]
+    - it composes that loadout
+    - it marks that loadout as current
+    - it writes CLAUDE.md and AGENTS.md to the default output directory
+    - given --std-out was requested [reusable]
+      - it prints the composed content
+      - it does not write any output files
+      - it does not change the current loadout
+    - given --output was requested with a custom directory [reusable]
+      - it writes CLAUDE.md and AGENTS.md to the requested directory
+      - it marks that loadout as current
+    - given composing the specified loadout fails
+      - it outputs the composition error
+      - it exits with result 1
 ```
-**Command:** `loadout create cloned-loadout --clone test-loadout`
-**Tags:** `creation`, `cloning`, `duplication`
-**Expected:** Should create a new loadout that is an exact copy of the specified existing loadout.
 
-### Test: Given a duplicate name, when creating loadout, then creation fails with error
-**Setup:**
-```bash
-rm -f .loadouts/test-loadout.json
-loadout create test-loadout --desc "Existing loadout"
+### `loadout sync` Spec
+
+```text
+loadout sync spec
+- given no current loadout is set [reusable]
+  - it outputs that no current loadout is set
+  - it exits with result 1
+- given a current loadout is set [reusable]
+  - given the current loadout is already synchronized
+    - it outputs that the current loadout is active and up to date
+    - it does not rewrite the output files
+  - given the current loadout fragments have changed since the last composition [reusable]
+    - it recomposes the current loadout
+    - it writes CLAUDE.md and AGENTS.md to the default output directory
+    - it updates the stored composition hash
+    - it clears the synchronization warning on the next command
+  - given --std-out was requested [reusable]
+    - it prints the synchronized content
+    - it does not write files
+    - it does not change the stored composition hash
+  - given --output was requested with a custom directory [reusable]
+    - it writes CLAUDE.md and AGENTS.md to the requested directory
+    - it updates the stored composition hash for the current composition
 ```
-**Command:** `loadout create test-loadout`
-**Tags:** `creation`, `error_handling`, `duplicate_name`
-**Expected:** Should fail with a clear error message indicating the loadout name already exists.
 
-### Test: Given invalid fragment path, when creating loadout, then creation fails with error
-**Setup:**
-```bash
-rm -f .loadouts/test-loadout.json
-rm -f nonexistent/fragment.md
+### `loadout add` Spec
+
+```text
+loadout add spec
+- given a fragment path was specified [reusable]
+  - given --to was missing
+    - it exits with result 1
+    - it outputs parser guidance for the missing --to option
+  - given --to referenced an invalid loadout
+    - it outputs that the specified loadout was not found
+    - it exits with result 1
+  - given the specified fragment path does not exist [reusable]
+    - it does not change the loadout definition
+  - given the specified fragment path exists [reusable, yields nested cases]
+    - given the fragment is not already in the target loadout
+      - it appends the fragment to the end of the loadout by default
+      - it outputs the updated fragment list
+      - given --after referenced an existing fragment
+        - it inserts the new fragment immediately after that fragment
+    - given the fragment is already in the target loadout
+      - it outputs a duplicate-fragment error
+      - it does not change the loadout definition
+      - it exits with result 1
 ```
-**Command:** `loadout create test-loadout --fragment nonexistent/fragment.md`
-**Tags:** `creation`, `error_handling`, `invalid_path`
-**Expected:** Should fail with a clear error message indicating the fragment path does not exist.
-**ISSUE:** ❌ FAILURE - CLI allows creation with nonexistent fragment paths. No validation occurs during creation.
 
----
+### `loadout remove` Spec
 
-## Switching
-
-### Test: Given an existing loadout, when switching to loadout, then loadout becomes active and files are written
-**Setup:**
-```bash
-rm -f .loadouts/test-loadout.json
-rm -f CLAUDE.md AGENTS.md
-loadout create test-loadout --desc "Switching test" --fragment fragments/base.md
+```text
+loadout remove spec
+- given a fragment path was specified [reusable]
+  - given --from was missing
+    - it exits with result 1
+    - it outputs parser guidance for the missing --from option
+  - given --from referenced an invalid loadout
+    - it outputs that the specified loadout was not found
+    - it exits with result 1
+  - given the fragment is present in the target loadout
+    - it removes the fragment from the loadout
+    - it outputs the remaining fragment list
+    - given the fragment was the last fragment
+      - it reports that the loadout is now empty
+  - given the fragment is not present in the target loadout
+    - it outputs a fragment-not-in-loadout error
+    - it does not change the loadout definition
+    - it exits with result 1
 ```
-**Command:** `loadout use test-loadout`
-**Tags:** `switching`, `composition`, `file_writing`
-**Expected:** Should activate the specified loadout, compose its fragments, and write CLAUDE.md/AGENTS.md files.
 
-### Test: Given a nonexistent loadout, when switching, then operation fails with error
-**Setup:**
-```bash
-rm -f .loadouts/nonexistent-loadout.json
+### CLI Parser Spec
+
+```text
+CLI parser spec
+- given an invalid subcommand was requested
+  - it exits with result 1
+  - it outputs the parser error
+  - it suggests help or usage
+- given a required argument was missing
+  - it exits with result 1
+  - it outputs usage guidance
+- given init received an invalid mode value
+  - it exits with result 1
+  - it outputs the allowed mode values
 ```
-**Command:** `loadout use nonexistent-loadout`
-**Tags:** `switching`, `error_handling`, `invalid_name`
-**Expected:** Should fail with a clear error message indicating the loadout does not exist.
 
-### Test: Given std-out flag, when switching loadout, then output to console without writing files
-**Setup:**
-```bash
-rm -f .loadouts/test-loadout.json
-loadout create test-loadout --desc "Stdout test" --fragment fragments/base.md
+### Cross-Command Workflow Specs
+
+```text
+first-time project workflow spec
+- given an isolated workspace [reusable]
+  - when init is run in shared mode
+    - it creates and activates the default loadout
+  - when another loadout is created and then used
+    - it switches the workspace to the new loadout cleanly
+
+switching between loadouts workflow spec
+- given two valid loadouts exist
+  - when one loadout is active and the other is used
+    - it rewrites the generated files for the new loadout
+    - it records the new current loadout
+
+add then sync workflow spec
+- given a current loadout is set [reusable]
+  - when a new fragment is added to that loadout
+    - it updates the loadout definition
+  - when sync is run afterward
+    - it rewrites the generated files with the added fragment content
+
+stale fragments then sync workflow spec
+- given a current loadout is set [reusable]
+  - given the current loadout fragments have changed since the last composition [reusable]
+    - it warns on a read-only command such as loadout or loadout list
+  - when sync is run
+    - it clears the warning on the next command
+
+clone then customize workflow spec
+- given a source loadout exists
+  - when a new loadout is created with --clone and extra fragments
+    - it preserves the source fragments
+    - it appends the extra fragments
+  - when the cloned loadout is used
+    - it generates output from the customized clone
 ```
-**Command:** `loadout use test-loadout --std-out`
-**Tags:** `switching`, `preview`, `stdout`, `no_side_effects`
-**Expected:** Should print the composed output to console without modifying any files on disk.
-**ISSUE:** ⚠️ PARTIAL FAILURE - Unexpected synchronization warning appears despite correct behavior (no files written).
 
-### Test: Given output directory override, when switching loadout, then files written to specified location
-**Setup:**
-```bash
-rm -f .loadouts/test-loadout.json
-loadout create test-loadout --desc "Output dir test" --fragment fragments/base.md
-mkdir -p /tmp/custom-output
-rm -f /tmp/custom-output/CLAUDE.md /tmp/custom-output/AGENTS.md
-```
-**Command:** `loadout use test-loadout --output /tmp/custom-output`
-**Tags:** `switching`, `composition`, `output_override`
-**Expected:** Should write composed files to the specified directory instead of the default location.
+## Known Current Gaps To Expect When Implementing The Suite
 
----
-
-## Synchronization
-
-### Test: Given an active loadout with unchanged fragments, when syncing, then confirms already synchronized
-**Setup:**
-```bash
-rm -f .loadouts/sync-test.json
-loadout create sync-test --desc "Sync test" --fragment fragments/base.md
-loadout use sync-test
-```
-**Command:** `loadout sync`
-**Tags:** `synchronization`, `no_changes`, `idempotent`
-**Expected:** Should detect no changes and confirm loadout is already synchronized.
-
-### Test: Given an active loadout with modified fragments, when syncing, then recomposes and updates files
-**Setup:**
-```bash
-rm -f .loadouts/sync-test.json
-echo "# Test Fragment\n\nTest content" > /tmp/test-sync-fragment.md
-loadout create sync-test --desc "Sync test" --fragment /tmp/test-sync-fragment.md
-loadout use sync-test
-echo "# Test Fragment\n\nModified content" > /tmp/test-sync-fragment.md
-```
-**Command:** `loadout sync`
-**Tags:** `synchronization`, `fragment_changes`, `recomposition`
-**Expected:** Should detect changes in fragments, recompose the loadout, and update output files.
-**ISSUE:** ⚠️ PARTIAL FAILURE - After successfully syncing and generating files, shows contradictory warning: "Current loadout fragments have changed since the last composition. To synchronize, run 'loadout sync'". The sync command just ran successfully but then warns to run sync again.
-
-### Test: Given no active loadout, when syncing, then operation fails with error
-**Setup:**
-```bash
-rm -f .loadout.json
-```
-**Command:** `loadout sync`
-**Tags:** `synchronization`, `error_handling`, `no_active_loadout`
-**Expected:** Should fail with a clear error message indicating no loadout is currently active.
-
-### Test: Given std-out flag, when syncing, then output to console without writing files
-**Setup:**
-```bash
-rm -f .loadouts/sync-test.json
-loadout create sync-test --desc "Sync stdout test" --fragment fragments/base.md
-loadout use sync-test
-```
-**Command:** `loadout sync --std-out`
-**Tags:** `synchronization`, `preview`, `stdout`, `no_side_effects`
-**Expected:** Should print the synchronized output to console without modifying files.
-
-### Test: Given output directory override, when syncing, then files written to specified location
-**Setup:**
-```bash
-rm -f .loadouts/sync-test.json
-loadout create sync-test --desc "Sync output test" --fragment fragments/base.md
-loadout use sync-test
-mkdir -p /tmp/custom-output
-rm -f /tmp/custom-output/CLAUDE.md /tmp/custom-output/AGENTS.md
-```
-**Command:** `loadout sync --output /tmp/custom-output`
-**Tags:** `synchronization`, `output_override`
-**Expected:** Should write synchronized files to the specified directory instead of the default location.
-**ISSUE:** ❌ FAILURE - Sync with --output flag reports "Nothing to do" and does not write files to the custom output directory. The --output flag appears to be ignored by sync command.
-
----
-
-## Fragment Addition
-
-### Test: Given a valid fragment path, when adding to active loadout, then fragment is appended
-**Setup:**
-```bash
-rm -f .loadouts/add-test.json
-echo "# New Fragment\n\nContent" > /tmp/new-fragment.md
-loadout create add-test --desc "Add test" --fragment fragments/base.md
-loadout use add-test
-```
-**Command:** `loadout add /tmp/new-fragment.md --to add-test`
-**Tags:** `fragment_management`, `addition`, `active_loadout`
-**Expected:** Should add the specified fragment to the end of the current loadout's fragment list.
-
-### Test: Given a target loadout, when adding fragment with --to option, then fragment added to specified loadout
-**Setup:**
-```bash
-rm -f .loadouts/test-loadout.json
-echo "# New Fragment\n\nContent" > /tmp/new-fragment.md
-loadout create test-loadout --desc "Target loadout" --fragment fragments/base.md
-```
-**Command:** `loadout add /tmp/new-fragment.md --to test-loadout`
-**Tags:** `fragment_management`, `addition`, `target_loadout`
-**Expected:** Should add the fragment to the specified loadout regardless of which loadout is active.
-
-### Test: Given an after position, when adding fragment, then fragment inserted at correct position
-**Setup:**
-```bash
-rm -f .loadouts/position-test.json
-echo "# New Fragment\n\nContent" > /tmp/new-fragment.md
-loadout create position-test --desc "Position test" --fragment fragments/base.md --fragment fragments/coding-style.md
-loadout use position-test
-```
-**Command:** `loadout add /tmp/new-fragment.md --to position-test --after fragments/base.md`
-**Tags:** `fragment_management`, `addition`, `ordering`, `insertion`
-**Expected:** Should insert the new fragment immediately after the specified existing fragment.
-
-### Test: Given invalid fragment path, when adding, then operation fails with error
-**Setup:**
-```bash
-rm -f .loadouts/error-test.json
-rm -f nonexistent/fragment.md
-loadout create error-test --desc "Error test"
-loadout use error-test
-```
-**Command:** `loadout add nonexistent/fragment.md --to error-test`
-**Tags:** `fragment_management`, `addition`, `error_handling`, `invalid_path`
-**Expected:** Should fail with a clear error message indicating the fragment path does not exist.
-**ISSUE:** ❌ FAILURE - CLI allows adding nonexistent fragment paths. No validation occurs during add operation.
-
-### Test: Given duplicate fragment, when adding, then operation handles appropriately
-**Setup:**
-```bash
-rm -f .loadouts/dup-test.json
-loadout create dup-test --desc "Duplicate test" --fragment fragments/base.md
-loadout use dup-test
-```
-**Command:** `loadout add fragments/base.md --to dup-test`
-**Tags:** `fragment_management`, `addition`, `error_handling`, `duplicate`
-**Expected:** Should reject the duplicate fragment.
-**ISSUE:** ❌ FAILURE - CLI accepts the duplicate fragment instead of displaying an error, but doesn't actually add it to the loadout.
-
-### Test: Given no active loadout and no --to option, when adding fragment, then operation fails with error
-**Setup:**
-```bash
-rm -f .loadout.json
-echo "# New Fragment\n\nContent" > /tmp/new-fragment.md
-```
-**Command:** `loadout add /tmp/new-fragment.md`
-**Tags:** `fragment_management`, `addition`, `error_handling`, `no_target`
-**Expected:** Should fail with a clear error message indicating no target loadout specified.
-
----
-
-## Fragment Removal
-
-### Test: Given an existing fragment, when removing from active loadout, then fragment is removed
-**Setup:**
-```bash
-rm -f .loadouts/remove-test.json
-loadout create remove-test --desc "Remove test" --fragment fragments/base.md --fragment fragments/coding-style.md
-loadout use remove-test
-```
-**Command:** `loadout remove fragments/base.md --from remove-test`
-**Tags:** `fragment_management`, `removal`, `active_loadout`
-**Expected:** Should remove the specified fragment from the current loadout's fragment list.
-
-### Test: Given a target loadout, when removing fragment with --from option, then fragment removed from specified loadout
-**Setup:**
-```bash
-rm -f .loadouts/test-loadout.json
-loadout create test-loadout --desc "Target removal test" --fragment fragments/base.md --fragment fragments/coding-style.md
-```
-**Command:** `loadout remove fragments/base.md --from test-loadout`
-**Tags:** `fragment_management`, `removal`, `target_loadout`
-**Expected:** Should remove the fragment from the specified loadout regardless of which loadout is active.
-
-### Test: Given a nonexistent fragment, when removing, then operation fails with error
-**Setup:**
-```bash
-rm -f .loadouts/error-remove-test.json
-loadout create error-remove-test --desc "Error remove test" --fragment fragments/base.md
-loadout use error-remove-test
-```
-**Command:** `loadout remove fragments/nonexistent.md --from error-remove-test`
-**Tags:** `fragment_management`, `removal`, `error_handling`, `not_found`
-**Expected:** Should fail with a clear error message indicating the fragment is not in the loadout.
-**Status:** ✅ PASS - CLI returns error "Fragment 'fragments/nonexistent.md' is not in loadout 'error-remove-test'" and exits with code 1.
-
-### Test: Given no active loadout and no --from option, when removing fragment, then operation fails with error
-**Setup:**
-```bash
-rm -f .loadout.json
-```
-**Command:** `loadout remove fragments/base.md`
-**Tags:** `fragment_management`, `removal`, `error_handling`, `no_target`
-**Expected:** Should fail with a clear error message indicating no target loadout specified.
-
-### Test: Given last fragment in loadout, when removing, then loadout becomes empty
-**Setup:**
-```bash
-rm -f .loadouts/last-fragment-test.json
-loadout create last-fragment-test --desc "Last fragment test" --fragment fragments/base.md
-loadout use last-fragment-test
-```
-**Command:** `loadout remove fragments/base.md --from last-fragment-test`
-**Tags:** `fragment_management`, `removal`, `empty_result`
-**Expected:** Should successfully remove the fragment leaving an empty but valid loadout.
-
----
-
-## Error Handling & Edge Cases
-
-### Test: Given invalid command, when executing, then show error and suggest help
-**Setup:**
-```bash
-# No setup required - testing error handling
-```
-**Command:** `loadout invalid-command`
-**Tags:** `error_handling`, `invalid_input`, `help_suggestion`
-**Expected:** Should fail with error indicating invalid command and suggest using --help.
-
-### Test: Given missing required argument, when executing command, then show error with usage
-**Setup:**
-```bash
-# No setup required - testing error handling
-```
-**Command:** `loadout create`
-**Tags:** `error_handling`, `missing_argument`, `validation`
-**Expected:** Should fail with error indicating missing required name argument and show usage.
-
----
-
-## Integration & Workflows
-
-### Test: Given new project, when creating first loadout with fragments and using it, then complete workflow succeeds
-**Setup:**
-```bash
-rm -f .loadouts/initial-test.json
-rm -f CLAUDE.md AGENTS.md
-```
-**Commands:**
-1. `loadout create initial_test.json --desc "My project setup" --fragment fragments/base.md`
-2. `loadout use my-project`
-
-**Tags:** `integration`, `workflow`, `complete_flow`, `first_use`
-**Expected:** Should successfully create and activate a loadout, writing composed files to disk.
-
-### Test: Given active loadout, when adding fragment and syncing, then changes are reflected
-**Setup:**
-```bash
-rm -f .loadouts/workflow-test.json
-loadout create workflow-test --desc "Workflow test" --fragment fragments/base.md
-loadout use workflow-test
-```
-**Commands:**
-1. `loadout add fragments/coding-style.md --to workflow-test`
-2. `loadout sync`
-
-**Tags:** `integration`, `workflow`, `fragment_management`, `synchronization`
-**Expected:** Should add the fragment and recompose, reflecting the new content in output files.
-
-### Test: Given multiple loadouts and loadout is active, when switching to another loadout, should update files
-**Setup:**
-```bash
-rm -f .loadouts/loadout-a.json .loadouts/loadout-b.json
-loadout create loadout-a --desc "Loadout A" --fragment fragments/base.md
-loadout create loadout-b --desc "Loadout B" --fragment fragments/coding-style.md
-loadout use loadout-a
-```
-**Command:** `loadout use loadout-b`
-**Tags:** `integration`, `workflow`, `switching`, `state_management`
-**Expected:** Should correctly switch contexts and compose the appropriate fragments for each loadout.
-
-### Test: Given modified fragments, when syncing shows warning, then sync resolves warning
-**Setup:**
-```bash
-rm -f .loadouts/warning-test.json
-echo "# Test Fragment\n\nOriginal content" > /tmp/warning-test-fragment.md
-loadout create warning-test --desc "Warning test" --fragment /tmp/warning-test-fragment.md
-loadout use warning-test
-```
-**Commands:**
-1. `echo "# Test Fragment\n\nModified content" > /tmp/warning-test-fragment.md`
-2. `loadout list` (should show warning)
-3. `loadout sync`
-4. `loadout list` (warning should be gone)
-
-**Tags:** `integration`, `workflow`, `synchronization`, `warning_resolution`
-**Expected:** Should detect fragment changes, show warning, allow sync, and clear warning after sync.
+- `loadout create` currently does not validate fragment paths before persisting them.
+- `loadout add` currently does not validate fragment paths before persisting them.
+- `loadout sync --output <dir>` currently short-circuits on a matching hash and skips writing the requested custom output files.
+- Successful `loadout sync` runs are currently followed by a contradictory stale-sync warning because the post-command sync check still sees the previous stored hash.
+- Read-only commands can currently emit a misleading stale-sync warning when the config points at a deleted loadout.
