@@ -23,6 +23,14 @@ sealed interface LoadoutError {
         override val message: String = "Fragment not found: $path"
     }
 
+    data class FragmentNotInLoadout(val path: String, val loadoutName: String) : LoadoutError {
+        override val message: String = "Fragment '$path' is not in loadout '$loadoutName'"
+    }
+
+    data class FragmentAlreadyInLoadout(val path: String, val loadoutName: String) : LoadoutError {
+        override val message: String = "Fragment '$path' is already in loadout '$loadoutName'"
+    }
+
     data class InvalidFragment(
         val path: String,
         override val cause: Throwable? = null,

@@ -28,6 +28,8 @@ class LoadoutCli(
     // TODO: Add --version option as documented in README
 
     override fun run() {
+        currentContext.callOnClose { warnIfNotSynchronized() }
+
         if (currentContext.invokedSubcommand == null) {
             when (val result = loadoutService.getCurrentLoadout()) {
                 is Result.Success -> {
@@ -50,7 +52,7 @@ class LoadoutCli(
                                 echo("\nComposed output: ${composeResult.value.content.length} characters")
                             }
                             is Result.Error -> {
-                                echoError(composeResult.error)
+                                echoError(composeResult.error, verbose)
                                 throw ProgramResult(1)
                             }
                         }
@@ -60,13 +62,11 @@ class LoadoutCli(
                     }
                 }
                 is Result.Error -> {
-                    echoError(result.error)
+                    echoError(result.error, verbose)
                     throw ProgramResult(1)
                 }
             }
         }
-
-        warnIfNotSynchronized()
     }
 
     private fun warnIfNotSynchronized() {
@@ -78,17 +78,23 @@ class LoadoutCli(
                 }
             }
             is Result.Error -> {
-                echoError(syncResult.error)
-                throw ProgramResult(1)
+                when (syncResult.error) {
+                    is LoadoutError.FragmentNotFound -> echoError(syncResult.error, verbose)
+                    is LoadoutError.FragmentNotInLoadout -> echoError(syncResult.error, verbose)
+                    is LoadoutError.FragmentAlreadyInLoadout -> echoError(syncResult.error, verbose)
+                    is LoadoutError.ConfigurationError,
+                    is LoadoutError.FileSystemError,
+                    is LoadoutError.InvalidFragment,
+                    is LoadoutError.LoadoutAlreadyExists,
+                    is LoadoutError.LoadoutNotFound,
+                    is LoadoutError.SerializationError,
+                    is LoadoutError.ValidationError,
+                    -> {
+                        echoError(syncResult.error, verbose)
+                        throw ProgramResult(1)
+                    }
+                }
             }
-        }
-    }
-
-    private fun echoError(error: LoadoutError) {
-        val cause = error.cause
-        echo(error.message, err = true)
-        if (verbose && cause != null) {
-            echo("Cause: ${cause.message}", err = true)
         }
     }
 }

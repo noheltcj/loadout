@@ -1,5 +1,6 @@
 package cli.commands
 
+import cli.echoError
 import com.github.ajalt.clikt.core.CliktCommand
 import com.github.ajalt.clikt.core.ProgramResult
 import com.github.ajalt.clikt.parameters.arguments.argument
@@ -43,7 +44,7 @@ class AddCommand(
                 }
             }
             is Result.Error -> {
-                echo("Failed to add fragment: ${result.error.message}", err = true)
+                echoError(result.error)
                 throw ProgramResult(1)
             }
         }

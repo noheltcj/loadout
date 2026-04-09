@@ -356,7 +356,7 @@ loadout use error-remove-test
 **Command:** `loadout remove fragments/nonexistent.md --from error-remove-test`
 **Tags:** `fragment_management`, `removal`, `error_handling`, `not_found`
 **Expected:** Should fail with a clear error message indicating the fragment is not in the loadout.
-**ISSUE:** ❌ FAILURE - CLI claims to have removed a nonexistent fragment with success message "Removed fragment..." but the loadout remains unchanged. No validation or error occurs.
+**Status:** ✅ PASS - CLI returns error "Fragment 'fragments/nonexistent.md' is not in loadout 'error-remove-test'" and exits with code 1.
 
 ### Test: Given no active loadout and no --from option, when removing fragment, then operation fails with error
 **Setup:**
