@@ -28,7 +28,7 @@ class LoadoutCli(
     // TODO: Add --version option as documented in README
 
     override fun run() {
-        warnIfNotSynchronized()
+        currentContext.callOnClose { warnIfNotSynchronized() }
 
         if (currentContext.invokedSubcommand == null) {
             when (val result = loadoutService.getCurrentLoadout()) {
