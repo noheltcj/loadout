@@ -1,5 +1,6 @@
 package cli.commands
 
+import cli.echoError
 import com.github.ajalt.clikt.core.CliktCommand
 import com.github.ajalt.clikt.core.Context
 import com.github.ajalt.clikt.core.ProgramResult
@@ -7,11 +8,14 @@ import com.github.ajalt.clikt.parameters.arguments.argument
 import com.github.ajalt.clikt.parameters.options.help
 import com.github.ajalt.clikt.parameters.options.multiple
 import com.github.ajalt.clikt.parameters.options.option
+import domain.entity.error.LoadoutError
 import domain.entity.packaging.Result
+import domain.repository.FileRepository
 import domain.service.LoadoutService
 
 class CreateCommand(
     private val loadoutService: LoadoutService,
+    private val fileRepository: FileRepository,
 ) : CliktCommand(
         name = "create",
     ) {
@@ -30,6 +34,12 @@ class CreateCommand(
         .help("Create by copying an existing loadout")
 
     override fun run() {
+        val missingFragment = fragments.firstOrNull { !fileRepository.fileExists(it) }
+        if (missingFragment != null) {
+            echoError(LoadoutError.FragmentNotFound(missingFragment))
+            throw ProgramResult(1)
+        }
+
         val result =
             if (cloneFrom != null) {
                 loadoutService.createLoadoutFromClone(
