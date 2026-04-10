@@ -23,11 +23,11 @@ import e2e.support.thirdFragmentPath
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldNotContain
 
-class AddE2eSpec : E2eBehaviorSuite({
-    context("loadout add spec") {
-        given("the parser receives loadout add without --to") {
-            action("loadout add is run without --to") {
-                val execution by memoizedAction("add", firstFragmentPath)
+class LinkE2eSpec : E2eBehaviorSuite({
+    context("loadout link spec") {
+        given("the parser receives loadout link without --to") {
+            action("loadout link is run without --to") {
+                val execution by memoizedAction("link", firstFragmentPath)
 
                 then("it exits with result 1") {
                     execution.result.shouldHaveExitCode(1)
@@ -40,9 +40,9 @@ class AddE2eSpec : E2eBehaviorSuite({
         }
 
         given("the loadout named by --to is invalid") {
-            action("loadout add is run") {
+            action("loadout link is run") {
                 val execution by memoizedAction(
-                    "add",
+                    "link",
                     firstFragmentPath,
                     "--to",
                     "missing",
@@ -62,9 +62,9 @@ class AddE2eSpec : E2eBehaviorSuite({
         }
 
         given("the loadout named by --to is empty") {
-            action("loadout add is run with empty name") {
+            action("loadout link is run with empty name") {
                 val execution by memoizedAction(
-                    "add",
+                    "link",
                     firstFragmentPath,
                     "--to",
                     "",
@@ -84,9 +84,9 @@ class AddE2eSpec : E2eBehaviorSuite({
         }
 
         given("the fragment is not a markdown file") {
-            action("loadout add is run with an invalid file extension") {
+            action("loadout link is run with an invalid file extension") {
                 val execution by memoizedAction(
-                    "add",
+                    "link",
                     "fragments/script.sh",
                     "--to",
                     "target",
@@ -112,9 +112,9 @@ class AddE2eSpec : E2eBehaviorSuite({
             }
 
             given("the specified fragment path does not exist") {
-                action("loadout add is run") {
+                action("loadout link is run") {
                     val execution by memoizedAction(
-                        "add",
+                        "link",
                         secondFragmentPath,
                         "--to",
                         "target",
@@ -136,9 +136,9 @@ class AddE2eSpec : E2eBehaviorSuite({
             }
 
             given("the fragment is not already in the target loadout") {
-                action("loadout add is run without --after") {
+                action("loadout link is run without --after") {
                     val execution by memoizedAction(
-                        "add",
+                        "link",
                         thirdFragmentPath,
                         "--to",
                         "target",
@@ -176,9 +176,9 @@ class AddE2eSpec : E2eBehaviorSuite({
                     }
                 }
 
-                action("loadout add is run with --after referencing an existing fragment") {
+                action("loadout link is run with --after referencing an existing fragment") {
                     val execution by memoizedAction(
-                        "add",
+                        "link",
                         thirdFragmentPath,
                         "--to",
                         "target",
@@ -221,9 +221,9 @@ class AddE2eSpec : E2eBehaviorSuite({
                     }
                 }
 
-                action("loadout add is run with --after referencing a fragment that is not in the target loadout") {
+                action("loadout link is run with --after referencing a fragment that is not in the target loadout") {
                     val execution by memoizedAction(
-                        "add",
+                        "link",
                         thirdFragmentPath,
                         "--to",
                         "target",
@@ -247,9 +247,9 @@ class AddE2eSpec : E2eBehaviorSuite({
                     }
                 }
 
-                action("loadout add is run with differently formatted paths but same semantic location") {
+                action("loadout link is run with differently formatted paths but same semantic location") {
                     val execution by memoizedAction(
-                        "add",
+                        "link",
                         "./$thirdFragmentPath", // Normalized internally -> thirdFragmentPath
                         "--to",
                         "target",
@@ -276,9 +276,9 @@ class AddE2eSpec : E2eBehaviorSuite({
             }
 
             given("the fragment is already in the target loadout") {
-                action("loadout add is run") {
+                action("loadout link is run") {
                     val execution by memoizedAction(
-                        "add",
+                        "link",
                         firstFragmentPath,
                         "--to",
                         "target",
@@ -298,9 +298,9 @@ class AddE2eSpec : E2eBehaviorSuite({
                     }
                 }
 
-                action("loadout add is run against a legacy stored path with a ./ prefix") {
+                action("loadout link is run against a legacy stored path with a ./ prefix") {
                     val execution by memoizedAction(
-                        "add",
+                        "link",
                         firstFragmentPath,
                         "--to",
                         "target",
@@ -326,9 +326,9 @@ class AddE2eSpec : E2eBehaviorSuite({
         }
 
         given("the loadout named by --to is the current loadout") {
-            action("loadout add is run") {
+            action("loadout link is run") {
                 val execution by memoizedAction(
-                    "add",
+                    "link",
                     secondFragmentPath,
                     "--to",
                     "alpha",

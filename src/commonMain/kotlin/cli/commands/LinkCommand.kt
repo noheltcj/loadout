@@ -13,19 +13,19 @@ import domain.entity.packaging.Result
 import domain.repository.FileRepository
 import domain.service.LoadoutService
 
-class AddCommand(
+class LinkCommand(
     private val loadoutService: LoadoutService,
     private val fileRepository: FileRepository,
 ) : CliktCommand(
-        name = "add",
+        name = "link",
     ) {
-    override fun help(context: Context): String = "Add a fragment to a loadout"
+    override fun help(context: Context): String = "Link a fragment into a loadout"
 
-    private val fragmentPath by argument(help = "Path to the fragment to add")
+    private val fragmentPath by argument(help = "Path to the fragment to link")
 
     private val loadoutName by option("--to")
         .required()
-        .help("Name of the loadout to add the fragment to")
+        .help("Name of the loadout to link the fragment into")
 
     private val afterFragment by option("--after")
         .help("Insert the fragment after this existing fragment")
@@ -47,7 +47,7 @@ class AddCommand(
             is Result.Success -> {
                 val updatedLoadout = result.value
                 val normalizedInput = fragmentPath.removePrefix("./")
-                echo("Added fragment '$normalizedInput' to loadout '$loadoutName'")
+                echo("Linked fragment '$normalizedInput' to loadout '$loadoutName'")
                 echo("Loadout now has ${updatedLoadout.fragments.size} fragments:")
                 updatedLoadout.fragments.forEachIndexed { index, fragment ->
                     val marker = if (fragment == normalizedInput) " ← NEW" else ""

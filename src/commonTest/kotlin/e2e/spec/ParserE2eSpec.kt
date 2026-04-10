@@ -28,6 +28,21 @@ class ParserE2eSpec : E2eBehaviorSuite({
             }
         }
 
+        given("the parser receives the removed legacy add subcommand") {
+            action("loadout add is run") {
+                val execution by memoizedAction("add", "fragments/alpha.md", "--to", "alpha")
+
+                then("it exits with result 1") {
+                    execution.result.shouldHaveExitCode(1)
+                }
+
+                then("it reports that the legacy add invocation is unsupported and points callers toward link") {
+                    execution.result.shouldContainInOutput("no such option --to")
+                    execution.result.shouldContainInOutput("link")
+                }
+            }
+        }
+
         given("the parser receives a command without a required argument") {
             action("loadout is run without that required argument") {
                 val execution by memoizedAction("use")
