@@ -12,7 +12,7 @@ import domain.service.LoadoutService
 import domain.usecase.CheckLoadoutSyncUseCase
 import domain.usecase.WriteComposedFilesUseCase
 
-fun withApplicationScope(scopedBlock: ApplicationScope.() -> Unit) {
+fun <T> withApplicationScope(scopedBlock: ApplicationScope.() -> T): T {
     val fileRepository = provideFileRepository()
     val environmentRepository = provideEnvironmentRepository()
     val serializer = JsonSerializer()
@@ -57,7 +57,7 @@ fun withApplicationScope(scopedBlock: ApplicationScope.() -> Unit) {
             writeComposedFiles = writeComposedFiles
         )
 
-    scopedBlock(
+    return scopedBlock(
         ApplicationScope(
             fileRepository = fileRepository,
             environmentRepository = environmentRepository,

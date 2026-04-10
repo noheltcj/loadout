@@ -2,20 +2,25 @@ package cli.commands
 
 import cli.echoError
 import com.github.ajalt.clikt.core.CliktCommand
+import com.github.ajalt.clikt.core.Context
 import com.github.ajalt.clikt.core.ProgramResult
 import com.github.ajalt.clikt.parameters.arguments.argument
 import com.github.ajalt.clikt.parameters.options.help
 import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.options.required
+import domain.entity.error.LoadoutError
 import domain.entity.packaging.Result
+import domain.repository.FileRepository
 import domain.service.LoadoutService
 
 class AddCommand(
     private val loadoutService: LoadoutService,
+    private val fileRepository: FileRepository,
 ) : CliktCommand(
         name = "add",
-        help = "Add a fragment to a loadout",
     ) {
+    override fun help(context: Context): String = "Add a fragment to a loadout"
+
     private val fragmentPath by argument(help = "Path to the fragment to add")
 
     private val loadoutName by option("--to")
@@ -26,6 +31,11 @@ class AddCommand(
         .help("Insert the fragment after this existing fragment")
 
     override fun run() {
+        if (!fileRepository.fileExists(fragmentPath)) {
+            echoError(LoadoutError.FragmentNotFound(fragmentPath))
+            throw ProgramResult(1)
+        }
+
         when (
             val result =
                 loadoutService.addFragmentToLoadout(

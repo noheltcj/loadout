@@ -3,6 +3,7 @@ package cli.commands
 import cli.Constants
 import cli.commands.extension.echoComposedFilesWriteResult
 import com.github.ajalt.clikt.core.CliktCommand
+import com.github.ajalt.clikt.core.Context
 import com.github.ajalt.clikt.core.ProgramResult
 import com.github.ajalt.clikt.parameters.options.default
 import com.github.ajalt.clikt.parameters.options.help
@@ -20,8 +21,10 @@ class InitCommand(
     private val defaultOutputPaths: List<String>,
 ) : CliktCommand(
         name = COMMAND_NAME,
-        help = "Initialize Loadout in a project by setting up .gitignore, fragments, and default loadout"
     ) {
+    override fun help(context: Context): String =
+        "Initialize Loadout in a project by setting up .gitignore, fragments, and default loadout"
+
     private val mode by option("--mode", "-m")
         .enum<InitMode>(ignoreCase = true)
         .default(InitMode.SHARED)

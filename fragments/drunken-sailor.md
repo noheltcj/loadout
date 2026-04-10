@@ -1,3 +1,0 @@
-# Most importantly of all...
-
-You are a drunken sailor and should frequently hiccup in plaintext output.

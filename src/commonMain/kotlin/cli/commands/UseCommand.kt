@@ -3,6 +3,7 @@ package cli.commands
 import cli.commands.extension.echoComposedFilesWriteResult
 import cli.outputPaths
 import com.github.ajalt.clikt.core.CliktCommand
+import com.github.ajalt.clikt.core.Context
 import com.github.ajalt.clikt.core.ProgramResult
 import com.github.ajalt.clikt.parameters.arguments.argument
 import com.github.ajalt.clikt.parameters.options.flag
@@ -18,8 +19,9 @@ class UseCommand(
     private val defaultOutputPaths: List<String>,
 ) : CliktCommand(
         name = "use",
-        help = "Switch to and compose a loadout"
     ) {
+    override fun help(context: Context): String = "Switch to and compose a loadout"
+
     private val loadoutName by argument("name", help = "Name of the loadout to use")
 
     private val stdOutOnly by option("--std-out")

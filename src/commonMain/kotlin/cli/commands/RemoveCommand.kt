@@ -2,6 +2,7 @@ package cli.commands
 
 import cli.echoError
 import com.github.ajalt.clikt.core.CliktCommand
+import com.github.ajalt.clikt.core.Context
 import com.github.ajalt.clikt.core.ProgramResult
 import com.github.ajalt.clikt.parameters.arguments.argument
 import com.github.ajalt.clikt.parameters.options.help
@@ -14,8 +15,9 @@ class RemoveCommand(
     private val loadoutService: LoadoutService,
 ) : CliktCommand(
         name = "remove",
-        help = "Remove a fragment from a loadout"
     ) {
+    override fun help(context: Context): String = "Remove a fragment from a loadout"
+
     private val fragmentPath by argument(help = "Path to the fragment to remove")
 
     // TODO: Make this optional and default to the current loadout

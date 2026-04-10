@@ -1,6 +1,7 @@
 package cli.commands
 
 import com.github.ajalt.clikt.core.CliktCommand
+import com.github.ajalt.clikt.core.Context
 import com.github.ajalt.clikt.core.ProgramResult
 import com.github.ajalt.clikt.parameters.arguments.argument
 import com.github.ajalt.clikt.parameters.options.help
@@ -13,8 +14,9 @@ class CreateCommand(
     private val loadoutService: LoadoutService,
 ) : CliktCommand(
         name = "create",
-        help = "Create a new loadout",
     ) {
+    override fun help(context: Context): String = "Create a new loadout"
+
     private val name by argument(help = "Name of the loadout to create")
 
     private val description by option("--desc", "--description")

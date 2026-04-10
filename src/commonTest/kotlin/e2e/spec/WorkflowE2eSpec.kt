@@ -1,0 +1,214 @@
+@file:OptIn(io.kotest.common.ExperimentalKotest::class)
+
+package e2e.spec
+
+import e2e.support.E2eBehaviorSuite
+import e2e.support.ScenarioSeed
+import e2e.support.action
+import e2e.support.firstFragmentContent
+import e2e.support.firstFragmentPath
+import e2e.support.givenCurrentLoadoutFragmentsHaveChangedSinceLastComposition
+import e2e.support.givenCurrentLoadoutIsSet
+import e2e.support.givenRepoInitializedInSharedMode
+import e2e.support.givenSourceLoadoutExists
+import e2e.support.givenTwoValidLoadoutsExist
+import e2e.support.secondFragmentContent
+import e2e.support.secondFragmentPath
+import e2e.support.shouldHaveCurrentLoadoutName
+import e2e.support.shouldHaveGeneratedBody
+import e2e.support.shouldHaveGeneratedFiles
+import e2e.support.shouldHaveLoadoutFragments
+import e2e.support.shouldHaveStaleWarning
+import e2e.support.shouldNotHaveStaleWarning
+import e2e.support.thirdFragmentContent
+import e2e.support.thirdFragmentPath
+import io.kotest.matchers.collections.shouldContain
+
+class WorkflowE2eSpec : E2eBehaviorSuite({
+    context("workflow spec") {
+        given("the workspace has already been initialized in shared mode") {
+            val initializedSharedRepo: ScenarioSeed = {
+                givenRepoInitializedInSharedMode()
+            }
+
+            then("it starts with the default loadout created and active") {
+                val scenario by memoizedScenario(seed = initializedSharedRepo)
+                scenario.shouldHaveCurrentLoadoutName("default")
+            }
+
+            action("loadout create is run for the first project-specific loadout with one or more fragments") {
+                val execution by memoizedAction(
+                    "create",
+                    "project",
+                    "--fragment",
+                    secondFragmentPath,
+                    seed = {
+                        givenRepoInitializedInSharedMode()
+                        seedFragment(secondFragmentPath, secondFragmentContent)
+                    }
+                )
+
+                then("it creates the requested loadout definition") {
+                    execution.scenario.shouldHaveLoadoutFragments("project", listOf(secondFragmentPath))
+                }
+            }
+
+            given("that new loadout has been created") {
+                val projectLoadoutExists: ScenarioSeed = {
+                    givenRepoInitializedInSharedMode()
+                    seedFragment(secondFragmentPath, secondFragmentContent)
+                    runCommand("create", "project", "--fragment", secondFragmentPath)
+                }
+
+                action("loadout use is run for that new loadout") {
+                    val execution by memoizedAction("use", "project", seed = projectLoadoutExists)
+
+                    then("it switches the workspace to the new loadout cleanly") {
+                        execution.scenario.shouldHaveCurrentLoadoutName("project")
+                    }
+
+                    then("it writes composed files for that new loadout") {
+                        execution.scenario.shouldHaveGeneratedBody(secondFragmentContent)
+                    }
+                }
+            }
+        }
+
+        given("two valid loadouts exist and one loadout is currently active") {
+            val activeAlphaWithOtherLoadout: ScenarioSeed = {
+                givenTwoValidLoadoutsExist()
+                givenCurrentLoadoutIsSet(
+                    name = "alpha",
+                    description = "Alpha loadout",
+                    fragments = listOf(firstFragmentPath to firstFragmentContent)
+                )
+            }
+
+            action("loadout use is run for the other loadout") {
+                val execution by memoizedAction("use", "beta", seed = activeAlphaWithOtherLoadout)
+
+                then("it rewrites the generated files for the new loadout") {
+                    execution.scenario.shouldHaveGeneratedBody(secondFragmentContent)
+                }
+
+                then("it records the new current loadout") {
+                    execution.scenario.shouldHaveCurrentLoadoutName("beta")
+                }
+            }
+        }
+
+        given("a new fragment has been added to the current loadout") {
+            val addedFragmentToCurrentLoadout: ScenarioSeed = {
+                givenCurrentLoadoutIsSet(name = "alpha")
+                seedFragment(secondFragmentPath, secondFragmentContent)
+                runCommand("add", secondFragmentPath, "--to", "alpha")
+            }
+
+            then("it updates the loadout definition") {
+                val scenario by memoizedScenario(seed = addedFragmentToCurrentLoadout)
+                scenario.shouldHaveLoadoutFragments("alpha", listOf(firstFragmentPath, secondFragmentPath))
+            }
+
+            action("loadout sync is run after that new fragment has been added") {
+                val execution by memoizedAction("sync", seed = addedFragmentToCurrentLoadout)
+
+                then("it rewrites the generated files with the added fragment content") {
+                    execution.scenario.shouldHaveGeneratedBody("$firstFragmentContent\n\n$secondFragmentContent")
+                }
+
+                then("it clears the synchronization warning on the next command") {
+                    execution.scenario.runCommand("list").shouldNotHaveStaleWarning()
+                }
+            }
+        }
+
+        given("the current loadout fragments have changed since the last composition") {
+            action("a read-only command such as loadout list is run") {
+                val execution by memoizedAction(
+                    "list",
+                    seed = {
+                        givenCurrentLoadoutFragmentsHaveChangedSinceLastComposition(name = "alpha")
+                    }
+                )
+
+                then("it warns that the current loadout is not synchronized") {
+                    execution.result.shouldHaveStaleWarning()
+                }
+            }
+
+            action("loadout sync is run") {
+                val execution by memoizedAction(
+                    "sync",
+                    seed = {
+                        givenCurrentLoadoutFragmentsHaveChangedSinceLastComposition(name = "alpha")
+                    }
+                )
+
+                then("it clears the warning on the next command") {
+                    execution.scenario.runCommand("list").shouldNotHaveStaleWarning()
+                }
+            }
+        }
+
+        given("the source loadout exists") {
+            action("loadout create is run with --clone and extra fragments") {
+                val execution by memoizedAction(
+                    "create",
+                    "clone",
+                    "--clone",
+                    "source",
+                    "--fragment",
+                    secondFragmentPath,
+                    seed = {
+                        givenSourceLoadoutExists()
+                        seedFragment(secondFragmentPath, secondFragmentContent)
+                    }
+                )
+
+                then("it preserves the source fragments") {
+                    execution.scenario
+                        .readLoadout("clone")
+                        ?.fragments
+                        .orEmpty()
+                        .shouldContain(firstFragmentPath)
+                }
+
+                then("it appends the extra fragments") {
+                    execution.scenario.shouldHaveLoadoutFragments(
+                        "clone",
+                        listOf(firstFragmentPath, secondFragmentPath)
+                    )
+                }
+            }
+
+            given("the cloned loadout has been created with those extra fragments") {
+                val customizedCloneExists: ScenarioSeed = {
+                    givenSourceLoadoutExists()
+                    seedFragment(secondFragmentPath, secondFragmentContent)
+                    seedFragment(thirdFragmentPath, thirdFragmentContent)
+                    runCommand(
+                        "create",
+                        "clone",
+                        "--clone",
+                        "source",
+                        "--fragment",
+                        secondFragmentPath,
+                        "--fragment",
+                        thirdFragmentPath
+                    )
+                }
+
+                action("loadout use is run for the cloned loadout") {
+                    val execution by memoizedAction("use", "clone", seed = customizedCloneExists)
+
+                    then("it generates output from the customized clone") {
+                        execution.scenario.shouldHaveGeneratedFiles()
+                        execution.scenario.shouldHaveGeneratedBody(
+                            "$firstFragmentContent\n\n$secondFragmentContent\n\n$thirdFragmentContent"
+                        )
+                    }
+                }
+            }
+        }
+    }
+})
