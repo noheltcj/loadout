@@ -15,11 +15,11 @@ import e2e.support.givenTwoValidLoadoutsExist
 import e2e.support.secondFragmentContent
 import e2e.support.secondFragmentPath
 import e2e.support.shouldHaveCurrentLoadoutName
+import e2e.support.shouldHaveExitCode
 import e2e.support.shouldHaveGeneratedBody
 import e2e.support.shouldHaveGeneratedFiles
 import e2e.support.shouldHaveLoadoutFragments
 import e2e.support.shouldHaveStaleWarning
-import e2e.support.shouldHaveExitCode
 import e2e.support.shouldNotHaveStaleWarning
 import e2e.support.thirdFragmentContent
 import e2e.support.thirdFragmentPath

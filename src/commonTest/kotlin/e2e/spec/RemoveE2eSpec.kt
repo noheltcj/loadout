@@ -49,6 +49,20 @@ class RemoveE2eSpec : E2eBehaviorSuite({
             }
         }
 
+        given("the loadout named by --from is empty") {
+            action("loadout remove is run with an empty name") {
+                val execution by memoizedAction("remove", firstFragmentPath, "--from", "")
+
+                then("it outputs the validation error") {
+                    execution.result.shouldContainInOutput("Validation error")
+                }
+
+                then("it exits with result 1") {
+                    execution.result.shouldHaveExitCode(1)
+                }
+            }
+        }
+
         given("the loadout named by --from is valid and not currently active") {
             val validInactiveTarget: ScenarioSeed = {
                 givenValidLoadout(
@@ -87,6 +101,49 @@ class RemoveE2eSpec : E2eBehaviorSuite({
 
                     then("it does not change the current loadout") {
                         execution.scenario.shouldHaveCurrentLoadoutName("current")
+                    }
+                }
+
+                action("loadout remove is run with a ./ prefixed path matching a stored fragment") {
+                    val execution by memoizedAction(
+                        "remove",
+                        "./$firstFragmentPath",
+                        "--from",
+                        "target",
+                        seed = validInactiveTarget
+                    )
+
+                    then("it removes the fragment using the normalized path") {
+                        execution.scenario.shouldHaveLoadoutFragments("target", listOf(secondFragmentPath))
+                    }
+
+                    then("it exits with result 0") {
+                        execution.result.shouldHaveExitCode(0)
+                    }
+                }
+
+                action("loadout remove is run against a legacy stored path with a ./ prefix") {
+                    val execution by memoizedAction(
+                        "remove",
+                        firstFragmentPath,
+                        "--from",
+                        "target",
+                        seed = {
+                            seedFragment(firstFragmentPath, firstFragmentContent)
+                            seedFragment(secondFragmentPath, secondFragmentContent)
+                            seedLoadout(
+                                name = "target",
+                                fragments = listOf("./$firstFragmentPath", secondFragmentPath)
+                            )
+                        }
+                    )
+
+                    then("it removes the fragment even when the stored path uses the legacy prefix") {
+                        execution.scenario.shouldHaveLoadoutFragments("target", listOf(secondFragmentPath))
+                    }
+
+                    then("it exits with result 0") {
+                        execution.result.shouldHaveExitCode(0)
                     }
                 }
 

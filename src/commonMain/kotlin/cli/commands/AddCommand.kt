@@ -46,11 +46,12 @@ class AddCommand(
         ) {
             is Result.Success -> {
                 val updatedLoadout = result.value
-                echo("Added fragment '$fragmentPath' to loadout '$loadoutName'")
+                val normalizedInput = fragmentPath.removePrefix("./")
+                echo("Added fragment '$normalizedInput' to loadout '$loadoutName'")
                 echo("Loadout now has ${updatedLoadout.fragments.size} fragments:")
                 updatedLoadout.fragments.forEachIndexed { index, fragment ->
-                    val marker = if (fragment == fragmentPath) "← NEW" else ""
-                    echo("  ${index + 1}. $fragment $marker")
+                    val marker = if (fragment == normalizedInput) " ← NEW" else ""
+                    echo("  ${index + 1}. $fragment$marker")
                 }
             }
             is Result.Error -> {

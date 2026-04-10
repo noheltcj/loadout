@@ -11,10 +11,10 @@ import e2e.support.givenCurrentLoadoutFragmentsHaveChangedSinceLastComposition
 import e2e.support.givenTwoValidLoadoutsExist
 import e2e.support.shouldContainInStdout
 import e2e.support.shouldHaveExitCode
-import io.kotest.matchers.string.shouldContain
-import io.kotest.matchers.string.shouldNotContain
 import e2e.support.shouldHaveStaleWarning
 import e2e.support.shouldNotHaveStaleWarning
+import io.kotest.matchers.string.shouldContain
+import io.kotest.matchers.string.shouldNotContain
 
 class ListE2eSpec : E2eBehaviorSuite({
     context("loadout list spec") {

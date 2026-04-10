@@ -43,6 +43,20 @@ class SyncE2eSpec : E2eBehaviorSuite({
             }
         }
 
+        given("sync is run with conflicting flags") {
+            action("loadout sync is run with --std-out and --output") {
+                val execution by memoizedAction("sync", "--std-out", "--output", "dir")
+
+                then("it outputs a mutually exclusive flags error") {
+                    execution.result.shouldContainInOutput("Cannot specify both --std-out and --output")
+                }
+
+                then("it exits with result 1") {
+                    execution.result.shouldHaveExitCode(1)
+                }
+            }
+        }
+
         given("the config points at a deleted loadout") {
             action("loadout sync is run") {
                 val execution by memoizedAction(
@@ -273,13 +287,18 @@ class SyncE2eSpec : E2eBehaviorSuite({
                     val previousHash =
                         execution.scenario.readWorkspaceFile("scratch/before-hash.txt")?.takeUnless { it == "<null>" }
                     execution.scenario.readConfig()?.compositionHash shouldNotBe previousHash
+                }
+
+                then("it records the current loadout name") {
                     execution.scenario.shouldHaveCurrentLoadoutName("alpha")
                 }
 
+                then("the next command exits with result 0") {
+                    execution.scenario.runCommand("list").shouldHaveExitCode(0)
+                }
+
                 then("it clears the synchronization warning on the next command") {
-                    val listResult = execution.scenario.runCommand("list")
-                    listResult.shouldHaveExitCode(0)
-                    listResult.shouldNotHaveStaleWarning()
+                    execution.scenario.runCommand("list").shouldNotHaveStaleWarning()
                 }
             }
         }
