@@ -27,7 +27,8 @@ fun createLoadoutCommand(applicationScope: ApplicationScope): CliktCommand =
             loadoutService = applicationScope.loadoutService
         ),
         CreateCommand(
-            loadoutService = applicationScope.loadoutService
+            loadoutService = applicationScope.loadoutService,
+            fileRepository = applicationScope.fileRepository
         ),
         UseCommand(
             loadoutService = applicationScope.loadoutService,
