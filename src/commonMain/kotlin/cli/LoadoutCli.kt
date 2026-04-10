@@ -85,11 +85,11 @@ class LoadoutCli(
                     is LoadoutError.FragmentNotFound -> echoError(syncResult.error, verbose)
                     is LoadoutError.FragmentNotInLoadout -> echoError(syncResult.error, verbose)
                     is LoadoutError.FragmentAlreadyInLoadout -> echoError(syncResult.error, verbose)
+                    is LoadoutError.LoadoutNotFound -> return
                     is LoadoutError.ConfigurationError,
                     is LoadoutError.FileSystemError,
                     is LoadoutError.InvalidFragment,
                     is LoadoutError.LoadoutAlreadyExists,
-                    is LoadoutError.LoadoutNotFound,
                     is LoadoutError.SerializationError,
                     is LoadoutError.ValidationError,
                     -> {
