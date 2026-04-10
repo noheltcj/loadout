@@ -23,7 +23,7 @@ class CheckLoadoutSyncUseCase(
                             .findByName(config.currentLoadoutName)
                             .flatMap { loadout ->
                                 when (loadout) {
-                                    null -> Result.Success(false)
+                                    null -> Result.Error(LoadoutError.LoadoutNotFound(config.currentLoadoutName))
                                     else ->
                                         compositionService(loadout)
                                             .map { composedOutput ->
