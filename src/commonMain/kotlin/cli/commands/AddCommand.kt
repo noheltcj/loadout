@@ -31,8 +31,9 @@ class AddCommand(
     }
 
     private fun redirectHelp(): String {
-        val help = LinkCommand(loadoutService, fileRepository).getFormattedHelp()
-            ?: "Usage: loadout link <fragment-path> --to <loadout> [--after <fragment>]"
+        val help =
+            LinkCommand(loadoutService, fileRepository).getFormattedHelp()
+                ?: "Usage: loadout link <fragment-path> --to <loadout> [--after <fragment>]"
 
         val usagePrefix = "Usage: link"
         return if (help.startsWith(usagePrefix)) {
