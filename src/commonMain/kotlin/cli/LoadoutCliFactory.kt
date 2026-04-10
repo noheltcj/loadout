@@ -40,7 +40,8 @@ fun createLoadoutCommand(applicationScope: ApplicationScope): CliktCommand =
             defaultOutputPaths = applicationScope.defaultOutputPaths
         ),
         AddCommand(
-            loadoutService = applicationScope.loadoutService
+            loadoutService = applicationScope.loadoutService,
+            fileRepository = applicationScope.fileRepository
         ),
         RemoveCommand(
             loadoutService = applicationScope.loadoutService
