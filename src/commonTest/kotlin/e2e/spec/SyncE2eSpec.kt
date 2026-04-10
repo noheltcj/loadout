@@ -198,6 +198,10 @@ class SyncE2eSpec : E2eBehaviorSuite({
                     execution.scenario.readConfig()?.compositionHash shouldNotBe previousHash
                 }
 
+                then("the next command exits with result 0") {
+                    execution.scenario.runCommand("list").shouldHaveExitCode(0)
+                }
+
                 then("it clears the synchronization warning on the next command") {
                     execution.scenario.runCommand("list").shouldNotHaveStaleWarning()
                 }
@@ -228,6 +232,10 @@ class SyncE2eSpec : E2eBehaviorSuite({
                     val previousHash =
                         execution.scenario.readWorkspaceFile("scratch/before-hash.txt")?.takeUnless { it == "<null>" }
                     execution.scenario.shouldHaveUnchangedCompositionHash(previousHash)
+                }
+
+                then("the next command exits with result 0") {
+                    execution.scenario.runCommand("list").shouldHaveExitCode(0)
                 }
 
                 then("it leaves the synchronization warning in place on the next command") {
@@ -269,7 +277,9 @@ class SyncE2eSpec : E2eBehaviorSuite({
                 }
 
                 then("it clears the synchronization warning on the next command") {
-                    execution.scenario.runCommand("list").shouldNotHaveStaleWarning()
+                    val listResult = execution.scenario.runCommand("list")
+                    listResult.shouldHaveExitCode(0)
+                    listResult.shouldNotHaveStaleWarning()
                 }
             }
         }

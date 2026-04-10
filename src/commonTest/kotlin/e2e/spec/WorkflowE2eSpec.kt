@@ -19,6 +19,7 @@ import e2e.support.shouldHaveGeneratedBody
 import e2e.support.shouldHaveGeneratedFiles
 import e2e.support.shouldHaveLoadoutFragments
 import e2e.support.shouldHaveStaleWarning
+import e2e.support.shouldHaveExitCode
 import e2e.support.shouldNotHaveStaleWarning
 import e2e.support.thirdFragmentContent
 import e2e.support.thirdFragmentPath
@@ -116,6 +117,10 @@ class WorkflowE2eSpec : E2eBehaviorSuite({
                     execution.scenario.shouldHaveGeneratedBody("$firstFragmentContent\n\n$secondFragmentContent")
                 }
 
+                then("the next command exits with result 0") {
+                    execution.scenario.runCommand("list").shouldHaveExitCode(0)
+                }
+
                 then("it clears the synchronization warning on the next command") {
                     execution.scenario.runCommand("list").shouldNotHaveStaleWarning()
                 }
@@ -143,6 +148,10 @@ class WorkflowE2eSpec : E2eBehaviorSuite({
                         givenCurrentLoadoutFragmentsHaveChangedSinceLastComposition(name = "alpha")
                     }
                 )
+
+                then("the next command exits with result 0") {
+                    execution.scenario.runCommand("list").shouldHaveExitCode(0)
+                }
 
                 then("it clears the warning on the next command") {
                     execution.scenario.runCommand("list").shouldNotHaveStaleWarning()

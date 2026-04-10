@@ -11,9 +11,10 @@ import e2e.support.givenCurrentLoadoutFragmentsHaveChangedSinceLastComposition
 import e2e.support.givenTwoValidLoadoutsExist
 import e2e.support.shouldContainInStdout
 import e2e.support.shouldHaveExitCode
-import e2e.support.shouldHaveStaleWarning
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldNotContain
+import e2e.support.shouldHaveStaleWarning
+import e2e.support.shouldNotHaveStaleWarning
 
 class ListE2eSpec : E2eBehaviorSuite({
     context("loadout list spec") {
@@ -86,10 +87,12 @@ class ListE2eSpec : E2eBehaviorSuite({
                     }
                 )
 
+                then("it exits with result 0") {
+                    execution.result.shouldHaveExitCode(0)
+                }
+
                 then("it does not emit a misleading synchronization warning for a loadout that no longer exists") {
-                    execution.result.stderr.shouldNotContain(
-                        "Warning: Current loadout fragments have changed since the last composition."
-                    )
+                    execution.result.shouldNotHaveStaleWarning()
                 }
             }
         }
