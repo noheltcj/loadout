@@ -26,7 +26,9 @@ class WriteComposedFilesUseCase(
             val currentHash = composedOutput.metadata.contentHash
             val storedHash = config.compositionHash
 
-            if (currentHash == storedHash) {
+            val allFilesExist = outputPaths.all { fileRepository.fileExists(it) }
+
+            if (currentHash == storedHash && allFilesExist) {
                 Result.Success(WriteComposedFilesResult.AlreadyUpToDate)
             } else {
                 writeToAllPaths(composedOutput, outputPaths)
