@@ -6,8 +6,9 @@ import domain.entity.WriteComposedFilesResult
 
 fun CliktCommand.echoFilesGenerated(composedContentLength: Int) {
     echo("Generated files ($composedContentLength characters):")
-    echo("  • ${Constants.CLAUDE_MD}")
-    echo("  • ${Constants.AGENTS_MD}")
+    Constants.generatedMarkdownFiles.forEach { fileName ->
+        echo("  • $fileName")
+    }
 }
 
 fun CliktCommand.echoComposedFilesWriteResult(

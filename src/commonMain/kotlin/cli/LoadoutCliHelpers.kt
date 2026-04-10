@@ -10,10 +10,7 @@ import domain.entity.error.LoadoutError
  * @return List of full paths to output files
  */
 fun outputPaths(outputDir: String = Constants.DEFAULT_OUTPUT_DIR): List<String> =
-    listOf(
-        "$outputDir/${Constants.CLAUDE_MD}",
-        "$outputDir/${Constants.AGENTS_MD}"
-    )
+    Constants.generatedMarkdownFiles.map { fileName -> "$outputDir/$fileName" }
 
 fun CliktCommand.echoError(
     error: LoadoutError,

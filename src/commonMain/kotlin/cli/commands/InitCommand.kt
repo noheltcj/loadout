@@ -207,7 +207,7 @@ class InitCommand(
             |
             |### Fragment Guidelines
             |
-            |Fragments are modular markdown files that compose into the final CLAUDE.md/AGENTS.md:
+            |Fragments are modular markdown files that compose into the final CLAUDE.md, AGENTS.md, and GEMINI.md:
             |- Keep fragments focused on a single concern (coding style, project structure, etc.)
             |- Use clear, concise language that AI agents can follow
             |- Store project-specific fragments in `fragments/`
@@ -240,26 +240,20 @@ enum class InitMode(
         get() =
             when (this) {
                 SHARED ->
-                    listOf(
-                        GITIGNORE_HEADER,
-                        Constants.CONFIG_FILE,
-                        Constants.CLAUDE_MD,
-                        Constants.AGENTS_MD,
-                    )
+                    listOf(GITIGNORE_HEADER, Constants.CONFIG_FILE) + Constants.generatedMarkdownFiles
                 LOCAL ->
-                    listOf(
-                        GITIGNORE_HEADER,
-                        Constants.CONFIG_FILE,
-                        Constants.CLAUDE_MD,
-                        Constants.AGENTS_MD,
-                        "",
-                        "# Loadout configuration (local-only)",
-                        "${Constants.LOADOUTS_DIR}/",
-                        "${Constants.FRAGMENTS_DIR}/",
-                    )
+                    listOf(GITIGNORE_HEADER, Constants.CONFIG_FILE) +
+                        Constants.generatedMarkdownFiles +
+                        listOf(
+                            "",
+                            LOCAL_ONLY_GITIGNORE_HEADER,
+                            "${Constants.LOADOUTS_DIR}/",
+                            "${Constants.FRAGMENTS_DIR}/",
+                        )
             }
 
     companion object {
         private const val GITIGNORE_HEADER = "# Loadout CLI"
+        private const val LOCAL_ONLY_GITIGNORE_HEADER = "# Loadout configuration (local-only)"
     }
 }

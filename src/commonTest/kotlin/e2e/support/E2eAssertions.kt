@@ -9,6 +9,19 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldNotContain
 
+private const val GITIGNORE_PATH = ".gitignore"
+private const val LOADOUT_GITIGNORE_HEADER = "# Loadout CLI"
+private const val LOCAL_ONLY_GITIGNORE_HEADER = "# Loadout configuration (local-only)"
+
+private val loadoutGitignorePatterns =
+    listOf(LOADOUT_GITIGNORE_HEADER, Constants.CONFIG_FILE) + Constants.generatedMarkdownFiles
+private val localOnlyGitignorePatterns =
+    listOf(
+        LOCAL_ONLY_GITIGNORE_HEADER,
+        "${Constants.LOADOUTS_DIR}/",
+        "${Constants.FRAGMENTS_DIR}/",
+    )
+
 fun CommandResult.shouldHaveExitCode(expected: Int) {
     exitCode shouldBe expected
 }
@@ -45,29 +58,29 @@ fun CommandResult.shouldNotHaveStaleWarning() {
 }
 
 fun E2eScenario.shouldHaveGitignoreEntries(vararg snippets: String) {
-    val gitignore = readWorkspaceFile(".gitignore").shouldNotBeNull()
+    val gitignore = readWorkspaceFile(GITIGNORE_PATH).shouldNotBeNull()
     snippets.forEach { snippet ->
         gitignore.shouldContain(snippet)
     }
 }
 
 fun E2eScenario.shouldNotHaveGitignoreEntries(vararg snippets: String) {
-    val gitignore = readWorkspaceFile(".gitignore").shouldNotBeNull()
+    val gitignore = readWorkspaceFile(GITIGNORE_PATH).shouldNotBeNull()
     snippets.forEach { snippet ->
         gitignore.shouldNotContain(snippet)
     }
 }
 
 fun E2eScenario.shouldContainLoadoutGitignorePatterns() {
-    shouldHaveGitignoreEntries("# Loadout CLI", ".loadout.json", "CLAUDE.md", "AGENTS.md")
+    shouldHaveGitignoreEntries(*loadoutGitignorePatterns.toTypedArray())
 }
 
 fun E2eScenario.shouldContainLocalOnlyGitignorePatterns() {
-    shouldHaveGitignoreEntries("# Loadout configuration (local-only)", ".loadouts/", "fragments/")
+    shouldHaveGitignoreEntries(*localOnlyGitignorePatterns.toTypedArray())
 }
 
 fun E2eScenario.shouldNotIgnoreRepoManagedLoadoutFiles() {
-    shouldNotHaveGitignoreEntries(".loadouts/", "fragments/")
+    shouldNotHaveGitignoreEntries("${Constants.LOADOUTS_DIR}/", "${Constants.FRAGMENTS_DIR}/")
 }
 
 fun String.shouldContainExactlyOnce(snippet: String) {
@@ -75,58 +88,44 @@ fun String.shouldContainExactlyOnce(snippet: String) {
 }
 
 fun E2eScenario.shouldContainSharedModeGitignorePatternsExactlyOnce() {
-    val gitignore = readWorkspaceFile(".gitignore").shouldNotBeNull()
-    gitignore.shouldContainExactlyOnce("# Loadout CLI")
-    gitignore.shouldContainExactlyOnce(".loadout.json")
-    gitignore.shouldContainExactlyOnce("CLAUDE.md")
-    gitignore.shouldContainExactlyOnce("AGENTS.md")
+    val gitignore = readWorkspaceFile(GITIGNORE_PATH).shouldNotBeNull()
+    loadoutGitignorePatterns.forEach(gitignore::shouldContainExactlyOnce)
 }
 
 fun E2eScenario.shouldContainLocalModeGitignorePatternsExactlyOnce() {
-    val gitignore = readWorkspaceFile(".gitignore").shouldNotBeNull()
-    gitignore.shouldContainExactlyOnce("# Loadout CLI")
-    gitignore.shouldContainExactlyOnce(".loadout.json")
-    gitignore.shouldContainExactlyOnce("CLAUDE.md")
-    gitignore.shouldContainExactlyOnce("AGENTS.md")
-    gitignore.shouldContainExactlyOnce("# Loadout configuration (local-only)")
-    gitignore.shouldContainExactlyOnce(".loadouts/")
-    gitignore.shouldContainExactlyOnce("fragments/")
+    val gitignore = readWorkspaceFile(GITIGNORE_PATH).shouldNotBeNull()
+    (loadoutGitignorePatterns + localOnlyGitignorePatterns).forEach(gitignore::shouldContainExactlyOnce)
+}
+
+private fun E2eScenario.readGeneratedMarkdownFile(
+    fileName: String,
+    directory: String?,
+): String? =
+    if (directory == null) {
+        readGeneratedFile(fileName)
+    } else {
+        readGeneratedFileFromDirectory(directory, fileName)
+    }
+
+private fun E2eScenario.forEachGeneratedMarkdownFile(
+    directory: String?,
+    assertion: (String?) -> Unit,
+) {
+    Constants.generatedMarkdownFiles.forEach { fileName ->
+        assertion(readGeneratedMarkdownFile(fileName, directory))
+    }
 }
 
 fun E2eScenario.shouldHaveGeneratedFiles(directory: String? = null) {
-    val claude =
-        if (directory == null) {
-            readGeneratedFile(Constants.CLAUDE_MD)
-        } else {
-            readGeneratedFileFromDirectory(directory, Constants.CLAUDE_MD)
-        }
-    val agents =
-        if (directory == null) {
-            readGeneratedFile(Constants.AGENTS_MD)
-        } else {
-            readGeneratedFileFromDirectory(directory, Constants.AGENTS_MD)
-        }
-
-    claude.shouldNotBeNull()
-    agents.shouldNotBeNull()
+    forEachGeneratedMarkdownFile(directory) { generatedFile ->
+        generatedFile.shouldNotBeNull()
+    }
 }
 
 fun E2eScenario.shouldNotHaveGeneratedFiles(directory: String? = null) {
-    val claude =
-        if (directory == null) {
-            readGeneratedFile(Constants.CLAUDE_MD)
-        } else {
-            readGeneratedFileFromDirectory(directory, Constants.CLAUDE_MD)
-        }
-    val agents =
-        if (directory == null) {
-            readGeneratedFile(Constants.AGENTS_MD)
-        } else {
-            readGeneratedFileFromDirectory(directory, Constants.AGENTS_MD)
-        }
-
-    claude.shouldBeNull()
-    agents.shouldBeNull()
+    forEachGeneratedMarkdownFile(directory) { generatedFile ->
+        generatedFile.shouldBeNull()
+    }
 }
 
 fun E2eScenario.shouldHaveGeneratedBody(

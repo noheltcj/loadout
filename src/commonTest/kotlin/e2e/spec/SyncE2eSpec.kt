@@ -22,7 +22,6 @@ import e2e.support.shouldHaveGeneratedFiles
 import e2e.support.shouldHaveStaleWarning
 import e2e.support.shouldHaveUnchangedCompositionHash
 import e2e.support.shouldNotHaveStaleWarning
-import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.string.shouldNotContain
@@ -122,8 +121,8 @@ class SyncE2eSpec : E2eBehaviorSuite({
                     runCommand("sync")
                 }
 
-                then("it regenerates the missing file") {
-                    execution.scenario.readGeneratedFile(Constants.CLAUDE_MD).shouldNotBeNull()
+                then("it regenerates the missing file and restores the full generated set") {
+                    execution.scenario.shouldHaveGeneratedFiles()
                 }
 
                 then("it outputs that it rewrote the files") {
@@ -163,15 +162,10 @@ class SyncE2eSpec : E2eBehaviorSuite({
                     runCommand("sync", "--output", outputDirectory)
                 }
 
-                then("it writes CLAUDE.md to the requested directory") {
+                then("it writes CLAUDE.md, AGENTS.md, and GEMINI.md to the requested directory") {
                     val outputDirectory = execution.scenario.readWorkspaceFile("scratch/output-dir.txt")!!
                     execution.scenario.shouldHaveGeneratedFiles(directory = outputDirectory)
                     execution.scenario.shouldHaveGeneratedBodyInDirectory(outputDirectory, firstFragmentContent)
-                }
-
-                then("it writes AGENTS.md to the requested directory") {
-                    val outputDirectory = execution.scenario.readWorkspaceFile("scratch/output-dir.txt")!!
-                    execution.scenario.shouldHaveGeneratedFiles(directory = outputDirectory)
                 }
 
                 then("it leaves the stored composition hash unchanged") {
@@ -202,7 +196,7 @@ class SyncE2eSpec : E2eBehaviorSuite({
                     execution.scenario.shouldHaveGeneratedBody(updatedContent)
                 }
 
-                then("it writes CLAUDE.md and AGENTS.md to the default output directory") {
+                then("it writes CLAUDE.md, AGENTS.md, and GEMINI.md to the default output directory") {
                     execution.scenario.shouldHaveGeneratedFiles()
                 }
 
@@ -272,15 +266,10 @@ class SyncE2eSpec : E2eBehaviorSuite({
                     runCommand("sync", "--output", outputDirectory)
                 }
 
-                then("it writes CLAUDE.md to the requested directory") {
+                then("it writes CLAUDE.md, AGENTS.md, and GEMINI.md to the requested directory") {
                     val outputDirectory = execution.scenario.readWorkspaceFile("scratch/output-dir.txt")!!
                     execution.scenario.shouldHaveGeneratedFiles(directory = outputDirectory)
                     execution.scenario.shouldHaveGeneratedBodyInDirectory(outputDirectory, updatedContent)
-                }
-
-                then("it writes AGENTS.md to the requested directory") {
-                    val outputDirectory = execution.scenario.readWorkspaceFile("scratch/output-dir.txt")!!
-                    execution.scenario.shouldHaveGeneratedFiles(directory = outputDirectory)
                 }
 
                 then("it updates the stored composition hash for the current composition") {

@@ -8,7 +8,7 @@
 [![Kotlin](https://img.shields.io/badge/Kotlin-Multiplatform-7F52FF?logo=kotlin)](https://kotlinlang.org/docs/multiplatform.html)
 
 > Composable, shareable `.md` system prompts for agentic AI coding systems.
-> A Kotlin Multiplatform (KMP) CLI for composing `AGENTS.md`, `CLAUDE.md`, and other prompt fragments into production-ready `.md` profiles.
+> A Kotlin Multiplatform (KMP) CLI for composing `AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, and other prompt fragments into production-ready `.md` profiles.
 
 ---
 
@@ -25,7 +25,7 @@ Key benefits:
 
 ## ✨ Features
 
-- Compose multiple `.md` files selectively into one final `AGENTS.md` (Claude is supported as well).
+- Compose prompt fragments into final `CLAUDE.md`, `AGENTS.md`, and `GEMINI.md` outputs.
 - Simple, consistent CLI.
 - Designed for fast local development and CI integration.
 
@@ -144,7 +144,7 @@ loadout sync
 ---
 
 ## 🛠 CLI Options
-- `--std-out`: Print the new AGENTS.md to standard output; no changes.
+- `--std-out`: Print the content that would be written to `CLAUDE.md`, `AGENTS.md`, and `GEMINI.md`; no changes.
 
 (Exact flags depend on the current CLI implementation; use `loadout --help`.)
 

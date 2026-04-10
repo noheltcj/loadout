@@ -67,7 +67,7 @@ class UseE2eSpec : E2eBehaviorSuite({
                     execution.scenario.shouldHaveCurrentLoadoutName("alpha")
                 }
 
-                then("it writes CLAUDE.md and AGENTS.md to the default output directory") {
+                then("it writes CLAUDE.md, AGENTS.md, and GEMINI.md to the default output directory") {
                     execution.scenario.shouldHaveGeneratedFiles()
                 }
             }
@@ -79,11 +79,7 @@ class UseE2eSpec : E2eBehaviorSuite({
                     execution.result.shouldContainInStdout(firstFragmentContent)
                 }
 
-                then("it does not write CLAUDE.md") {
-                    execution.scenario.shouldNotHaveGeneratedFiles()
-                }
-
-                then("it does not write AGENTS.md") {
+                then("it does not write CLAUDE.md, AGENTS.md, or GEMINI.md") {
                     execution.scenario.shouldNotHaveGeneratedFiles()
                 }
             }
@@ -118,15 +114,10 @@ class UseE2eSpec : E2eBehaviorSuite({
                     runCommand("use", "alpha", "--output", outputDirectory)
                 }
 
-                then("it writes CLAUDE.md to the requested directory") {
+                then("it writes CLAUDE.md, AGENTS.md, and GEMINI.md to the requested directory") {
                     val outputDirectory = execution.scenario.readWorkspaceFile(".output-dir")!!
                     execution.scenario.shouldHaveGeneratedFiles(directory = outputDirectory)
                     execution.scenario.shouldHaveGeneratedBodyInDirectory(outputDirectory, firstFragmentContent)
-                }
-
-                then("it writes AGENTS.md to the requested directory") {
-                    val outputDirectory = execution.scenario.readWorkspaceFile(".output-dir")!!
-                    execution.scenario.shouldHaveGeneratedFiles(directory = outputDirectory)
                 }
 
                 then("it marks that loadout as current") {

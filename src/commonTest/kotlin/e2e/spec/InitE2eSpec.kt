@@ -2,6 +2,7 @@
 
 package e2e.spec
 
+import cli.Constants
 import e2e.support.E2eBehaviorSuite
 import e2e.support.ScenarioSeed
 import e2e.support.action
@@ -31,7 +32,9 @@ class InitE2eSpec : E2eBehaviorSuite({
             action("loadout init is run in shared mode") {
                 val execution by memoizedAction("init")
 
-                then("it adds `# Loadout CLI`, `.loadout.json`, `CLAUDE.md`, and `AGENTS.md` to .gitignore") {
+                then(
+                    "it adds `# Loadout CLI`, `.loadout.json`, `CLAUDE.md`, `AGENTS.md`, and `GEMINI.md` to .gitignore"
+                ) {
                     execution.scenario.shouldContainLoadoutGitignorePatterns()
                     execution.result.shouldHaveNoUnexpectedStderr()
                 }
@@ -59,7 +62,7 @@ class InitE2eSpec : E2eBehaviorSuite({
                     execution.scenario.shouldHaveCurrentLoadoutName("default")
                 }
 
-                then("it writes CLAUDE.md and AGENTS.md to the default output directory") {
+                then("it writes CLAUDE.md, AGENTS.md, and GEMINI.md to the default output directory") {
                     execution.scenario.shouldHaveGeneratedFiles()
                 }
 
@@ -76,9 +79,10 @@ class InitE2eSpec : E2eBehaviorSuite({
                         ".gitignore",
                         """
                         # Loadout CLI
-                        .loadout.json
-                        CLAUDE.md
-                        AGENTS.md
+                        ${Constants.CONFIG_FILE}
+                        ${Constants.CLAUDE_MD}
+                        ${Constants.AGENTS_MD}
+                        ${Constants.GEMINI_MD}
                         """.trimIndent()
                     )
                 }
@@ -99,7 +103,9 @@ class InitE2eSpec : E2eBehaviorSuite({
             action("loadout init is run in local mode") {
                 val execution by memoizedAction("init", "--mode", "local")
 
-                then("it adds `# Loadout CLI`, `.loadout.json`, `CLAUDE.md`, and `AGENTS.md` to .gitignore") {
+                then(
+                    "it adds `# Loadout CLI`, `.loadout.json`, `CLAUDE.md`, `AGENTS.md`, and `GEMINI.md` to .gitignore"
+                ) {
                     execution.scenario.shouldContainLoadoutGitignorePatterns()
                 }
 
@@ -119,7 +125,7 @@ class InitE2eSpec : E2eBehaviorSuite({
                     execution.scenario.shouldHaveCurrentLoadoutName("default")
                 }
 
-                then("it writes CLAUDE.md and AGENTS.md to the default output directory") {
+                then("it writes CLAUDE.md, AGENTS.md, and GEMINI.md to the default output directory") {
                     execution.scenario.shouldHaveGeneratedFiles()
                 }
 
@@ -136,13 +142,14 @@ class InitE2eSpec : E2eBehaviorSuite({
                         ".gitignore",
                         """
                         # Loadout CLI
-                        .loadout.json
-                        CLAUDE.md
-                        AGENTS.md
+                        ${Constants.CONFIG_FILE}
+                        ${Constants.CLAUDE_MD}
+                        ${Constants.AGENTS_MD}
+                        ${Constants.GEMINI_MD}
 
                         # Loadout configuration (local-only)
-                        .loadouts/
-                        fragments/
+                        ${Constants.LOADOUTS_DIR}/
+                        ${Constants.FRAGMENTS_DIR}/
                         """.trimIndent()
                     )
                 }
