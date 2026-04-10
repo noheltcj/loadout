@@ -44,6 +44,13 @@ class InitE2eSpec : E2eBehaviorSuite({
                     execution.scenario.readWorkspaceFile(architectFragmentPath).shouldNotBeNull()
                 }
 
+                then("the starter fragment content documents link, unlink, and remove") {
+                    val starterFragment = execution.scenario.readWorkspaceFile(architectFragmentPath).shouldNotBeNull()
+                    starterFragment.shouldContain("`loadout remove <name>`")
+                    starterFragment.shouldContain("`loadout link <fragment-path> --to <loadout>`")
+                    starterFragment.shouldContain("`loadout unlink <fragment-path> --from <loadout>`")
+                }
+
                 then("it creates the default loadout") {
                     execution.scenario.readLoadout("default").shouldNotBeNull()
                 }
@@ -204,10 +211,10 @@ class InitE2eSpec : E2eBehaviorSuite({
 
                         then("it prints guidance for adding the starter fragment to an existing loadout") {
                             execution.result.stdout.shouldContain(
-                                "Existing loadouts found. Add the new fragment with:"
+                                "Existing loadouts found. Link the new fragment with:"
                             )
                             execution.result.stdout.shouldContain(
-                                "loadout add fragments/loadout-architect.md --to <loadout-name>"
+                                "loadout link fragments/loadout-architect.md --to <loadout-name>"
                             )
                         }
                     }

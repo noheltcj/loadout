@@ -128,11 +128,14 @@ loadout create <name> \
   --fragment fragments/project-structure.md \
   --fragment ~/.loadout/fragments/mvi-architecture.md
 
-# Add a fragment to your loadout
-loadout add path/to/fragments/desired_fragment.md --to <loadout_name>
+# Link a fragment into your loadout
+loadout link path/to/fragments/desired_fragment.md --to <loadout_name>
 
-# Remove a fragment from your loadout
-loadout remove path/to/fragments/undesired_fragment.md --from <loadout_name>
+# Unlink a fragment from your loadout
+loadout unlink path/to/fragments/undesired_fragment.md --from <loadout_name>
+
+# Remove a loadout definition
+loadout remove <loadout_name>
 
 # After modifying a loadout or the content of a fragment, don't forget to sync your changes:
 loadout sync

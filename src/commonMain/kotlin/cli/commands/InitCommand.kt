@@ -121,8 +121,8 @@ class InitCommand(
         if (loadouts.isNotEmpty()) {
             if (fragmentCreated) {
                 echo("")
-                echo("Existing loadouts found. Add the new fragment with:")
-                echo("  loadout add $ARCHITECT_FRAGMENT_PATH --to <loadout-name>")
+                echo("Existing loadouts found. Link the new fragment with:")
+                echo("  loadout link $ARCHITECT_FRAGMENT_PATH --to <loadout-name>")
             }
             return
         }
@@ -200,8 +200,9 @@ class InitCommand(
             |- `loadout list` - List all available loadouts
             |- `loadout use <name>` - Switch to a different loadout
             |- `loadout create <name> --desc "Description"` - Create a new loadout
-            |- `loadout add <fragment-path> --to <loadout>` - Add a fragment to a loadout
-            |- `loadout remove <fragment-path> --from <loadout>` - Remove a fragment
+            |- `loadout remove <name>` - Remove a loadout
+            |- `loadout link <fragment-path> --to <loadout>` - Link a fragment into a loadout
+            |- `loadout unlink <fragment-path> --from <loadout>` - Unlink a fragment from a loadout
             |- `loadout sync` - Re-compose and synchronize after fragment changes
             |
             |### Fragment Guidelines

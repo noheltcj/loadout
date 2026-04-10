@@ -5,9 +5,6 @@ import com.github.ajalt.clikt.core.CliktCommand
 import com.github.ajalt.clikt.core.Context
 import com.github.ajalt.clikt.core.ProgramResult
 import com.github.ajalt.clikt.parameters.arguments.argument
-import com.github.ajalt.clikt.parameters.options.help
-import com.github.ajalt.clikt.parameters.options.option
-import com.github.ajalt.clikt.parameters.options.required
 import domain.entity.packaging.Result
 import domain.service.LoadoutService
 
@@ -16,34 +13,16 @@ class RemoveCommand(
 ) : CliktCommand(
         name = "remove",
     ) {
-    override fun help(context: Context): String = "Remove a fragment from a loadout"
+    override fun help(context: Context): String = "Remove a loadout"
 
-    private val fragmentPath by argument(help = "Path to the fragment to remove")
-
-    // TODO: Make this optional and default to the current loadout
-    private val loadoutName by option("--from")
-        .required()
-        .help("Name of the loadout to remove the fragment from")
+    private val loadoutName by argument("name", help = "Name of the loadout to remove")
 
     override fun run() {
-        when (
-            val result =
-                loadoutService.removeFragmentFromLoadout(
-                    loadoutName = loadoutName,
-                    fragmentPath = fragmentPath
-                )
-        ) {
+        when (val result = loadoutService.deleteLoadout(loadoutName)) {
             is Result.Success -> {
-                val updatedLoadout = result.value
-                echo("Removed fragment '$fragmentPath' from loadout '$loadoutName'")
-
-                if (updatedLoadout.fragments.isEmpty()) {
-                    echo("Loadout is now empty.")
-                } else {
-                    echo("Remaining fragments:")
-                    updatedLoadout.fragments.forEachIndexed { index, fragment ->
-                        echo("  ${index + 1}. $fragment")
-                    }
+                echo("Removed loadout '${result.value.loadoutName}'")
+                if (result.value.clearedCurrentLoadout) {
+                    echo("Cleared the current loadout selection.")
                 }
             }
             is Result.Error -> {

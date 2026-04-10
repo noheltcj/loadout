@@ -3,9 +3,11 @@ package cli
 import cli.commands.AddCommand
 import cli.commands.CreateCommand
 import cli.commands.InitCommand
+import cli.commands.LinkCommand
 import cli.commands.ListCommand
 import cli.commands.RemoveCommand
 import cli.commands.SyncCommand
+import cli.commands.UnlinkCommand
 import cli.commands.UseCommand
 import cli.di.ApplicationScope
 import com.github.ajalt.clikt.core.CliktCommand
@@ -43,6 +45,13 @@ fun createLoadoutCommand(applicationScope: ApplicationScope): CliktCommand =
         AddCommand(
             loadoutService = applicationScope.loadoutService,
             fileRepository = applicationScope.fileRepository
+        ),
+        LinkCommand(
+            loadoutService = applicationScope.loadoutService,
+            fileRepository = applicationScope.fileRepository
+        ),
+        UnlinkCommand(
+            loadoutService = applicationScope.loadoutService
         ),
         RemoveCommand(
             loadoutService = applicationScope.loadoutService
