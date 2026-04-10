@@ -51,7 +51,7 @@ class CreateCommand(
             } else {
                 loadoutService.createLoadout(
                     name = name,
-                    description = description.orEmpty(),
+                    description = description,
                     fragments = fragments,
                 )
             }
@@ -79,7 +79,7 @@ class CreateCommand(
                 echo("\nUse 'loadout use $name' to activate this loadout.")
             }
             is Result.Error -> {
-                echo("Failed to create loadout: ${result.error.message}", err = true)
+                echoError(result.error)
                 throw ProgramResult(1)
             }
         }

@@ -20,6 +20,8 @@ import e2e.support.shouldHaveLoadoutFragments
 import e2e.support.shouldHaveStaleWarning
 import e2e.support.thirdFragmentContent
 import e2e.support.thirdFragmentPath
+import io.kotest.matchers.string.shouldContain
+import io.kotest.matchers.string.shouldNotContain
 
 class AddE2eSpec : E2eBehaviorSuite({
     context("loadout add spec") {
@@ -51,6 +53,51 @@ class AddE2eSpec : E2eBehaviorSuite({
 
                 then("it outputs that the specified loadout was not found") {
                     execution.result.shouldContainInOutput("Loadout 'missing' not found")
+                }
+
+                then("it exits with result 1") {
+                    execution.result.shouldHaveExitCode(1)
+                }
+            }
+        }
+
+        given("the loadout named by --to is empty") {
+            action("loadout add is run with empty name") {
+                val execution by memoizedAction(
+                    "add",
+                    firstFragmentPath,
+                    "--to",
+                    "",
+                    seed = {
+                        seedFragment(firstFragmentPath, firstFragmentContent)
+                    }
+                )
+
+                then("it outputs the validation error") {
+                    execution.result.shouldContainInOutput("Validation error")
+                }
+
+                then("it exits with result 1") {
+                    execution.result.shouldHaveExitCode(1)
+                }
+            }
+        }
+
+        given("the fragment is not a markdown file") {
+            action("loadout add is run with an invalid file extension") {
+                val execution by memoizedAction(
+                    "add",
+                    "fragments/script.sh",
+                    "--to",
+                    "target",
+                    seed = {
+                        givenValidLoadout(name = "target")
+                        seedFragment("fragments/script.sh", "#!/bin/bash")
+                    }
+                )
+
+                then("it outputs a validation error") {
+                    execution.result.shouldContainInOutput("Validation error")
                 }
 
                 then("it exits with result 1") {
@@ -116,6 +163,14 @@ class AddE2eSpec : E2eBehaviorSuite({
                         execution.result.shouldContainInStdout(thirdFragmentPath)
                     }
 
+                    then("it marks the newly added fragment in the output") {
+                        execution.result.stdout.shouldContain("$thirdFragmentPath ← NEW")
+                    }
+
+                    then("it does not mark existing fragments as new") {
+                        execution.result.stdout.shouldNotContain("$firstFragmentPath ← NEW")
+                    }
+
                     then("it does not change the current loadout") {
                         execution.scenario.shouldHaveCurrentLoadoutName("current")
                     }
@@ -152,6 +207,18 @@ class AddE2eSpec : E2eBehaviorSuite({
                     then("it outputs the updated fragment list") {
                         execution.result.shouldContainInStdout(thirdFragmentPath)
                     }
+
+                    then("it marks the inserted fragment in the output") {
+                        execution.result.stdout.shouldContain("$thirdFragmentPath ← NEW")
+                    }
+
+                    then("it does not mark the first pre-existing fragment as new") {
+                        execution.result.stdout.shouldNotContain("$firstFragmentPath ← NEW")
+                    }
+
+                    then("it does not mark the second pre-existing fragment as new") {
+                        execution.result.stdout.shouldNotContain("$secondFragmentPath ← NEW")
+                    }
                 }
 
                 action("loadout add is run with --after referencing a fragment that is not in the target loadout") {
@@ -179,6 +246,33 @@ class AddE2eSpec : E2eBehaviorSuite({
                         execution.result.shouldContainInStdout(thirdFragmentPath)
                     }
                 }
+
+                action("loadout add is run with differently formatted paths but same semantic location") {
+                    val execution by memoizedAction(
+                        "add",
+                        "./$thirdFragmentPath", // Normalized internally -> thirdFragmentPath
+                        "--to",
+                        "target",
+                        seed = {
+                            givenValidLoadout(
+                                name = "target",
+                                fragments = listOf(firstFragmentPath to firstFragmentContent)
+                            )
+                            seedFragment(thirdFragmentPath, thirdFragmentContent)
+                        }
+                    )
+
+                    then("it appends the new fragment to the loadout using the normalized path") {
+                        execution.scenario.shouldHaveLoadoutFragments(
+                            "target",
+                            listOf(firstFragmentPath, thirdFragmentPath)
+                        )
+                    }
+
+                    then("it marks the newly added fragment with the normalized path in the output") {
+                        execution.result.stdout.shouldContain("$thirdFragmentPath ← NEW")
+                    }
+                }
             }
 
             given("the fragment is already in the target loadout") {
@@ -197,6 +291,31 @@ class AddE2eSpec : E2eBehaviorSuite({
 
                     then("it does not change the loadout definition") {
                         execution.scenario.shouldHaveLoadoutFragments("target", listOf(firstFragmentPath))
+                    }
+
+                    then("it exits with result 1") {
+                        execution.result.shouldHaveExitCode(1)
+                    }
+                }
+
+                action("loadout add is run against a legacy stored path with a ./ prefix") {
+                    val execution by memoizedAction(
+                        "add",
+                        firstFragmentPath,
+                        "--to",
+                        "target",
+                        seed = {
+                            seedFragment(firstFragmentPath, firstFragmentContent)
+                            seedLoadout(name = "target", fragments = listOf("./$firstFragmentPath"))
+                        }
+                    )
+
+                    then("it outputs a duplicate fragment error") {
+                        execution.result.shouldContainInOutput("already in loadout")
+                    }
+
+                    then("it does not append a second copy of the same fragment") {
+                        execution.scenario.shouldHaveLoadoutFragments("target", listOf("./$firstFragmentPath"))
                     }
 
                     then("it exits with result 1") {

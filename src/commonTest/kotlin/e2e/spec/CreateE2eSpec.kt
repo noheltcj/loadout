@@ -60,6 +60,27 @@ class CreateE2eSpec : E2eBehaviorSuite({
                     }
                 }
 
+                action("loadout create is run with an empty --desc") {
+                    val execution by memoizedAction(
+                        "create",
+                        "alpha",
+                        "--desc",
+                        ""
+                    )
+
+                    then("it outputs a validation error") {
+                        execution.result.shouldContainInOutput("Validation error")
+                    }
+
+                    then("it does not create the loadout definition") {
+                        execution.scenario.readLoadout("alpha").shouldBeNull()
+                    }
+
+                    then("it exits with result 1") {
+                        execution.result.shouldHaveExitCode(1)
+                    }
+                }
+
                 action("loadout create is run with one or more --fragment values") {
                     val execution by memoizedAction(
                         "create",
@@ -94,6 +115,129 @@ class CreateE2eSpec : E2eBehaviorSuite({
                     }
                 }
 
+                action("loadout create is run with duplicate --fragment values") {
+                    val execution by memoizedAction(
+                        "create",
+                        "alpha",
+                        "--fragment",
+                        firstFragmentPath,
+                        "--fragment",
+                        firstFragmentPath,
+                        seed = {
+                            seedFragment(firstFragmentPath, firstFragmentContent)
+                        }
+                    )
+
+                    then("it outputs a validation error") {
+                        execution.result.shouldContainInOutput("Validation error")
+                    }
+
+                    then("it does not create the loadout") {
+                        execution.scenario.readLoadout("alpha").shouldBeNull()
+                    }
+
+                    then("it exits with result 1") {
+                        execution.result.shouldHaveExitCode(1)
+                    }
+                }
+
+                action("loadout create is run with a non-markdown --fragment") {
+                    val execution by memoizedAction(
+                        "create",
+                        "alpha",
+                        "--fragment",
+                        "fragments/script.sh",
+                        seed = {
+                            seedFragment("fragments/script.sh", "#!/bin/bash")
+                        }
+                    )
+
+                    then("it outputs a validation error about the markdown extension") {
+                        execution.result.shouldContainInOutput("Validation error")
+                    }
+
+                    then("it does not create the loadout") {
+                        execution.scenario.readLoadout("alpha").shouldBeNull()
+                    }
+
+                    then("it exits with result 1") {
+                        execution.result.shouldHaveExitCode(1)
+                    }
+                }
+
+                action("loadout create is run with a binary file as a --fragment") {
+                    val execution by memoizedAction(
+                        "create",
+                        "alpha",
+                        "--fragment",
+                        "fragments/image.png",
+                        seed = {
+                            seedFragment("fragments/image.png", "\u0000PNG binary content")
+                        }
+                    )
+
+                    then("it outputs a validation error about the markdown extension") {
+                        execution.result.shouldContainInOutput("Validation error")
+                    }
+
+                    then("it does not create the loadout") {
+                        execution.scenario.readLoadout("alpha").shouldBeNull()
+                    }
+
+                    then("it exits with result 1") {
+                        execution.result.shouldHaveExitCode(1)
+                    }
+                }
+
+                action("loadout create is run with semantically duplicate --fragment paths") {
+                    val execution by memoizedAction(
+                        "create",
+                        "alpha",
+                        "--fragment",
+                        "./$firstFragmentPath",
+                        "--fragment",
+                        firstFragmentPath,
+                        seed = {
+                            seedFragment(firstFragmentPath, firstFragmentContent)
+                        }
+                    )
+
+                    then("it outputs a validation error about duplicate fragments") {
+                        execution.result.shouldContainInOutput("Duplicate fragments")
+                    }
+
+                    then("it does not create the loadout") {
+                        execution.scenario.readLoadout("alpha").shouldBeNull()
+                    }
+
+                    then("it exits with result 1") {
+                        execution.result.shouldHaveExitCode(1)
+                    }
+                }
+
+                action("loadout create is run with a ./ prefixed --fragment path") {
+                    val execution by memoizedAction(
+                        "create",
+                        "alpha",
+                        "--fragment",
+                        "./$firstFragmentPath",
+                        seed = {
+                            seedFragment(firstFragmentPath, firstFragmentContent)
+                        }
+                    )
+
+                    then("it creates the loadout definition") {
+                        execution.scenario.readLoadout("alpha").shouldNotBeNull()
+                    }
+
+                    then("it stores the normalized fragment path") {
+                        execution.scenario.shouldHaveLoadoutFragments(
+                            "alpha",
+                            listOf(firstFragmentPath)
+                        )
+                    }
+                }
+
                 given("the requested clone source loadout exists") {
                     action("loadout create is run with --clone and no new --desc") {
                         val execution by memoizedAction(
@@ -116,6 +260,33 @@ class CreateE2eSpec : E2eBehaviorSuite({
 
                         then("it reuses the source description") {
                             execution.scenario.readLoadout("copy")?.description shouldBe "Source loadout"
+                        }
+
+                        then("it outputs that the loadout was created") {
+                            execution.result.shouldContainInStdout("Created loadout 'copy' (cloned from 'source')")
+                        }
+                    }
+
+                    action("loadout create is run with --clone from a source with no fragments") {
+                        val execution by memoizedAction(
+                            "create",
+                            "copy",
+                            "--clone",
+                            "source",
+                            seed = {
+                                givenValidLoadout(name = "source", fragments = emptyList())
+                            }
+                        )
+
+                        then("it creates the loadout definition") {
+                            execution.scenario.readLoadout("copy").shouldNotBeNull()
+                        }
+
+                        then("it copies the empty fragment list") {
+                            execution.scenario
+                                .readLoadout("copy")
+                                ?.fragments
+                                .shouldBe(emptyList())
                         }
 
                         then("it outputs that the loadout was created") {
@@ -261,6 +432,24 @@ class CreateE2eSpec : E2eBehaviorSuite({
 
                 then("it does not create the loadout definition") {
                     execution.scenario.readLoadout("bad name").shouldBeNull()
+                }
+
+                then("it exits with result 1") {
+                    execution.result.shouldHaveExitCode(1)
+                }
+            }
+        }
+
+        given("the requested loadout name is empty") {
+            action("loadout create is run with an empty name") {
+                val execution by memoizedAction("create", "")
+
+                then("it outputs the validation error") {
+                    execution.result.shouldContainInOutput("Validation error")
+                }
+
+                then("it does not create the loadout definition") {
+                    execution.scenario.readLoadout("").shouldBeNull()
                 }
 
                 then("it exits with result 1") {

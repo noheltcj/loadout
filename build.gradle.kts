@@ -1,6 +1,6 @@
 import org.jetbrains.kotlin.gradle.plugin.KotlinSourceSet
 import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeTarget
-import org.jmailen.gradle.kotlinter.tasks.LintTask
+import org.jmailen.gradle.kotlinter.tasks.ConfigurableKtLintTask
 
 plugins {
     kotlin("multiplatform") version "2.2.0"
@@ -90,7 +90,7 @@ fun KotlinNativeTarget.configureBinaries() {
     }
 }
 
-tasks.withType<LintTask>().configureEach {
+tasks.withType<ConfigurableKtLintTask>().configureEach {
     exclude { element ->
         element.file
             .invariantSeparatorsPath

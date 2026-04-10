@@ -1,6 +1,7 @@
 package cli.commands
 
 import cli.commands.extension.echoComposedFilesWriteResult
+import cli.echoError
 import cli.outputPaths
 import com.github.ajalt.clikt.core.CliktCommand
 import com.github.ajalt.clikt.core.Context
@@ -8,6 +9,7 @@ import com.github.ajalt.clikt.core.ProgramResult
 import com.github.ajalt.clikt.parameters.options.flag
 import com.github.ajalt.clikt.parameters.options.help
 import com.github.ajalt.clikt.parameters.options.option
+import domain.entity.error.LoadoutError
 import domain.entity.packaging.Result
 import domain.service.LoadoutCompositionService
 import domain.service.LoadoutService
@@ -29,6 +31,11 @@ class SyncCommand(
         .help("Override output directory")
 
     override fun run() {
+        if (stdOutOnly && outputDir != null) {
+            echoError(LoadoutError.ValidationError("flags", "Cannot specify both --std-out and --output"))
+            throw ProgramResult(1)
+        }
+
         when (val currentResult = loadoutService.getCurrentLoadout()) {
             is Result.Success -> {
                 val currentLoadout = currentResult.value

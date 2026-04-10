@@ -1,0 +1,19 @@
+{
+    "name": "code-reviewer",
+    "description": "Correctness-first code review loadout with explicit review ideology.",
+    "fragments": [
+        "fragments/universal/loadout-architect.md",
+        "fragments/universal/pre-launch-idealism.md",
+        "fragments/universal/naming-conventions.md",
+        "fragments/universal/uses-unambiguous-modeling.md",
+        "fragments/kotlin/feature-modular-organization.md",
+        "fragments/kotlin/kmp-cli-project-structure.md",
+        "fragments/testing/behavior-first-testing.md",
+        "fragments/testing/test-execution.md",
+        "fragments/universal/code-review-ideology.md"
+    ],
+    "metadata": {
+        "createdAt": 1775795180000,
+        "updatedAt": 1775795180000
+    }
+}
