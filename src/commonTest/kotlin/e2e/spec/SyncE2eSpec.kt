@@ -22,8 +22,10 @@ import e2e.support.shouldHaveGeneratedFiles
 import e2e.support.shouldHaveStaleWarning
 import e2e.support.shouldHaveUnchangedCompositionHash
 import e2e.support.shouldNotHaveStaleWarning
+import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
+import io.kotest.matchers.string.shouldNotContain
 
 class SyncE2eSpec : E2eBehaviorSuite({
     context("loadout sync spec") {
@@ -97,6 +99,22 @@ class SyncE2eSpec : E2eBehaviorSuite({
                 then("it does not rewrite the output files") {
                     execution.scenario.readGeneratedFile(Constants.CLAUDE_MD) shouldBe
                         execution.scenario.readWorkspaceFile("scratch/before-claude.txt")
+                }
+            }
+
+            action("one of the output files is manually deleted") {
+                val execution by memoizedExecution(seed = currentLoadoutIsAlreadySynchronized) {
+                    deleteWorkspaceFile(Constants.CLAUDE_MD)
+                    runCommand("sync")
+                }
+
+                then("it regenerates the missing file") {
+                    execution.scenario.readGeneratedFile(Constants.CLAUDE_MD).shouldNotBeNull()
+                }
+
+                then("it outputs that it rewrote the files") {
+                    execution.result.shouldContainInStdout("Generated files")
+                    execution.result.stdout.shouldNotContain("is active and up to date. Nothing to do.")
                 }
             }
 
