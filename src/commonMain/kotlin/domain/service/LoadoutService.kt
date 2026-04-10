@@ -29,11 +29,14 @@ class LoadoutService(
             .flatMap { validName ->
                 description?.let { validateDescription(it) }?.map { validName }
                     ?: Result.Success(validName)
-            }.flatMap { validName -> validateFragmentExtensions(fragments).map { validName } }
+            }
+            .flatMap { validName -> validateFragmentExtensions(fragments).map { validName } }
             .flatMap { validName ->
                 val normalizedFragments = fragments.map { normalizeFragmentPath(it) }
-                validateNoDuplicateFragments(normalizedFragments).map { validName to normalizedFragments }
-            }.flatMap { (validName, normalizedFragments) ->
+                validateNoDuplicateFragments(normalizedFragments)
+                    .map { validName to normalizedFragments }
+            }
+            .flatMap { (validName, normalizedFragments) ->
                 if (loadoutRepository.exists(validName)) {
                     Result.Error(LoadoutError.LoadoutAlreadyExists(validName))
                 } else {
