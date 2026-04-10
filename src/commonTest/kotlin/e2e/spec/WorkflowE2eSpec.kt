@@ -68,7 +68,8 @@ class WorkflowE2eSpec : E2eBehaviorSuite({
                         execution.scenario.shouldHaveCurrentLoadoutName("project")
                     }
 
-                    then("it writes composed files for that new loadout") {
+                    then("it writes CLAUDE.md, AGENTS.md, and GEMINI.md for that new loadout") {
+                        execution.scenario.shouldHaveGeneratedFiles()
                         execution.scenario.shouldHaveGeneratedBody(secondFragmentContent)
                     }
                 }
@@ -88,7 +89,8 @@ class WorkflowE2eSpec : E2eBehaviorSuite({
             action("loadout use is run for the other loadout") {
                 val execution by memoizedAction("use", "beta", seed = activeAlphaWithOtherLoadout)
 
-                then("it rewrites the generated files for the new loadout") {
+                then("it rewrites CLAUDE.md, AGENTS.md, and GEMINI.md for the new loadout") {
+                    execution.scenario.shouldHaveGeneratedFiles()
                     execution.scenario.shouldHaveGeneratedBody(secondFragmentContent)
                 }
 
@@ -113,7 +115,8 @@ class WorkflowE2eSpec : E2eBehaviorSuite({
             action("loadout sync is run after that new fragment has been added") {
                 val execution by memoizedAction("sync", seed = addedFragmentToCurrentLoadout)
 
-                then("it rewrites the generated files with the added fragment content") {
+                then("it rewrites CLAUDE.md, AGENTS.md, and GEMINI.md with the added fragment content") {
+                    execution.scenario.shouldHaveGeneratedFiles()
                     execution.scenario.shouldHaveGeneratedBody("$firstFragmentContent\n\n$secondFragmentContent")
                 }
 
@@ -210,7 +213,7 @@ class WorkflowE2eSpec : E2eBehaviorSuite({
                 action("loadout use is run for the cloned loadout") {
                     val execution by memoizedAction("use", "clone", seed = customizedCloneExists)
 
-                    then("it generates output from the customized clone") {
+                    then("it generates CLAUDE.md, AGENTS.md, and GEMINI.md from the customized clone") {
                         execution.scenario.shouldHaveGeneratedFiles()
                         execution.scenario.shouldHaveGeneratedBody(
                             "$firstFragmentContent\n\n$secondFragmentContent\n\n$thirdFragmentContent"

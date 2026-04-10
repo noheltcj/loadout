@@ -19,6 +19,12 @@ object Constants {
     /** Secondary output file for other AI agents */
     const val AGENTS_MD = "AGENTS.md"
 
+    /** Tertiary output file for Gemini-compatible agents */
+    const val GEMINI_MD = "GEMINI.md"
+
+    /** Canonical generated markdown outputs written by Loadout */
+    val generatedMarkdownFiles = listOf(CLAUDE_MD, AGENTS_MD, GEMINI_MD)
+
     /** Default output directory for composed .md files */
     const val DEFAULT_OUTPUT_DIR = "."
 }

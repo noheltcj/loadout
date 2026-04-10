@@ -19,6 +19,15 @@ const val existingStarterFragmentContent = "## Existing Architect\n\nKeep this c
 const val staleWarningLine = "Warning: Current loadout fragments have changed since the last composition."
 const val staleResolutionLine = "To synchronize, run 'loadout sync' and restart your agent."
 
+private fun StringBuilder.appendGeneratedFileStatuses(scenario: E2eScenario) {
+    Constants.generatedMarkdownFiles.forEach { fileName ->
+        append("\n")
+        append(fileName)
+        append(" exists: ")
+        append(scenario.readGeneratedFile(fileName) != null)
+    }
+}
+
 fun E2eScenario.givenStarterFragmentAlreadyExists(content: String = existingStarterFragmentContent) {
     seedFragment(architectFragmentPath, content)
 }
@@ -85,19 +94,18 @@ fun E2eScenario.givenCurrentLoadoutIsSet(
             append(readWorkspaceFile(Constants.CONFIG_FILE))
             append("\nCommand output:\n")
             append(useResult.output)
-            append("\nCLAUDE exists: ")
-            append(readGeneratedFile(Constants.CLAUDE_MD) != null)
-            append("\nAGENTS exists: ")
-            append(readGeneratedFile(Constants.AGENTS_MD) != null)
+            appendGeneratedFileStatuses(this@givenCurrentLoadoutIsSet)
         }
     }
-    check(readGeneratedFile(Constants.CLAUDE_MD) != null) {
-        buildString {
-            append("Expected ${Constants.CLAUDE_MD} to exist after setting current loadout '$name'")
-            append("\nCommand output:\n")
-            append(useResult.output)
-            append("\nConfig:\n")
-            append(readWorkspaceFile(Constants.CONFIG_FILE))
+    Constants.generatedMarkdownFiles.forEach { fileName ->
+        check(readGeneratedFile(fileName) != null) {
+            buildString {
+                append("Expected $fileName to exist after setting current loadout '$name'")
+                append("\nCommand output:\n")
+                append(useResult.output)
+                append("\nConfig:\n")
+                append(readWorkspaceFile(Constants.CONFIG_FILE))
+            }
         }
     }
 }
@@ -132,10 +140,7 @@ fun E2eScenario.givenRepoInitializedInSharedMode() {
             append(initResult.output)
             append("\nDefault loadout:\n")
             append(readWorkspaceFile("${Constants.LOADOUTS_DIR}/default.json"))
-            append("\nCLAUDE exists: ")
-            append(readGeneratedFile(Constants.CLAUDE_MD) != null)
-            append("\nAGENTS exists: ")
-            append(readGeneratedFile(Constants.AGENTS_MD) != null)
+            appendGeneratedFileStatuses(this@givenRepoInitializedInSharedMode)
         }
     }
 }
@@ -153,10 +158,7 @@ fun E2eScenario.givenRepoInitializedInLocalMode() {
             append(initResult.output)
             append("\nDefault loadout:\n")
             append(readWorkspaceFile("${Constants.LOADOUTS_DIR}/default.json"))
-            append("\nCLAUDE exists: ")
-            append(readGeneratedFile(Constants.CLAUDE_MD) != null)
-            append("\nAGENTS exists: ")
-            append(readGeneratedFile(Constants.AGENTS_MD) != null)
+            appendGeneratedFileStatuses(this@givenRepoInitializedInLocalMode)
         }
     }
 }
