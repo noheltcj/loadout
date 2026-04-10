@@ -1,50 +1,10 @@
 package cli
 
-import cli.commands.AddCommand
-import cli.commands.CreateCommand
-import cli.commands.InitCommand
-import cli.commands.ListCommand
-import cli.commands.RemoveCommand
-import cli.commands.SyncCommand
-import cli.commands.UseCommand
 import cli.di.withApplicationScope
-import com.github.ajalt.clikt.core.subcommands
+import com.github.ajalt.clikt.core.main
 
 fun main(args: Array<String>) {
     withApplicationScope {
-        LoadoutCli(
-            loadoutService = loadoutService,
-            composeLoadout = loadoutCompositionService,
-            checkLoadoutSync = checkLoadoutSync
-        ).subcommands(
-            InitCommand(
-                fileRepository = fileRepository,
-                loadoutService = loadoutService,
-                composeLoadout = loadoutCompositionService,
-                defaultOutputPaths = defaultOutputPaths
-            ),
-            ListCommand(
-                loadoutService = loadoutService
-            ),
-            CreateCommand(
-                loadoutService = loadoutService
-            ),
-            UseCommand(
-                loadoutService = loadoutService,
-                composeLoadout = loadoutCompositionService,
-                defaultOutputPaths = defaultOutputPaths
-            ),
-            SyncCommand(
-                loadoutService = loadoutService,
-                composeLoadout = loadoutCompositionService,
-                defaultOutputPaths = defaultOutputPaths
-            ),
-            AddCommand(
-                loadoutService = loadoutService
-            ),
-            RemoveCommand(
-                loadoutService = loadoutService
-            )
-        ).main(args)
+        createLoadoutCommand(this).main(args)
     }
 }

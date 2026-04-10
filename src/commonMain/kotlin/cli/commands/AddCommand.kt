@@ -2,6 +2,7 @@ package cli.commands
 
 import cli.echoError
 import com.github.ajalt.clikt.core.CliktCommand
+import com.github.ajalt.clikt.core.Context
 import com.github.ajalt.clikt.core.ProgramResult
 import com.github.ajalt.clikt.parameters.arguments.argument
 import com.github.ajalt.clikt.parameters.options.help
@@ -14,8 +15,9 @@ class AddCommand(
     private val loadoutService: LoadoutService,
 ) : CliktCommand(
         name = "add",
-        help = "Add a fragment to a loadout",
     ) {
+    override fun help(context: Context): String = "Add a fragment to a loadout"
+
     private val fragmentPath by argument(help = "Path to the fragment to add")
 
     private val loadoutName by option("--to")

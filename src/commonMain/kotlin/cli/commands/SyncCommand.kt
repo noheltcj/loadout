@@ -3,6 +3,7 @@ package cli.commands
 import cli.commands.extension.echoComposedFilesWriteResult
 import cli.outputPaths
 import com.github.ajalt.clikt.core.CliktCommand
+import com.github.ajalt.clikt.core.Context
 import com.github.ajalt.clikt.core.ProgramResult
 import com.github.ajalt.clikt.parameters.options.flag
 import com.github.ajalt.clikt.parameters.options.help
@@ -17,8 +18,9 @@ class SyncCommand(
     private val defaultOutputPaths: List<String>,
 ) : CliktCommand(
         name = "sync",
-        help = "Re-compose and synchronize the current loadout"
     ) {
+    override fun help(context: Context): String = "Re-compose and synchronize the current loadout"
+
     private val stdOutOnly by option("--std-out")
         .flag(default = false)
         .help("Print to std-out without writing files")

@@ -1,6 +1,7 @@
 package cli
 
 import com.github.ajalt.clikt.core.CliktCommand
+import com.github.ajalt.clikt.core.Context
 import com.github.ajalt.clikt.core.ProgramResult
 import com.github.ajalt.clikt.parameters.options.flag
 import com.github.ajalt.clikt.parameters.options.help
@@ -10,7 +11,6 @@ import domain.entity.packaging.Result
 import domain.service.LoadoutCompositionService
 import domain.service.LoadoutService
 import domain.usecase.CheckLoadoutSyncUseCase
-import kotlin.system.exitProcess
 
 class LoadoutCli(
     private val loadoutService: LoadoutService,
@@ -18,9 +18,12 @@ class LoadoutCli(
     private val checkLoadoutSync: CheckLoadoutSyncUseCase,
 ) : CliktCommand(
         name = "loadout",
-        help = "Composable, shareable .md system prompts for agentic AI coding systems",
-        invokeWithoutSubcommand = true,
     ) {
+    override fun help(context: Context): String =
+        "Composable, shareable .md system prompts for agentic AI coding systems"
+
+    override val invokeWithoutSubcommand: Boolean = true
+
     private val verbose by option("--verbose", "-v")
         .flag(default = false)
         .help("Enable verbose output")
@@ -58,7 +61,7 @@ class LoadoutCli(
                         }
                     } else {
                         echo("No current loadout set. Use 'loadout list' to see available loadouts.")
-                        exitProcess(0)
+                        return
                     }
                 }
                 is Result.Error -> {
