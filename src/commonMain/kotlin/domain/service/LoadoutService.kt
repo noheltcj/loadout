@@ -280,8 +280,7 @@ class LoadoutService(
     private fun normalizeStoredLoadout(loadout: Loadout): Loadout =
         loadout.copy(fragments = normalizeFragmentPaths(loadout.fragments))
 
-    private fun normalizeFragmentPaths(paths: List<String>): List<String> =
-        paths.map { normalizeFragmentPath(it) }
+    private fun normalizeFragmentPaths(paths: List<String>): List<String> = paths.map { normalizeFragmentPath(it) }
 
     private fun normalizeFragmentPath(path: String): String =
         path
