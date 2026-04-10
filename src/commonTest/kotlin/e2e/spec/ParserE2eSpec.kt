@@ -36,9 +36,12 @@ class ParserE2eSpec : E2eBehaviorSuite({
                     execution.result.shouldHaveExitCode(1)
                 }
 
+                then("it outputs usage guidance for link") {
+                    execution.result.output.shouldContain("Usage: loadout link")
+                }
+
                 then("it reports that the legacy add invocation is unsupported and points callers toward link") {
-                    execution.result.shouldContainInOutput("no such option --to")
-                    execution.result.shouldContainInOutput("link")
+                    execution.result.shouldContainInOutput("The 'add' subcommand has been replaced by 'link'")
                 }
             }
         }

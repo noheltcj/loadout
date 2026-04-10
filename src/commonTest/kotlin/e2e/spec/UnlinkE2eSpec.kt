@@ -21,9 +21,17 @@ import e2e.support.shouldHaveStaleWarning
 
 class UnlinkE2eSpec : E2eBehaviorSuite({
     context("loadout unlink spec") {
-        given("the parser receives loadout unlink without --from") {
+        given("the requested fragment path exists in the workspace") {
+            val requestedFragmentExists: ScenarioSeed = {
+                seedFragment(firstFragmentPath, firstFragmentContent)
+            }
+
             action("loadout unlink is run without --from") {
-                val execution by memoizedAction("unlink", firstFragmentPath)
+                val execution by memoizedAction(
+                    "unlink",
+                    firstFragmentPath,
+                    seed = requestedFragmentExists
+                )
 
                 then("it exits with result 1") {
                     execution.result.shouldHaveExitCode(1)
@@ -33,11 +41,15 @@ class UnlinkE2eSpec : E2eBehaviorSuite({
                     execution.result.shouldContainInOutput("--from")
                 }
             }
-        }
 
-        given("the loadout named by --from is invalid") {
-            action("loadout unlink is run") {
-                val execution by memoizedAction("unlink", firstFragmentPath, "--from", "missing")
+            action("loadout unlink is run with --from referencing a missing loadout") {
+                val execution by memoizedAction(
+                    "unlink",
+                    firstFragmentPath,
+                    "--from",
+                    "missing",
+                    seed = requestedFragmentExists
+                )
 
                 then("it outputs that the specified loadout was not found") {
                     execution.result.shouldContainInOutput("Loadout 'missing' not found")
@@ -47,11 +59,15 @@ class UnlinkE2eSpec : E2eBehaviorSuite({
                     execution.result.shouldHaveExitCode(1)
                 }
             }
-        }
 
-        given("the loadout named by --from is empty") {
-            action("loadout unlink is run with an empty name") {
-                val execution by memoizedAction("unlink", firstFragmentPath, "--from", "")
+            action("loadout unlink is run with an empty --from value") {
+                val execution by memoizedAction(
+                    "unlink",
+                    firstFragmentPath,
+                    "--from",
+                    "",
+                    seed = requestedFragmentExists
+                )
 
                 then("it outputs the validation error") {
                     execution.result.shouldContainInOutput("Validation error")

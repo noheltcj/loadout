@@ -25,9 +25,17 @@ import io.kotest.matchers.string.shouldNotContain
 
 class LinkE2eSpec : E2eBehaviorSuite({
     context("loadout link spec") {
-        given("the parser receives loadout link without --to") {
+        given("the requested fragment path exists in the workspace") {
+            val requestedFragmentExists: ScenarioSeed = {
+                seedFragment(firstFragmentPath, firstFragmentContent)
+            }
+
             action("loadout link is run without --to") {
-                val execution by memoizedAction("link", firstFragmentPath)
+                val execution by memoizedAction(
+                    "link",
+                    firstFragmentPath,
+                    seed = requestedFragmentExists
+                )
 
                 then("it exits with result 1") {
                     execution.result.shouldHaveExitCode(1)
@@ -37,18 +45,14 @@ class LinkE2eSpec : E2eBehaviorSuite({
                     execution.result.shouldContainInOutput("--to")
                 }
             }
-        }
 
-        given("the loadout named by --to is invalid") {
-            action("loadout link is run") {
+            action("loadout link is run with --to referencing a missing loadout") {
                 val execution by memoizedAction(
                     "link",
                     firstFragmentPath,
                     "--to",
                     "missing",
-                    seed = {
-                        seedFragment(firstFragmentPath, firstFragmentContent)
-                    }
+                    seed = requestedFragmentExists
                 )
 
                 then("it outputs that the specified loadout was not found") {
@@ -59,18 +63,14 @@ class LinkE2eSpec : E2eBehaviorSuite({
                     execution.result.shouldHaveExitCode(1)
                 }
             }
-        }
 
-        given("the loadout named by --to is empty") {
-            action("loadout link is run with empty name") {
+            action("loadout link is run with an empty --to value") {
                 val execution by memoizedAction(
                     "link",
                     firstFragmentPath,
                     "--to",
                     "",
-                    seed = {
-                        seedFragment(firstFragmentPath, firstFragmentContent)
-                    }
+                    seed = requestedFragmentExists
                 )
 
                 then("it outputs the validation error") {

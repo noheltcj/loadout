@@ -1,5 +1,6 @@
 package cli
 
+import cli.commands.AddCommand
 import cli.commands.CreateCommand
 import cli.commands.InitCommand
 import cli.commands.LinkCommand
@@ -40,6 +41,10 @@ fun createLoadoutCommand(applicationScope: ApplicationScope): CliktCommand =
             loadoutService = applicationScope.loadoutService,
             composeLoadout = applicationScope.loadoutCompositionService,
             defaultOutputPaths = applicationScope.defaultOutputPaths
+        ),
+        AddCommand(
+            loadoutService = applicationScope.loadoutService,
+            fileRepository = applicationScope.fileRepository
         ),
         LinkCommand(
             loadoutService = applicationScope.loadoutService,

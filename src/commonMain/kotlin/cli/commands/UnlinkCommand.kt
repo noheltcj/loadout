@@ -35,7 +35,8 @@ class UnlinkCommand(
         ) {
             is Result.Success -> {
                 val updatedLoadout = result.value
-                echo("Unlinked fragment '$fragmentPath' from loadout '$loadoutName'")
+                val normalizedInput = fragmentPath.removePrefix("./")
+                echo("Unlinked fragment '$normalizedInput' from loadout '$loadoutName'")
 
                 if (updatedLoadout.fragments.isEmpty()) {
                     echo("Loadout is now empty.")
