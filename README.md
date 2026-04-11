@@ -1,4 +1,4 @@
-# 🎒 Loadout CLI
+# 🎒 Loadout
 
 [![GitHub Release](https://img.shields.io/github/v/release/noheltcj/loadout)](https://github.com/noheltcj/loadout/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
@@ -7,174 +7,189 @@
 [![Linux](https://img.shields.io/badge/Linux-arm64%20%7C%20x64-blue)](https://github.com/noheltcj/loadout/releases)
 [![Kotlin](https://img.shields.io/badge/Kotlin-Multiplatform-7F52FF?logo=kotlin)](https://kotlinlang.org/docs/multiplatform.html)
 
-> Composable, shareable `.md` system prompts for agentic AI coding systems.
-> A Kotlin Multiplatform (KMP) CLI for composing `AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, and other prompt fragments into production-ready `.md` profiles.
+**Composable system prompts for AI coding agents.**
+
+Your `AGENTS.md` shouldn't be a 500-line wall of text that you copy between repos and pray stays consistent. Loadout treats agent guidance the way package managers treat dependencies: small, focused fragments that you compose into purpose-built profiles.
 
 ---
 
-## 📖 Overview
+## The Problem
 
-**Loadout CLI** is a command-line tool implemented with Kotlin Multiplatform to provide a single, well-tested binary on macOS, Linux, and Windows. It encourages a modular, maintainable workflow for system prompts by letting you compose short Markdown fragments into final agent specifications.
+Most teams manage their AI agent prompts by hand as one monolithic `CLAUDE.md` or `AGENTS.md` per repo, maintained through copy-paste. This breaks down fast:
 
-Key benefits:
-- **CLI-first**: designed to be scriptable and CI-friendly.
-- **Composable**: re-use fragments across agents and projects.
-- **Open Source**: source-first workflow and easy local builds.
+- **Drift.** The same coding conventions exist in twelve repos, worded twelve different ways.
+- **Bloat.** Every agent sees every instruction, whether it's relevant to its task or not.
+- **No specialization.** A code-review agent and a feature-development agent have fundamentally different jobs, but they read the same prompt.
 
----
+## The Fix
 
-## ✨ Features
+Loadout lets you write prompt guidance once as markdown fragments, then compose them into loadouts — named profiles that produce the final `AGENTS.md`, `CLAUDE.md`, and `GEMINI.md` files your tools already read.
 
-- Compose prompt fragments into final `CLAUDE.md`, `AGENTS.md`, and `GEMINI.md` outputs.
-- Simple, consistent CLI.
-- Designed for fast local development and CI integration.
-
----
-
-## 🚀 Recommended Install Methods
-
-### 1) Homebrew (macOS / Linux)
-The easiest way for macOS and Linux users is to use Homebrew:
+```
+fragments/
+├── universal/
+│   ├── naming-conventions.md
+│   └── code-review-ideology.md
+├── kotlin/
+│   └── kmp-project-structure.md
+└── testing/
+    └── behavior-first-testing.md
+```
 
 ```bash
-# Install the CLI
+# One loadout for day-to-day development
+loadout create engineer --desc "Kotlin-Multiplatform Engineer" \
+  --fragment fragments/universal/naming-conventions.md \
+  --fragment fragments/kotlin/kmp-project-structure.md \
+  --fragment fragments/testing/behavior-first-testing.md
+
+# Another for code review, with different priorities
+loadout create code-reviewer \
+  --clone engineer \
+  --desc "Ideology-Aware Code Reviewer" \
+  --fragment fragments/universal/code-review-ideology.md
+
+# Switch contexts in one command
+loadout use code-reviewer
+```
+
+Each `loadout use` or `loadout sync` regenerates the output files. Your agent reads the right guidance for the right job.
+
+---
+
+## Install
+
+### Homebrew (macOS / Linux)
+
+```bash
 brew tap noheltcj/loadout
-brew install noheltcj/loadout
-
-# After install, run:
-loadout --help
+brew install loadout
 ```
 
----
+### GitHub Releases
 
-### 2) GitHub Releases (Windows / Manual install)
-If you prefer manual installation or are on a platform without a package manager, download a release archive:
+Prebuilt binaries for macOS (arm64/x64), Linux (arm64/x64), and Windows (x64) are available on the [releases page](https://github.com/noheltcj/loadout/releases).
 
-```bash
-# Download and extract (example for macOS x86_64)
-curl -L -o loadout.tar.gz \
-  "https://github.com/noheltcj/loadout/releases/download/v0.1.0/loadout-cli-mingw-x86.tar.gz"
-tar -xzf loadout.tar.gz
-# Move the binary into your PATH
-sudo mv loadout /usr/local/bin/loadout
-loadout --version
-```
-
----
-
-### 3) Build from source (recommended for contributors)
-
-The repository includes Gradle build scripts that support JVM and native targets. From the project root:
+### Build from Source
 
 ```bash
-# Clone
 git clone https://github.com/noheltcj/loadout.git
 cd loadout
 
-# Use the Gradle wrapper to assemble the correct release executable for your system
-# Supported Architectures: LinuxArm64, LinuxX64, MacosArm64, MacosX64, and MingwX64
-./gradlew linkReleaseExecutable<YourTargetArchitecture>
+# Supported targets: LinuxArm64, LinuxX64, MacosArm64, MacosX64, MingwX64
+./gradlew linkReleaseExecutableMacosArm64
 
-# After successful build, the release binary will be available
-./build/bin/<targetArchitectureCamelCase>/releaseExecutable/loadout.kexe --help
+./build/bin/macosArm64/releaseExecutable/loadout.kexe --help
 ```
 
 ---
 
-## ⚡ Quick Start — CLI Usage
+## Quick Start
 
-Before using Loadout in a project, run the init command:
 ```bash
-# Initialize with shared loadouts (default, recommended for teams)
+# Initialize Loadout in your project
 loadout init
 
-# Or initialize with local-only configuration
-loadout init --mode local
+# That's it. You now have:
+#   - A starter fragment at fragments/loadout-architect.md
+#   - A "default" loadout that includes it
+#   - Generated AGENTS.md, CLAUDE.md, and GEMINI.md
 ```
 
-The `init` command does the following:
-1. **Configures `.gitignore`** with appropriate patterns for your chosen mode
-2. **Creates a starter fragment** at `fragments/loadout-architect.md` (if it doesn't exist)
-3. **Creates a "default" loadout** with the starter fragment and activates it (if no loadouts exist)
-
-**Modes:**
-- **Shared mode** (default): Generated files are ignored, but loadout definitions (`.loadouts/`, `fragments/`) are committed and shared with your team
-- **Local mode**: Everything including loadout configurations is ignored and remains local to each developer
+From here, the workflow is: **write fragments → compose loadouts → sync outputs.**
 
 ```bash
-# Display your current loadout
+# See what's active
 loadout
 
-# Initialize project for Loadout
-loadout init                    # shared mode (default)
-loadout init --mode local       # local-only mode
-
-# List available loadouts
+# List all loadouts
 loadout list
 
-# Swap to a loadout
+# Create a new loadout
+loadout create <name> --desc "What this profile is for"
+
+# Add or remove fragments
+loadout link path/to/fragment.md --to <loadout>
+loadout unlink path/to/fragment.md --from <loadout>
+
+# Switch to a different loadout
 loadout use <name>
 
-# Preview without writing files
+# Regenerate outputs after editing fragment content
+loadout sync
+
+# Preview output without writing files
 loadout use <name> --std-out
 
-# Create an empty loadout
-loadout create <name> \
-  --desc "Short description"
-
-# Create a loadout with fragments
-loadout create <name> \
-  --desc "Short description" \
-  --fragment fragments/project-structure.md \
-  --fragment ~/.loadout/fragments/mvi-architecture.md
-
-# Link a fragment into your loadout
-loadout link path/to/fragments/desired_fragment.md --to <loadout_name>
-
-# Unlink a fragment from your loadout
-loadout unlink path/to/fragments/undesired_fragment.md --from <loadout_name>
-
-# Remove a loadout definition
-loadout remove <loadout_name>
-
-# After modifying a loadout or the content of a fragment, don't forget to sync your changes:
-loadout sync
+# Delete a loadout
+loadout remove <name>
 ```
 
 ---
 
-## 🛠 CLI Options
-- `--std-out`: Print the content that would be written to `CLAUDE.md`, `AGENTS.md`, and `GEMINI.md`; no changes.
+## How It Works
 
-(Exact flags depend on the current CLI implementation; use `loadout --help`.)
+Loadout manages three things:
+
+| Concept       | What it is                                                                 |
+|---------------|---------------------------------------------------------------------------|
+| **Fragment**  | A markdown file containing focused guidance on one concern.                |
+| **Loadout**   | A named profile that references a set of fragments.                        |
+| **Output**    | The generated `AGENTS.md` / `CLAUDE.md` / `GEMINI.md` your agent reads.   |
+
+Fragments live wherever makes sense:
+- Simple projects or project-specialized fragments may keep them in-repo under `fragments/`.
+- For teams or multi-repository projects, it's recommended to keep fragments in a shared, version-controlled fragment library. This enables sharing of common conventions across projects.
+
+### Shared vs. Local Mode
+
+```bash
+loadout init              # shared mode (default) — loadout definitions are committed
+loadout init --mode local # local mode — everything stays gitignored
+```
+
+Shared mode lets a team standardize on the same set of agent profiles. Local mode is for personal workflows where each developer curates their own.
 
 ---
 
-## 🧑‍💻 Development notes
+## Why Fragments?
 
-- The CLI codebase uses Kotlin Multiplatform to share logic, tooling, and serializable entities with the backend.
-- Prefer the Gradle wrapper (`./gradlew`) so CI and contributors run the same toolchain.
-- Keep core composition logic platform-agnostic; CLI plumbing lives under `cli/` module.
+The value compounds as the fragment library grows:
+
+- **Reuse across projects.** Write your naming conventions, architecture rules, or review ideology once. Reference them from any repo.
+- **Specialize per task.** A loadout for feature work includes testing guidance. A loadout for code review includes review ideology. Neither carries the other's baggage.
+- **Evolve independently.** Update a fragment or checkout a new fragment library commit and `loadout sync` will propagate the change.
+- **Keep it readable.** Each fragment is a short, self-contained markdown file focused on a single concern. They should be easy to review and refine.
 
 ---
 
-## 🧑‍🤝‍🧑 Contributing
+## Development
 
-Contributions are welcome. Here's a typical workflow:
+The CLI is built with Kotlin Multiplatform targeting native executables. The codebase follows a clean-architecture layout:
+
+- `src/commonMain/kotlin/cli/` — Command definitions and output rendering
+- `src/commonMain/kotlin/domain/` — Entities, services, and use cases
+- `src/commonMain/kotlin/data/` — Repository implementations and serialization
+- `src/nativeMain/kotlin/` — Native entrypoints and platform wiring
+
+```bash
+# Run the test suite
+./gradlew check
+```
+
+---
+
+## Contributing
+
+Contributions are welcome.
 
 1. Fork the repo.
 2. Create a feature branch: `git checkout -b feature/your-feature`.
 3. Run tests: `./gradlew check`.
 4. Open a PR with a clear description and small, focused commits.
 
-See `CONTRIBUTING.md` for detailed guidelines (code style, commit conventions, CI checks).
-
 ---
 
-## 📜 License
+## License
 
 [MIT](LICENSE)
-
----
-
-**Loadout CLI** — a cross-platform way to manage, compose, and share system prompts for agent agnostic task specialization.
