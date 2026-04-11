@@ -23,7 +23,7 @@ Most teams manage their AI agent prompts by hand as one monolithic `CLAUDE.md` o
 
 ## The Fix
 
-Loadout lets you write prompt guidance once as markdown fragments, then compose them into loadouts — named profiles that produce the final `AGENTS.md`, `CLAUDE.md`, and `GEMINI.md` files your tools already read.
+Loadout lets you write prompt guidance once as markdown fragments, then compose them into loadouts. Loadouts are named profiles that produce the final `AGENTS.md`, `CLAUDE.md`, and `GEMINI.md` files your tools already read.
 
 ```
 fragments/
@@ -106,9 +106,9 @@ loadout
 loadout list
 
 # Create a new loadout
-loadout create <name> --desc "What this profile is for"
+loadout create <name> --desc "Usually the purpose of the loadout / profile"
 
-# Add or remove fragments
+# Compose fragments
 loadout link path/to/fragment.md --to <loadout>
 loadout unlink path/to/fragment.md --from <loadout>
 
@@ -144,8 +144,8 @@ Fragments live wherever makes sense:
 ### Shared vs. Local Mode
 
 ```bash
-loadout init              # shared mode (default) — loadout definitions are committed
-loadout init --mode local # local mode — everything stays gitignored
+loadout init              # shared mode (default) - loadout definitions are committed
+loadout init --mode local # local mode - everything stays gitignored
 ```
 
 Shared mode lets a team standardize on the same set of agent profiles. Local mode is for personal workflows where each developer curates their own.
@@ -167,10 +167,10 @@ The value compounds as the fragment library grows:
 
 The CLI is built with Kotlin Multiplatform targeting native executables. The codebase follows a clean-architecture layout:
 
-- `src/commonMain/kotlin/cli/` — Command definitions and output rendering
-- `src/commonMain/kotlin/domain/` — Entities, services, and use cases
-- `src/commonMain/kotlin/data/` — Repository implementations and serialization
-- `src/nativeMain/kotlin/` — Native entrypoints and platform wiring
+- `src/commonMain/kotlin/cli/` - Command definitions and output rendering
+- `src/commonMain/kotlin/domain/` - Entities, services, and use cases
+- `src/commonMain/kotlin/data/` - Repository implementations and serialization
+- `src/nativeMain/kotlin/` - Native entrypoints and platform wiring
 
 ```bash
 # Run the test suite
