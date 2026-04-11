@@ -47,4 +47,4 @@ jobs:
         uses: gradle/actions/setup-gradle@748248ddd2a24f49513d8f472f81c3a07d4d50e1 # v4.4.4
 
       - name: Run tests
-        run: ./gradlew ${{ matrix.target }}Test
+        run: ./gradlew ${{ matrix.target }}Test ${{ matrix.target == 'linuxX64' && '-Pkotlin.native.cacheKind.linuxX64=none' || '' }}
