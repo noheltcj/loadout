@@ -25,6 +25,8 @@ jobs:
 
     name: Test (${{ matrix.target }})
     runs-on: ${{ matrix.os }}
+    permissions:
+      checks: write
 
     steps:
       - name: Checkout code
@@ -42,9 +44,10 @@ jobs:
       - name: Run tests
         run: ./gradlew ${{ matrix.target }}Test
 
-      - name: Upload test results
+      - name: Report test results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: dorny/test-reporter@a43b3a5f7366b97d083190328d2c652e1a8b6aa2 # v3.0.0
         with:
-          name: test-results-${{ matrix.target }}
-          path: build/reports/tests/
+          name: Results (${{ matrix.target }})
+          path: build/test-results/${{ matrix.target }}Test/*.xml
+          reporter: java-junit
