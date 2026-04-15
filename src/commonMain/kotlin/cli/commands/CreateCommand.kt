@@ -8,14 +8,12 @@ import com.github.ajalt.clikt.parameters.arguments.argument
 import com.github.ajalt.clikt.parameters.options.help
 import com.github.ajalt.clikt.parameters.options.multiple
 import com.github.ajalt.clikt.parameters.options.option
-import domain.entity.error.LoadoutError
 import domain.entity.packaging.Result
-import domain.repository.FileRepository
-import domain.service.LoadoutService
+import domain.usecase.CreateLoadoutInput
+import domain.usecase.CreateLoadoutUseCase
 
 class CreateCommand(
-    private val loadoutService: LoadoutService,
-    private val fileRepository: FileRepository,
+    private val createLoadout: CreateLoadoutUseCase,
 ) : CliktCommand(
         name = "create",
     ) {
@@ -34,25 +32,23 @@ class CreateCommand(
         .help("Create by copying an existing loadout")
 
     override fun run() {
-        val missingFragment = fragments.firstOrNull { !fileRepository.fileExists(it) }
-        if (missingFragment != null) {
-            echoError(LoadoutError.FragmentNotFound(missingFragment))
-            throw ProgramResult(1)
-        }
-
         val result =
             if (cloneFrom != null) {
-                loadoutService.createLoadoutFromClone(
-                    name = name,
-                    cloneFrom = cloneFrom!!,
-                    description = description,
-                    additionalFragments = fragments,
+                createLoadout(
+                    CreateLoadoutInput.Clone(
+                        name = name,
+                        cloneFrom = cloneFrom!!,
+                        description = description,
+                        additionalFragmentPaths = fragments,
+                    )
                 )
             } else {
-                loadoutService.createLoadout(
-                    name = name,
-                    description = description,
-                    fragments = fragments,
+                createLoadout(
+                    CreateLoadoutInput.New(
+                        name = name,
+                        description = description,
+                        fragmentPaths = fragments,
+                    )
                 )
             }
 

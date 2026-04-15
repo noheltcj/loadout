@@ -9,10 +9,11 @@ import com.github.ajalt.clikt.parameters.options.help
 import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.options.required
 import domain.entity.packaging.Result
-import domain.service.LoadoutService
+import domain.usecase.UnlinkFragmentFromLoadoutInput
+import domain.usecase.UnlinkFragmentFromLoadoutUseCase
 
 class UnlinkCommand(
-    private val loadoutService: LoadoutService,
+    private val unlinkFragmentFromLoadout: UnlinkFragmentFromLoadoutUseCase,
 ) : CliktCommand(
         name = "unlink",
     ) {
@@ -28,9 +29,11 @@ class UnlinkCommand(
     override fun run() {
         when (
             val result =
-                loadoutService.removeFragmentFromLoadout(
-                    loadoutName = loadoutName,
-                    fragmentPath = fragmentPath
+                unlinkFragmentFromLoadout(
+                    UnlinkFragmentFromLoadoutInput(
+                        loadoutName = loadoutName,
+                        fragmentPath = fragmentPath
+                    )
                 )
         ) {
             is Result.Success -> {

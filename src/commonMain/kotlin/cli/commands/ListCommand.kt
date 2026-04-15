@@ -9,10 +9,10 @@ import com.github.ajalt.clikt.parameters.options.help
 import com.github.ajalt.clikt.parameters.options.option
 import domain.entity.Loadout
 import domain.entity.packaging.Result
-import domain.service.LoadoutService
+import domain.usecase.ListLoadoutsUseCase
 
 class ListCommand(
-    private val loadoutService: LoadoutService,
+    private val listLoadouts: ListLoadoutsUseCase,
 ) : CliktCommand(
         name = "list",
     ) {
@@ -25,7 +25,7 @@ class ListCommand(
     // TODO: Inherit global --config option from main CLI
 
     override fun run() {
-        when (val result = loadoutService.getAllLoadouts()) {
+        when (val result = listLoadouts()) {
             is Result.Success -> {
                 val loadouts = result.value
 

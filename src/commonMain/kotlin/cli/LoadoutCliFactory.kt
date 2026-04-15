@@ -15,45 +15,37 @@ import com.github.ajalt.clikt.core.subcommands
 
 fun createLoadoutCommand(applicationScope: ApplicationScope): CliktCommand =
     LoadoutCli(
-        loadoutService = applicationScope.loadoutService,
-        composeLoadout = applicationScope.loadoutCompositionService,
+        readCurrentLoadoutStatus = applicationScope.readCurrentLoadoutStatus,
         checkLoadoutSync = applicationScope.checkLoadoutSync
     ).subcommands(
         InitCommand(
-            fileRepository = applicationScope.fileRepository,
-            loadoutService = applicationScope.loadoutService,
-            composeLoadout = applicationScope.loadoutCompositionService,
+            initializeLoadoutProject = applicationScope.initializeLoadoutProject,
             defaultOutputPaths = applicationScope.defaultOutputPaths
         ),
         ListCommand(
-            loadoutService = applicationScope.loadoutService
+            listLoadouts = applicationScope.listLoadouts
         ),
         CreateCommand(
-            loadoutService = applicationScope.loadoutService,
-            fileRepository = applicationScope.fileRepository
+            createLoadout = applicationScope.createLoadout
         ),
         UseCommand(
-            loadoutService = applicationScope.loadoutService,
-            composeLoadout = applicationScope.loadoutCompositionService,
+            useLoadout = applicationScope.useLoadout,
             defaultOutputPaths = applicationScope.defaultOutputPaths
         ),
         SyncCommand(
-            loadoutService = applicationScope.loadoutService,
-            composeLoadout = applicationScope.loadoutCompositionService,
+            syncCurrentLoadout = applicationScope.syncCurrentLoadout,
             defaultOutputPaths = applicationScope.defaultOutputPaths
         ),
         AddCommand(
-            loadoutService = applicationScope.loadoutService,
-            fileRepository = applicationScope.fileRepository
+            linkFragmentToLoadout = applicationScope.linkFragmentToLoadout
         ),
         LinkCommand(
-            loadoutService = applicationScope.loadoutService,
-            fileRepository = applicationScope.fileRepository
+            linkFragmentToLoadout = applicationScope.linkFragmentToLoadout
         ),
         UnlinkCommand(
-            loadoutService = applicationScope.loadoutService
+            unlinkFragmentFromLoadout = applicationScope.unlinkFragmentFromLoadout
         ),
         RemoveCommand(
-            loadoutService = applicationScope.loadoutService
+            removeLoadout = applicationScope.removeLoadout
         )
     )

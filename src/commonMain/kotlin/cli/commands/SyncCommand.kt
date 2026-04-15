@@ -11,12 +11,13 @@ import com.github.ajalt.clikt.parameters.options.help
 import com.github.ajalt.clikt.parameters.options.option
 import domain.entity.error.LoadoutError
 import domain.entity.packaging.Result
-import domain.service.LoadoutCompositionService
-import domain.service.LoadoutService
+import domain.usecase.LoadoutOutputTarget
+import domain.usecase.SyncCurrentLoadoutInput
+import domain.usecase.SyncCurrentLoadoutResult
+import domain.usecase.SyncCurrentLoadoutUseCase
 
 class SyncCommand(
-    private val loadoutService: LoadoutService,
-    private val composeLoadout: LoadoutCompositionService,
+    private val syncCurrentLoadout: SyncCurrentLoadoutUseCase,
     private val defaultOutputPaths: List<String>,
 ) : CliktCommand(
         name = "sync",
@@ -36,51 +37,35 @@ class SyncCommand(
             throw ProgramResult(1)
         }
 
-        when (val currentResult = loadoutService.getCurrentLoadout()) {
+        val outputTarget =
+            if (stdOutOnly) {
+                LoadoutOutputTarget.StandardOutput
+            } else {
+                LoadoutOutputTarget.FileSystem(outputDir?.let(::outputPaths) ?: defaultOutputPaths)
+            }
+
+        when (val currentResult = syncCurrentLoadout(SyncCurrentLoadoutInput(outputTarget = outputTarget))) {
             is Result.Success -> {
-                val currentLoadout = currentResult.value
-                if (currentLoadout == null) {
-                    echo("No current loadout set. Use 'loadout list' to see available loadouts.", err = true)
-                    throw ProgramResult(1)
-                }
-
-                val loadoutName = currentLoadout.name
-
-                when (val composeResult = composeLoadout(currentLoadout)) {
-                    is Result.Success -> {
-                        val composedOutput = composeResult.value
-
-                        if (stdOutOnly) {
-                            echo(composedOutput.content)
-                        } else {
-                            val outputPaths = outputDir?.let { outputPaths(it) } ?: defaultOutputPaths
-
-                            when (
-                                val setLoadoutResult =
-                                    loadoutService.setCurrentLoadout(composedOutput, outputPaths)
-                            ) {
-                                is Result.Success -> {
-                                    echoComposedFilesWriteResult(
-                                        result = setLoadoutResult.value,
-                                        loadoutName = loadoutName,
-                                        composedContentLength = composedOutput.content.length
-                                    )
-                                }
-                                is Result.Error -> {
-                                    echo("Failed to set loadout: ${setLoadoutResult.error.message}", err = true)
-                                    throw ProgramResult(1)
-                                }
-                            }
-                        }
-                    }
-                    is Result.Error -> {
-                        echo("Failed to compose loadout: ${composeResult.error.message}", err = true)
+                when (val syncResult = currentResult.value) {
+                    SyncCurrentLoadoutResult.NoCurrentLoadout -> {
+                        echo("No current loadout set. Use 'loadout list' to see available loadouts.", err = true)
                         throw ProgramResult(1)
                     }
+
+                    is SyncCurrentLoadoutResult.PrintedToStandardOutput -> {
+                        echo(syncResult.composedOutput.content)
+                    }
+
+                    is SyncCurrentLoadoutResult.Activated ->
+                        echoComposedFilesWriteResult(
+                            result = syncResult.writeResult,
+                            loadoutName = syncResult.loadout.name,
+                            composedContentLength = syncResult.composedOutput.content.length
+                        )
                 }
             }
             is Result.Error -> {
-                echo("Failed to get current loadout: ${currentResult.error.message}", err = true)
+                echo(currentResult.error.message, err = true)
                 throw ProgramResult(1)
             }
         }
