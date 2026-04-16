@@ -9,16 +9,25 @@ import e2e.support.action
 import e2e.support.architectFragmentPath
 import e2e.support.existingStarterFragmentContent
 import e2e.support.givenExistingLoadoutsAlreadyExistBeforeInit
+import e2e.support.givenGitRepositoryExists
 import e2e.support.givenStarterFragmentAlreadyExists
+import e2e.support.givenTwoValidLoadoutsExist
+import e2e.support.hooksDirectoryPath
+import e2e.support.postCheckoutHookPath
+import e2e.support.postMergeHookPath
 import e2e.support.shouldContainInStdout
 import e2e.support.shouldContainLoadoutGitignorePatterns
 import e2e.support.shouldContainLocalModeGitignorePatternsExactlyOnce
 import e2e.support.shouldContainLocalOnlyGitignorePatterns
 import e2e.support.shouldContainSharedModeGitignorePatternsExactlyOnce
 import e2e.support.shouldHaveCurrentLoadoutName
+import e2e.support.shouldHaveExecutableWorkspaceFile
 import e2e.support.shouldHaveGeneratedFiles
+import e2e.support.shouldHaveGitLocalConfig
 import e2e.support.shouldHaveGitignoreEntries
 import e2e.support.shouldHaveNoUnexpectedStderr
+import e2e.support.shouldHaveRepoDefaultLoadoutName
+import e2e.support.shouldNotHaveGitignoreEntries
 import e2e.support.shouldNotIgnoreRepoManagedLoadoutFiles
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.nulls.shouldBeNull
@@ -224,6 +233,140 @@ class InitE2eSpec : E2eBehaviorSuite({
                                 "loadout link fragments/loadout-architect.md --to <loadout-name>"
                             )
                         }
+                    }
+                }
+            }
+        }
+
+        given("an isolated git repository") {
+            val isolatedGitRepository: ScenarioSeed = {
+                givenGitRepositoryExists()
+            }
+
+            action("loadout init is run in shared mode") {
+                val execution by memoizedAction("init", seed = isolatedGitRepository)
+
+                then("it installs tracked post-checkout and post-merge hook scripts") {
+                    execution.scenario.readWorkspaceFile(postCheckoutHookPath).shouldNotBeNull()
+                    execution.scenario.readWorkspaceFile(postMergeHookPath).shouldNotBeNull()
+                }
+
+                then("it marks the installed hook scripts executable") {
+                    execution.scenario.shouldHaveExecutableWorkspaceFile(postCheckoutHookPath)
+                    execution.scenario.shouldHaveExecutableWorkspaceFile(postMergeHookPath)
+                }
+
+                then("it points git at the tracked hooks directory") {
+                    execution.scenario.shouldHaveGitLocalConfig("core.hooksPath", hooksDirectoryPath)
+                }
+
+                then("it seeds the repo default loadout as default") {
+                    execution.scenario.shouldHaveRepoDefaultLoadoutName("default")
+                }
+
+                then("it does not add the tracked hooks directory to .gitignore") {
+                    execution.scenario.shouldNotHaveGitignoreEntries("$hooksDirectoryPath/")
+                }
+            }
+
+            given("shared init has already installed the tracked hooks") {
+                action("loadout init is run in shared mode again") {
+                    val execution by memoizedExecution(
+                        seed = {
+                            givenGitRepositoryExists()
+                            runCommand("init")
+                        }
+                    ) {
+                        writeWorkspaceFile(
+                            "scratch/before-post-checkout.txt",
+                            readWorkspaceFile(postCheckoutHookPath) ?: "<missing>\n"
+                        )
+                        writeWorkspaceFile(
+                            "scratch/before-post-merge.txt",
+                            readWorkspaceFile(postMergeHookPath) ?: "<missing>\n"
+                        )
+                        runCommand("init")
+                    }
+
+                    then("it keeps the post-checkout hook content stable") {
+                        execution.scenario.readWorkspaceFile(postCheckoutHookPath) shouldBe
+                            execution.scenario.readWorkspaceFile("scratch/before-post-checkout.txt")
+                    }
+
+                    then("it keeps the post-merge hook content stable") {
+                        execution.scenario.readWorkspaceFile(postMergeHookPath) shouldBe
+                            execution.scenario.readWorkspaceFile("scratch/before-post-merge.txt")
+                    }
+
+                    then("it keeps git configured to the tracked hooks directory only once") {
+                        execution.scenario
+                            .runGit("config", "--local", "--get-all", "core.hooksPath")
+                            .stdout
+                            .trim() shouldBe hooksDirectoryPath
+                    }
+                }
+            }
+
+            given("one existing loadout already exists before init") {
+                action("loadout init is run in shared mode") {
+                    val execution by memoizedAction(
+                        "init",
+                        seed = {
+                            givenGitRepositoryExists()
+                            givenExistingLoadoutsAlreadyExistBeforeInit()
+                        }
+                    )
+
+                    then("it uses the existing loadout as the repo default") {
+                        execution.scenario.shouldHaveRepoDefaultLoadoutName("existing")
+                    }
+                }
+            }
+
+            given("multiple existing loadouts already exist before init") {
+                action("loadout init is run in shared mode") {
+                    val execution by memoizedAction(
+                        "init",
+                        seed = {
+                            givenGitRepositoryExists()
+                            givenTwoValidLoadoutsExist()
+                        }
+                    )
+
+                    then("it leaves the repo default unset") {
+                        execution.scenario.shouldHaveRepoDefaultLoadoutName(null)
+                    }
+
+                    then("it prints follow-up guidance for choosing a repo default loadout") {
+                        execution.result.stdout.shouldContain("loadout config --default-loadout <name>")
+                    }
+                }
+            }
+
+            given("a foreign hooks path is already configured") {
+                action("loadout init is run in shared mode") {
+                    val execution by memoizedAction(
+                        "init",
+                        seed = {
+                            givenGitRepositoryExists()
+                            runGit("config", "core.hooksPath", ".foreign-hooks")
+                            writeWorkspaceFile(".foreign-hooks/post-checkout", "#!/bin/sh\nexit 0\n")
+                            setWorkspaceFileExecutable(".foreign-hooks/post-checkout")
+                        }
+                    )
+
+                    then("it leaves the foreign hooks path configured") {
+                        execution.scenario.shouldHaveGitLocalConfig("core.hooksPath", ".foreign-hooks")
+                    }
+
+                    then("it does not install tracked loadout-managed hooks") {
+                        execution.scenario.readWorkspaceFile(postCheckoutHookPath).shouldBeNull()
+                        execution.scenario.readWorkspaceFile(postMergeHookPath).shouldBeNull()
+                    }
+
+                    then("it prints manual follow-up guidance instead of taking over hooks") {
+                        execution.result.stdout.shouldContain("core.hooksPath")
+                        execution.result.stdout.shouldContain(".githooks")
                     }
                 }
             }
