@@ -10,12 +10,13 @@ import com.github.ajalt.clikt.parameters.options.flag
 import com.github.ajalt.clikt.parameters.options.help
 import com.github.ajalt.clikt.parameters.options.option
 import domain.entity.packaging.Result
-import domain.service.LoadoutCompositionService
-import domain.service.LoadoutService
+import domain.usecase.LoadoutOutputTarget
+import domain.usecase.UseLoadoutInput
+import domain.usecase.UseLoadoutResult
+import domain.usecase.UseLoadoutUseCase
 
 class UseCommand(
-    private val loadoutService: LoadoutService,
-    private val composeLoadout: LoadoutCompositionService,
+    private val useLoadout: UseLoadoutUseCase,
     private val defaultOutputPaths: List<String>,
 ) : CliktCommand(
         name = "use",
@@ -34,46 +35,28 @@ class UseCommand(
     // TODO: Inherit global --config option from main CLI
 
     override fun run() {
-        // TODO: Implement a guard function to flatten this overly nested logic
-        when (val result = loadoutService.getLoadout(loadoutName)) {
+        val outputTarget =
+            if (stdOutOnly) {
+                LoadoutOutputTarget.StandardOutput
+            } else {
+                LoadoutOutputTarget.FileSystem(outputDir?.let(::outputPaths) ?: defaultOutputPaths)
+            }
+
+        when (val result = useLoadout(UseLoadoutInput(loadoutName = loadoutName, outputTarget = outputTarget))) {
             is Result.Success -> {
-                val loadout = result.value
+                when (val useResult = result.value) {
+                    is UseLoadoutResult.PrintedToStandardOutput -> echo(useResult.composedOutput.content)
 
-                when (val composeResult = composeLoadout(loadout)) {
-                    is Result.Success -> {
-                        val composedOutput = composeResult.value
-
-                        if (stdOutOnly) {
-                            echo(composedOutput.content)
-                        } else {
-                            val outputPaths = outputDir?.let { outputPaths(it) } ?: defaultOutputPaths
-
-                            when (
-                                val setLoadoutResult =
-                                    loadoutService.setCurrentLoadout(composedOutput, outputPaths)
-                            ) {
-                                is Result.Success -> {
-                                    echoComposedFilesWriteResult(
-                                        result = setLoadoutResult.value,
-                                        loadoutName = loadoutName,
-                                        composedContentLength = composedOutput.content.length
-                                    )
-                                }
-                                is Result.Error -> {
-                                    echo("Failed to set loadout: ${setLoadoutResult.error.message}", err = true)
-                                    throw ProgramResult(1)
-                                }
-                            }
-                        }
-                    }
-                    is Result.Error -> {
-                        echo("Failed to compose loadout: ${composeResult.error.message}", err = true)
-                        throw ProgramResult(1)
-                    }
+                    is UseLoadoutResult.Activated ->
+                        echoComposedFilesWriteResult(
+                            result = useResult.writeResult,
+                            loadoutName = useResult.loadout.name,
+                            composedContentLength = useResult.composedOutput.content.length
+                        )
                 }
             }
             is Result.Error -> {
-                echo("Failed to get loadout: ${result.error.message}", err = true)
+                echo(result.error.message, err = true)
                 throw ProgramResult(1)
             }
         }

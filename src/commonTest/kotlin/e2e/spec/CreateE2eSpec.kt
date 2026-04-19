@@ -361,6 +361,36 @@ class CreateE2eSpec : E2eBehaviorSuite({
                             execution.result.shouldContainInStdout("Created loadout 'copy' (cloned from 'source')")
                         }
                     }
+
+                    given("the source loadout references a fragment that no longer exists") {
+                        action("loadout create is run with --clone") {
+                            val execution by memoizedAction(
+                                "create",
+                                "copy",
+                                "--clone",
+                                "source",
+                                seed = {
+                                    seedLoadout(
+                                        name = "source",
+                                        description = "Source loadout",
+                                        fragments = listOf(firstFragmentPath)
+                                    )
+                                }
+                            )
+
+                            then("it outputs a fragment-not-found error for the inherited fragment") {
+                                execution.result.shouldContainInOutput("Fragment not found: $firstFragmentPath")
+                            }
+
+                            then("it does not create the cloned loadout definition") {
+                                execution.scenario.readLoadout("copy").shouldBeNull()
+                            }
+
+                            then("it exits with result 1") {
+                                execution.result.shouldHaveExitCode(1)
+                            }
+                        }
+                    }
                 }
 
                 given("the requested clone source loadout does not exist") {

@@ -6,10 +6,10 @@ import com.github.ajalt.clikt.core.Context
 import com.github.ajalt.clikt.core.ProgramResult
 import com.github.ajalt.clikt.parameters.arguments.argument
 import domain.entity.packaging.Result
-import domain.service.LoadoutService
+import domain.usecase.RemoveLoadoutUseCase
 
 class RemoveCommand(
-    private val loadoutService: LoadoutService,
+    private val removeLoadout: RemoveLoadoutUseCase,
 ) : CliktCommand(
         name = "remove",
     ) {
@@ -18,7 +18,7 @@ class RemoveCommand(
     private val loadoutName by argument("name", help = "Name of the loadout to remove")
 
     override fun run() {
-        when (val result = loadoutService.deleteLoadout(loadoutName)) {
+        when (val result = removeLoadout(loadoutName)) {
             is Result.Success -> {
                 echo("Removed loadout '${result.value.loadoutName}'")
                 if (result.value.clearedCurrentLoadout) {

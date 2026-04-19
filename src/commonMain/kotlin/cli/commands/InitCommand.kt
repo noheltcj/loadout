@@ -10,14 +10,15 @@ import com.github.ajalt.clikt.parameters.options.help
 import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.types.enum
 import domain.entity.packaging.Result
-import domain.repository.FileRepository
-import domain.service.LoadoutCompositionService
-import domain.service.LoadoutService
+import domain.usecase.DefaultLoadoutInitializationResult
+import domain.usecase.GitignoreConfigurationResult
+import domain.usecase.InitializeLoadoutProjectInput
+import domain.usecase.InitializeLoadoutProjectUseCase
+import domain.usecase.LoadoutInitializationMode
+import domain.usecase.StarterFragmentCreationResult
 
 class InitCommand(
-    private val fileRepository: FileRepository,
-    private val loadoutService: LoadoutService,
-    private val composeLoadout: LoadoutCompositionService,
+    private val initializeLoadoutProject: InitializeLoadoutProjectUseCase,
     private val defaultOutputPaths: List<String>,
 ) : CliktCommand(
         name = COMMAND_NAME,
@@ -31,152 +32,72 @@ class InitCommand(
         .help("Mode: 'shared' (default) for team collaboration, 'local' for local-only configuration")
 
     override fun run() {
-        setupGitignore()
-        val fragmentCreated = createStarterFragment()
-        setupDefaultLoadoutIfNeeded(fragmentCreated)
-    }
-
-    private fun setupGitignore() {
-        val existingContent =
-            when (val result = fileRepository.readFile(GITIGNORE_PATH)) {
-                is Result.Success -> result.value
-                is Result.Error -> ""
+        val initializationMode =
+            when (mode) {
+                InitMode.SHARED -> LoadoutInitializationMode.Shared
+                InitMode.LOCAL -> LoadoutInitializationMode.Local
             }
-
-        val patterns = mode.gitignorePatterns
-        val newPatterns =
-            patterns.filter { pattern ->
-                pattern.isBlank() || !existingContent.contains(pattern.trim())
-            }
-
-        if (newPatterns.all { it.isBlank() || existingContent.contains(it.trim()) }) {
-            echo("  .gitignore already configured for Loadout (${mode.displayName} mode)")
-            return
-        }
-
-        val updatedContent =
-            buildString {
-                if (existingContent.isNotBlank()) {
-                    append(existingContent)
-                    if (!existingContent.endsWith("\n")) {
-                        append("\n")
-                    }
-                    append("\n")
-                }
-
-                append("# Loadout CLI - ${mode.displayName} Mode\n")
-                newPatterns.forEach { pattern ->
-                    append(pattern)
-                    append("\n")
-                }
-            }
-
-        when (val writeResult = fileRepository.writeFile(GITIGNORE_PATH, updatedContent)) {
-            is Result.Success -> {
-                echo("  Added Loadout patterns to .gitignore (${mode.displayName} mode)")
-            }
-            is Result.Error -> {
-                echo("Failed to write .gitignore: ${writeResult.error.message}", err = true)
-                throw ProgramResult(1)
-            }
-        }
-    }
-
-    private fun createStarterFragment(): Boolean {
-        if (fileRepository.fileExists(ARCHITECT_FRAGMENT_PATH)) {
-            echo("  Starter fragment already exists at $ARCHITECT_FRAGMENT_PATH")
-            return false
-        }
-
-        when (val result = fileRepository.createDirectory(Constants.FRAGMENTS_DIR)) {
-            is Result.Success -> { /* Directory created or already exists */ }
-            is Result.Error -> {
-                echo("Failed to create fragments directory: ${result.error.message}", err = true)
-                throw ProgramResult(1)
-            }
-        }
-
-        when (val result = fileRepository.writeFile(ARCHITECT_FRAGMENT_PATH, ARCHITECT_FRAGMENT_CONTENT)) {
-            is Result.Success -> {
-                echo("  Created starter fragment at $ARCHITECT_FRAGMENT_PATH")
-                return true
-            }
-            is Result.Error -> {
-                echo("Failed to create starter fragment: ${result.error.message}", err = true)
-                throw ProgramResult(1)
-            }
-        }
-    }
-
-    private fun setupDefaultLoadoutIfNeeded(fragmentCreated: Boolean) {
-        val loadouts =
-            when (val result = loadoutService.getAllLoadouts()) {
-                is Result.Success -> result.value
-                is Result.Error -> {
-                    echo("Failed to check existing loadouts: ${result.error.message}", err = true)
-                    throw ProgramResult(1)
-                }
-            }
-
-        if (loadouts.isNotEmpty()) {
-            if (fragmentCreated) {
-                echo("")
-                echo("Existing loadouts found. Link the new fragment with:")
-                echo("  loadout link $ARCHITECT_FRAGMENT_PATH --to <loadout-name>")
-            }
-            return
-        }
 
         when (
-            val createResult =
-                loadoutService.createLoadout(
-                    name = DEFAULT_LOADOUT_NAME,
-                    description = DEFAULT_LOADOUT_DESCRIPTION,
-                    fragments = listOf(ARCHITECT_FRAGMENT_PATH)
+            val result =
+                initializeLoadoutProject(
+                    InitializeLoadoutProjectInput(
+                        mode = initializationMode,
+                        gitignorePath = GITIGNORE_PATH,
+                        gitignorePatterns = mode.gitignorePatterns,
+                        starterFragmentPath = ARCHITECT_FRAGMENT_PATH,
+                        starterFragmentContent = ARCHITECT_FRAGMENT_CONTENT,
+                        defaultLoadoutName = DEFAULT_LOADOUT_NAME,
+                        defaultLoadoutDescription = DEFAULT_LOADOUT_DESCRIPTION,
+                        outputPaths = defaultOutputPaths,
+                    )
                 )
         ) {
             is Result.Success -> {
-                val loadout = createResult.value
-                echo("  Created '$DEFAULT_LOADOUT_NAME' loadout with starter fragment")
+                when (result.value.gitignoreConfiguration) {
+                    GitignoreConfigurationResult.AlreadyConfigured ->
+                        echo("  .gitignore already configured for Loadout (${mode.displayName} mode)")
 
-                when (val composeResult = composeLoadout(loadout)) {
-                    is Result.Success -> {
-                        val composedOutput = composeResult.value
-                        when (
-                            val setResult =
-                                loadoutService.setCurrentLoadout(
-                                    composedOutput,
-                                    defaultOutputPaths
-                                )
-                        ) {
-                            is Result.Success -> {
-                                echoComposedFilesWriteResult(
-                                    result = setResult.value,
-                                    loadoutName = DEFAULT_LOADOUT_NAME,
-                                    composedContentLength = composedOutput.content.length
-                                )
-                            }
-                            is Result.Error -> {
-                                echo("Failed to activate loadout: ${setResult.error.message}", err = true)
-                                throw ProgramResult(1)
-                            }
+                    GitignoreConfigurationResult.Updated ->
+                        echo("  Added Loadout patterns to .gitignore (${mode.displayName} mode)")
+                }
+
+                when (result.value.starterFragmentCreation) {
+                    StarterFragmentCreationResult.AlreadyExists ->
+                        echo("  Starter fragment already exists at $ARCHITECT_FRAGMENT_PATH")
+
+                    StarterFragmentCreationResult.Created ->
+                        echo("  Created starter fragment at $ARCHITECT_FRAGMENT_PATH")
+                }
+
+                when (val defaultLoadoutInitialization = result.value.defaultLoadoutInitialization) {
+                    DefaultLoadoutInitializationResult.ExistingLoadoutsPresent -> {
+                        if (result.value.starterFragmentCreation is StarterFragmentCreationResult.Created) {
+                            echo("")
+                            echo("Existing loadouts found. Link the new fragment with:")
+                            echo("  loadout link $ARCHITECT_FRAGMENT_PATH --to <loadout-name>")
                         }
                     }
-                    is Result.Error -> {
-                        echo("Failed to compose loadout: ${composeResult.error.message}", err = true)
-                        throw ProgramResult(1)
+
+                    is DefaultLoadoutInitializationResult.CreatedAndActivated -> {
+                        echo("  Created '$DEFAULT_LOADOUT_NAME' loadout with starter fragment")
+                        echoComposedFilesWriteResult(
+                            result = defaultLoadoutInitialization.writeResult,
+                            loadoutName = DEFAULT_LOADOUT_NAME,
+                            composedContentLength = defaultLoadoutInitialization.composedOutput.content.length
+                        )
+                        echo("")
+                        echo("Loadout initialized successfully!")
+                        echo("Note: ${mode.completionNote}")
                     }
                 }
             }
+
             is Result.Error -> {
-                echo("Failed to create default loadout: ${createResult.error.message}", err = true)
+                echo(result.error.message, err = true)
                 throw ProgramResult(1)
             }
         }
-
-        echo("")
-        echo("Loadout initialized successfully!")
-        echo("Note: ${mode.completionNote}")
     }
 
     companion object {

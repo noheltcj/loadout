@@ -7,9 +7,21 @@ import data.repository.FileBasedLoadoutRepository
 import data.serialization.JsonSerializer
 import domain.repository.EnvironmentRepository
 import domain.repository.FileRepository
-import domain.service.LoadoutCompositionService
-import domain.service.LoadoutService
+import domain.usecase.ActivateComposedLoadoutUseCase
 import domain.usecase.CheckLoadoutSyncUseCase
+import domain.usecase.ComposeLoadoutUseCase
+import domain.usecase.CreateLoadoutUseCase
+import domain.usecase.GetCurrentLoadoutUseCase
+import domain.usecase.GetLoadoutUseCase
+import domain.usecase.InitializeLoadoutProjectUseCase
+import domain.usecase.LinkFragmentToLoadoutUseCase
+import domain.usecase.ListLoadoutsUseCase
+import domain.usecase.ReadCurrentLoadoutStatusUseCase
+import domain.usecase.RemoveLoadoutUseCase
+import domain.usecase.SyncCurrentLoadoutUseCase
+import domain.usecase.UnlinkFragmentFromLoadoutUseCase
+import domain.usecase.UpdateLoadoutUseCase
+import domain.usecase.UseLoadoutUseCase
 import domain.usecase.WriteComposedFilesUseCase
 
 fun <T> withApplicationScope(scopedBlock: ApplicationScope.() -> T): T {
@@ -33,36 +45,107 @@ fun <T> withApplicationScope(scopedBlock: ApplicationScope.() -> T): T {
             globalFragmentsDirectory = globalFragmentsDirectory
         )
 
-    val loadoutCompositionService =
-        LoadoutCompositionService(
+    val composeLoadout =
+        ComposeLoadoutUseCase(
             fragmentRepository = fragmentRepository,
             environmentRepository = environmentRepository
-        )
-    val checkLoadoutSync =
-        CheckLoadoutSyncUseCase(
-            configRepository = configRepository,
-            loadoutRepository = loadoutRepository,
-            compositionService = loadoutCompositionService
         )
     val writeComposedFiles =
         WriteComposedFilesUseCase(
             fileRepository = fileRepository,
             configRepository = configRepository
         )
-    val loadoutService =
-        LoadoutService(
+    val activateComposedLoadout =
+        ActivateComposedLoadoutUseCase(
+            writeComposedFiles = writeComposedFiles,
+            configRepository = configRepository
+        )
+    val getLoadout =
+        GetLoadoutUseCase(
             loadoutRepository = loadoutRepository,
+        )
+    val getCurrentLoadout =
+        GetCurrentLoadoutUseCase(
             configRepository = configRepository,
+            getLoadout = getLoadout
+        )
+    val listLoadouts =
+        ListLoadoutsUseCase(
+            loadoutRepository = loadoutRepository
+        )
+    val updateLoadout =
+        UpdateLoadoutUseCase(
+            loadoutRepository = loadoutRepository
+        )
+    val createLoadout =
+        CreateLoadoutUseCase(
+            loadoutRepository = loadoutRepository,
+            fragmentRepository = fragmentRepository,
+            environmentRepository = environmentRepository
+        )
+    val linkFragmentToLoadout =
+        LinkFragmentToLoadoutUseCase(
+            fragmentRepository = fragmentRepository,
             environmentRepository = environmentRepository,
-            writeComposedFiles = writeComposedFiles
+            getLoadout = getLoadout,
+            updateLoadout = updateLoadout
+        )
+    val unlinkFragmentFromLoadout =
+        UnlinkFragmentFromLoadoutUseCase(
+            environmentRepository = environmentRepository,
+            getLoadout = getLoadout,
+            updateLoadout = updateLoadout
+        )
+    val removeLoadout =
+        RemoveLoadoutUseCase(
+            loadoutRepository = loadoutRepository,
+            configRepository = configRepository
+        )
+    val useLoadout =
+        UseLoadoutUseCase(
+            getLoadout = getLoadout,
+            composeLoadout = composeLoadout,
+            activateComposedLoadout = activateComposedLoadout
+        )
+    val syncCurrentLoadout =
+        SyncCurrentLoadoutUseCase(
+            getCurrentLoadout = getCurrentLoadout,
+            composeLoadout = composeLoadout,
+            activateComposedLoadout = activateComposedLoadout
+        )
+    val readCurrentLoadoutStatus =
+        ReadCurrentLoadoutStatusUseCase(
+            getCurrentLoadout = getCurrentLoadout,
+            composeLoadout = composeLoadout
+        )
+    val checkLoadoutSync =
+        CheckLoadoutSyncUseCase(
+            configRepository = configRepository,
+            getCurrentLoadout = getCurrentLoadout,
+            composeLoadout = composeLoadout
+        )
+    val initializeLoadoutProject =
+        InitializeLoadoutProjectUseCase(
+            fileRepository = fileRepository,
+            listLoadouts = listLoadouts,
+            createLoadout = createLoadout,
+            composeLoadout = composeLoadout,
+            activateComposedLoadout = activateComposedLoadout
         )
 
     return scopedBlock(
         ApplicationScope(
             fileRepository = fileRepository,
             environmentRepository = environmentRepository,
-            loadoutService = loadoutService,
-            loadoutCompositionService = loadoutCompositionService,
+            createLoadout = createLoadout,
+            listLoadouts = listLoadouts,
+            linkFragmentToLoadout = linkFragmentToLoadout,
+            unlinkFragmentFromLoadout = unlinkFragmentFromLoadout,
+            removeLoadout = removeLoadout,
+            useLoadout = useLoadout,
+            syncCurrentLoadout = syncCurrentLoadout,
+            initializeLoadoutProject = initializeLoadoutProject,
+            readCurrentLoadoutStatus = readCurrentLoadoutStatus,
             checkLoadoutSync = checkLoadoutSync,
             writeComposedFiles = writeComposedFiles,
             defaultOutputPaths = defaultOutputPaths
@@ -73,8 +156,15 @@ fun <T> withApplicationScope(scopedBlock: ApplicationScope.() -> T): T {
 data class ApplicationScope(
     val fileRepository: FileRepository,
     val environmentRepository: EnvironmentRepository,
-    val loadoutService: LoadoutService,
-    val loadoutCompositionService: LoadoutCompositionService,
+    val createLoadout: CreateLoadoutUseCase,
+    val listLoadouts: ListLoadoutsUseCase,
+    val linkFragmentToLoadout: LinkFragmentToLoadoutUseCase,
+    val unlinkFragmentFromLoadout: UnlinkFragmentFromLoadoutUseCase,
+    val removeLoadout: RemoveLoadoutUseCase,
+    val useLoadout: UseLoadoutUseCase,
+    val syncCurrentLoadout: SyncCurrentLoadoutUseCase,
+    val initializeLoadoutProject: InitializeLoadoutProjectUseCase,
+    val readCurrentLoadoutStatus: ReadCurrentLoadoutStatusUseCase,
     val checkLoadoutSync: CheckLoadoutSyncUseCase,
     val writeComposedFiles: WriteComposedFilesUseCase,
     val defaultOutputPaths: List<String>,
