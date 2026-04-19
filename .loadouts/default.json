@@ -9,10 +9,11 @@
         "fragments/kotlin/feature-modular-organization.md",
         "fragments/kotlin/kmp-cli-project-structure.md",
         "fragments/testing/behavior-first-testing.md",
-        "fragments/testing/test-execution.md"
+        "fragments/testing/test-execution.md",
+        "fragments/testing/context-composition.md"
     ],
     "metadata": {
         "createdAt": 1729814400000,
-        "updatedAt": 1775705812000
+        "updatedAt": 1776564817000
     }
 }
