@@ -5,6 +5,7 @@ package e2e.spec
 import e2e.support.E2eBehaviorSuite
 import e2e.support.ScenarioSeed
 import e2e.support.action
+import e2e.support.andThen
 import e2e.support.firstFragmentContent
 import e2e.support.firstFragmentPath
 import e2e.support.givenGitRepositoryExists
@@ -34,17 +35,18 @@ class ConfigE2eSpec : E2eBehaviorSuite({
             }
 
             given("another valid loadout exists") {
+                val anotherValidLoadoutExists: ScenarioSeed =
+                    initializedSharedGitRepository.andThen {
+                        seedFragment(firstFragmentPath, firstFragmentContent)
+                        seedLoadout(name = "alpha", fragments = listOf(firstFragmentPath))
+                    }
+
                 action("loadout config is run with --default-loadout and that loadout name") {
                     val execution by memoizedAction(
                         "config",
                         "--default-loadout",
                         "alpha",
-                        seed = {
-                            givenGitRepositoryExists()
-                            runCommand("init")
-                            seedFragment(firstFragmentPath, firstFragmentContent)
-                            seedLoadout(name = "alpha", fragments = listOf(firstFragmentPath))
-                        }
+                        seed = anotherValidLoadoutExists
                     )
 
                     then("it updates the repo default loadout selection") {

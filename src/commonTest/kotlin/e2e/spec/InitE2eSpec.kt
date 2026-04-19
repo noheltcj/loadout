@@ -6,6 +6,7 @@ import cli.Constants
 import e2e.support.E2eBehaviorSuite
 import e2e.support.ScenarioSeed
 import e2e.support.action
+import e2e.support.andThen
 import e2e.support.architectFragmentPath
 import e2e.support.existingStarterFragmentContent
 import e2e.support.givenExistingLoadoutsAlreadyExistBeforeInit
@@ -27,6 +28,7 @@ import e2e.support.shouldHaveGitLocalConfig
 import e2e.support.shouldHaveGitignoreEntries
 import e2e.support.shouldHaveNoUnexpectedStderr
 import e2e.support.shouldHaveRepoDefaultLoadoutName
+import e2e.support.shouldHaveExitCode
 import e2e.support.shouldNotHaveGitignoreEntries
 import e2e.support.shouldNotIgnoreRepoManagedLoadoutFiles
 import io.kotest.matchers.collections.shouldContainExactly
@@ -182,12 +184,14 @@ class InitE2eSpec : E2eBehaviorSuite({
             }
 
             given("the starter fragment already exists before init") {
+                val starterFragmentAlreadyExistsBeforeInit: ScenarioSeed = {
+                    givenStarterFragmentAlreadyExists()
+                }
+
                 action("loadout init is run in shared mode") {
                     val execution by memoizedAction(
                         "init",
-                        seed = {
-                            givenStarterFragmentAlreadyExists()
-                        }
+                        seed = starterFragmentAlreadyExistsBeforeInit
                     )
 
                     then("it reports that the starter fragment already exists") {
@@ -202,12 +206,14 @@ class InitE2eSpec : E2eBehaviorSuite({
             }
 
             given("existing loadouts already exist before init") {
+                val existingLoadoutsAlreadyExistBeforeInit: ScenarioSeed = {
+                    givenExistingLoadoutsAlreadyExistBeforeInit()
+                }
+
                 action("loadout init is run in shared mode") {
                     val execution by memoizedAction(
                         "init",
-                        seed = {
-                            givenExistingLoadoutsAlreadyExistBeforeInit()
-                        }
+                        seed = existingLoadoutsAlreadyExistBeforeInit
                     )
 
                     then("it does not create a second default loadout") {
@@ -220,9 +226,7 @@ class InitE2eSpec : E2eBehaviorSuite({
                     action("loadout init is run in shared mode") {
                         val execution by memoizedAction(
                             "init",
-                            seed = {
-                                givenExistingLoadoutsAlreadyExistBeforeInit()
-                            }
+                            seed = existingLoadoutsAlreadyExistBeforeInit
                         )
 
                         then("it prints guidance for adding the starter fragment to an existing loadout") {
@@ -270,12 +274,14 @@ class InitE2eSpec : E2eBehaviorSuite({
             }
 
             given("shared init has already installed the tracked hooks") {
+                val sharedInitHasAlreadyInstalledTrackedHooks: ScenarioSeed =
+                    isolatedGitRepository.andThen {
+                        runCommand("init")
+                    }
+
                 action("loadout init is run in shared mode again") {
                     val execution by memoizedExecution(
-                        seed = {
-                            givenGitRepositoryExists()
-                            runCommand("init")
-                        }
+                        seed = sharedInitHasAlreadyInstalledTrackedHooks
                     ) {
                         writeWorkspaceFile(
                             "scratch/before-post-checkout.txt",
@@ -308,13 +314,15 @@ class InitE2eSpec : E2eBehaviorSuite({
             }
 
             given("one existing loadout already exists before init") {
+                val oneExistingLoadoutAlreadyExistsBeforeInit: ScenarioSeed =
+                    isolatedGitRepository.andThen {
+                        givenExistingLoadoutsAlreadyExistBeforeInit()
+                    }
+
                 action("loadout init is run in shared mode") {
                     val execution by memoizedAction(
                         "init",
-                        seed = {
-                            givenGitRepositoryExists()
-                            givenExistingLoadoutsAlreadyExistBeforeInit()
-                        }
+                        seed = oneExistingLoadoutAlreadyExistsBeforeInit
                     )
 
                     then("it uses the existing loadout as the repo default") {
@@ -324,13 +332,15 @@ class InitE2eSpec : E2eBehaviorSuite({
             }
 
             given("multiple existing loadouts already exist before init") {
+                val multipleExistingLoadoutsAlreadyExistBeforeInit: ScenarioSeed =
+                    isolatedGitRepository.andThen {
+                        givenTwoValidLoadoutsExist()
+                    }
+
                 action("loadout init is run in shared mode") {
                     val execution by memoizedAction(
                         "init",
-                        seed = {
-                            givenGitRepositoryExists()
-                            givenTwoValidLoadoutsExist()
-                        }
+                        seed = multipleExistingLoadoutsAlreadyExistBeforeInit
                     )
 
                     then("it leaves the repo default unset") {
@@ -344,15 +354,17 @@ class InitE2eSpec : E2eBehaviorSuite({
             }
 
             given("a foreign hooks path is already configured") {
+                val foreignHooksPathIsAlreadyConfigured: ScenarioSeed =
+                    isolatedGitRepository.andThen {
+                        runGit("config", "core.hooksPath", ".foreign-hooks").shouldHaveExitCode(0)
+                        writeWorkspaceFile(".foreign-hooks/post-checkout", "#!/bin/sh\nexit 0\n")
+                        setWorkspaceFileExecutable(".foreign-hooks/post-checkout")
+                    }
+
                 action("loadout init is run in shared mode") {
                     val execution by memoizedAction(
                         "init",
-                        seed = {
-                            givenGitRepositoryExists()
-                            runGit("config", "core.hooksPath", ".foreign-hooks")
-                            writeWorkspaceFile(".foreign-hooks/post-checkout", "#!/bin/sh\nexit 0\n")
-                            setWorkspaceFileExecutable(".foreign-hooks/post-checkout")
-                        }
+                        seed = foreignHooksPathIsAlreadyConfigured
                     )
 
                     then("it leaves the foreign hooks path configured") {

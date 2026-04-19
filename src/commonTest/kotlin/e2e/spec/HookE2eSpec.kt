@@ -7,6 +7,7 @@ import e2e.support.E2eBehaviorSuite
 import e2e.support.RepoSettings
 import e2e.support.ScenarioSeed
 import e2e.support.action
+import e2e.support.andThen
 import e2e.support.architectFragmentPath
 import e2e.support.givenGitRepositoryExists
 import e2e.support.shouldContainInStderr
@@ -46,15 +47,18 @@ class HookE2eSpec : E2eBehaviorSuite({
                 }
             }
 
-            // TODO: Given with no setup?
             given("another branch changes the active fragment content") {
-                action("git switch is run to that branch") {
-                    val updatedContent = "## Updated Architect\n\nBranch-specific hook sync guidance"
-                    val execution by memoizedExecution(seed = initializedSharedGitRepository) {
-                        runGit("switch", "-c", "updated")
+                val updatedContent = "## Updated Architect\n\nBranch-specific hook sync guidance"
+                val updatedBranchChangesActiveFragmentContent: ScenarioSeed =
+                    initializedSharedGitRepository.andThen {
+                        runGit("switch", "-c", "updated").shouldHaveExitCode(0)
                         writeWorkspaceFile(architectFragmentPath, updatedContent)
                         commitAllFiles("updated fragment")
-                        runGit("switch", "-")
+                        runGit("switch", "-").shouldHaveExitCode(0)
+                    }
+
+                action("git switch is run to that branch") {
+                    val execution by memoizedExecution(seed = updatedBranchChangesActiveFragmentContent) {
                         runGit("switch", "updated")
                     }
 
@@ -64,15 +68,18 @@ class HookE2eSpec : E2eBehaviorSuite({
                 }
             }
 
-            // TODO: Given with no setup?
             given("a feature branch changes the active fragment content") {
-                action("git merge is run after that branch is merged") {
-                    val mergedContent = "## Merged Architect\n\nMerged hook sync guidance"
-                    val execution by memoizedExecution(seed = initializedSharedGitRepository) {
-                        runGit("switch", "-c", "feature")
+                val mergedContent = "## Merged Architect\n\nMerged hook sync guidance"
+                val featureBranchChangesActiveFragmentContent: ScenarioSeed =
+                    initializedSharedGitRepository.andThen {
+                        runGit("switch", "-c", "feature").shouldHaveExitCode(0)
                         writeWorkspaceFile(architectFragmentPath, mergedContent)
                         commitAllFiles("feature fragment update")
-                        runGit("switch", "-")
+                        runGit("switch", "-").shouldHaveExitCode(0)
+                    }
+
+                action("git merge is run after that branch is merged") {
+                    val execution by memoizedExecution(seed = featureBranchChangesActiveFragmentContent) {
                         runGit("merge", "--no-edit", "feature")
                     }
 
@@ -98,17 +105,15 @@ class HookE2eSpec : E2eBehaviorSuite({
             }
         }
 
-        // TODO: Given with no setup?
         given("a shared git repository with an invalid repo default loadout") {
+            val sharedGitRepositoryWithInvalidRepoDefaultLoadout: ScenarioSeed =
+                initializedSharedGitRepositorySeed().andThen {
+                    writeRepoSettings(RepoSettings(defaultLoadoutName = "missing"))
+                }
+
             action("git switch is run") {
                 val execution by memoizedExecution(
-                    seed = {
-                        givenGitRepositoryExists()
-                        runCommand("init")
-                        writeWorkspaceFile("tracked.txt", "tracked\n")
-                        commitAllFiles("initial commit")
-                        writeRepoSettings(RepoSettings(defaultLoadoutName = "missing"))
-                    }
+                    seed = sharedGitRepositoryWithInvalidRepoDefaultLoadout
                 ) {
                     runGit("switch", "-c", "invalid-default")
                 }
@@ -123,28 +128,26 @@ class HookE2eSpec : E2eBehaviorSuite({
             }
         }
 
-        // TODO: Given with no setup?
         given("a shared git repository whose hook helper cannot be executed") {
+            val sharedGitRepositoryWithBrokenHookHelper: ScenarioSeed =
+                initializedSharedGitRepositorySeed().andThen {
+                    runGit("config", "core.hooksPath", ".githooks").shouldHaveExitCode(0)
+                    writeWorkspaceFile(
+                        ".githooks/post-checkout",
+                        """
+                        #!/bin/sh
+                        /path/that/does/not/exist sync --auto >/dev/null 2>&1 || {
+                          echo "Loadout hook failed: helper executable not found" >&2
+                          exit 0
+                        }
+                        """.trimIndent()
+                    )
+                    setWorkspaceFileExecutable(".githooks/post-checkout")
+                }
+
             action("git switch is run") {
                 val execution by memoizedExecution(
-                    seed = {
-                        givenGitRepositoryExists()
-                        runCommand("init")
-                        writeWorkspaceFile("tracked.txt", "tracked\n")
-                        commitAllFiles("initial commit")
-                        runGit("config", "core.hooksPath", ".githooks")
-                        writeWorkspaceFile(
-                            ".githooks/post-checkout",
-                            """
-                            #!/bin/sh
-                            /path/that/does/not/exist sync --auto >/dev/null 2>&1 || {
-                              echo "Loadout hook failed: helper executable not found" >&2
-                              exit 0
-                            }
-                            """.trimIndent()
-                        )
-                        setWorkspaceFileExecutable(".githooks/post-checkout")
-                    }
+                    seed = sharedGitRepositoryWithBrokenHookHelper
                 ) {
                     runGit("switch", "-c", "broken-helper")
                 }
@@ -160,3 +163,11 @@ class HookE2eSpec : E2eBehaviorSuite({
         }
     }
 })
+
+private fun initializedSharedGitRepositorySeed(): ScenarioSeed =
+    {
+        givenGitRepositoryExists()
+        runCommand("init")
+        writeWorkspaceFile("tracked.txt", "tracked\n")
+        commitAllFiles("initial commit")
+    }
