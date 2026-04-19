@@ -8,6 +8,7 @@ import org.gradle.api.tasks.OutputFile
 import org.gradle.api.tasks.TaskAction
 import org.jetbrains.kotlin.gradle.plugin.KotlinSourceSet
 import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeTarget
+import org.jetbrains.kotlin.gradle.targets.native.tasks.KotlinNativeTest
 
 plugins {
     id("dev.detekt") version "2.0.0-alpha.2"
@@ -184,6 +185,8 @@ data class HostBinarySpec(
     val helperScriptName: String,
 )
 
+val loadoutHelperEnvironmentVariable = "LOADOUT_E2E_HELPER_PATH"
+
 fun currentHostBinarySpec(): HostBinarySpec {
     val operatingSystem = System.getProperty("os.name")
     val architecture = System.getProperty("os.arch")
@@ -244,11 +247,45 @@ abstract class WriteE2eHelperTask : DefaultTask() {
         val mainExecutableFile = mainExecutable.get().asFile
         helperScriptFile.parentFile.mkdirs()
 
+        // Future hook-installation tests must keep using an explicit helper path instead of host PATH resolution.
         val helperScriptContent =
             if (isWindowsHelper) {
-                "@echo off\r\n\"${mainExecutableFile.absolutePath}\" %*\r\n"
+                """
+                @echo off
+                if "%~1"=="__printenv__" goto printenv
+                "${mainExecutableFile.absolutePath}" %*
+                exit /b %errorlevel%
+                :printenv
+                shift
+                :printenv_loop
+                if "%~1"=="" exit /b 0
+                call echo %~1=%%%~1%%
+                shift
+                goto printenv_loop
+                """.trimIndent().replace("\n", "\r\n") + "\r\n"
             } else {
-                "#!/bin/sh\nexec ${quoteForShell(mainExecutableFile.absolutePath)} \"\$@\"\n"
+                """
+                #!/bin/sh
+                if [ "${'$'}1" = "__printenv__" ]; then
+                  shift
+                  for key in "${'$'}@"; do
+                    case "${'$'}key" in
+                      HOME) value="${'$'}HOME" ;;
+                      XDG_CONFIG_HOME) value="${'$'}XDG_CONFIG_HOME" ;;
+                      XDG_DATA_HOME) value="${'$'}XDG_DATA_HOME" ;;
+                      XDG_STATE_HOME) value="${'$'}XDG_STATE_HOME" ;;
+                      XDG_CACHE_HOME) value="${'$'}XDG_CACHE_HOME" ;;
+                      PATH) value="${'$'}PATH" ;;
+                      GIT_DIR) value="${'$'}GIT_DIR" ;;
+                      GIT_WORK_TREE) value="${'$'}GIT_WORK_TREE" ;;
+                      *) value="" ;;
+                    esac
+                    printf '%s=%s\n' "${'$'}key" "${'$'}value"
+                  done
+                  exit 0
+                fi
+                exec ${quoteForShell(mainExecutableFile.absolutePath)} "${'$'}@"
+                """.trimIndent() + "\n"
             }
 
         helperScriptFile.writeText(helperScriptContent)
@@ -273,6 +310,7 @@ val prepareE2eHelper by tasks.registering(WriteE2eHelperTask::class) {
     isWindowsHelper = hostBinarySpec.helperScriptName.endsWith(".cmd")
 }
 
-tasks.matching { task -> task.name.endsWith("Test") }.configureEach {
+tasks.withType<KotlinNativeTest>().configureEach {
     dependsOn(prepareE2eHelper)
+    environment(loadoutHelperEnvironmentVariable, e2eHelperScript.get().asFile.absolutePath)
 }
