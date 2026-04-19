@@ -27,6 +27,7 @@ class HookE2eSpec : E2eBehaviorSuite({
 
             action("git worktree add is run for a new branch") {
                 val execution by memoizedExecution(seed = initializedSharedGitRepository) {
+                    // TODO: This should use the scenario helper functions. Those may require modification to support this.
                     runGit("worktree", "add", "-b", "prompt-sync", workspacePath("worktrees/prompt-sync"))
                 }
 
@@ -45,6 +46,7 @@ class HookE2eSpec : E2eBehaviorSuite({
                 }
             }
 
+            // TODO: Given with no setup?
             given("another branch changes the active fragment content") {
                 action("git switch is run to that branch") {
                     val updatedContent = "## Updated Architect\n\nBranch-specific hook sync guidance"
@@ -62,6 +64,7 @@ class HookE2eSpec : E2eBehaviorSuite({
                 }
             }
 
+            // TODO: Given with no setup?
             given("a feature branch changes the active fragment content") {
                 action("git merge is run after that branch is merged") {
                     val mergedContent = "## Merged Architect\n\nMerged hook sync guidance"
@@ -95,6 +98,7 @@ class HookE2eSpec : E2eBehaviorSuite({
             }
         }
 
+        // TODO: Given with no setup?
         given("a shared git repository with an invalid repo default loadout") {
             action("git switch is run") {
                 val execution by memoizedExecution(
@@ -119,6 +123,7 @@ class HookE2eSpec : E2eBehaviorSuite({
             }
         }
 
+        // TODO: Given with no setup?
         given("a shared git repository whose hook helper cannot be executed") {
             action("git switch is run") {
                 val execution by memoizedExecution(

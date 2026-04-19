@@ -32,117 +32,179 @@ import platform.posix.rmdir
 import platform.posix.stat
 import platform.posix.system
 import platform.posix.unlink
+import kotlin.experimental.ExperimentalNativeApi
+import kotlin.native.Platform
 import kotlin.random.Random
 
 private const val pathBufferSize = 4096
 private const val executablePermissionMask = 493
 private const val anyExecutableBitMask = 73u
 
-@OptIn(ExperimentalForeignApi::class)
-actual fun createTemporaryDirectory(prefix: String): String {
-    val tempDir =
-        (
-            getenv("TMPDIR")?.toKString()
-                ?: getenv("TEMP")?.toKString()
-                ?: getenv("TMP")?.toKString()
-                ?: "/tmp"
-        ).removeSuffix("/")
-
-    while (true) {
-        val randomSuffix = Random.nextInt(1000000, 9999999)
-        val path = "$tempDir/$prefix-$randomSuffix"
-        if (platformMkdir(path) == 0) {
-            return path
-        }
-    }
+internal enum class ShellDialect {
+    Posix,
+    WindowsCmd,
 }
 
-@OptIn(ExperimentalForeignApi::class)
+internal interface NativeProcessOperations {
+    fun currentWorkingDirectory(): String
+
+    fun changeWorkingDirectory(path: String): Int
+
+    fun readEnvironmentVariable(key: String): String?
+
+    fun setEnvironmentVariable(
+        key: String,
+        value: String,
+    ): Int
+
+    fun clearEnvironmentVariable(key: String): Int
+
+    fun executeShellCommand(command: String): Int
+
+    fun createTemporaryDirectory(prefix: String): String
+
+    fun deleteRecursively(path: String)
+
+    fun readFileIfPresent(path: String): String
+}
+
+private object PosixNativeProcessOperations : NativeProcessOperations {
+    override fun currentWorkingDirectory(): String = getCurrentWorkingDirectory()
+
+    @OptIn(ExperimentalForeignApi::class)
+    override fun changeWorkingDirectory(path: String): Int = chdir(path)
+
+    override fun readEnvironmentVariable(key: String): String? = readEnvironmentVariableInternal(key)
+
+    override fun setEnvironmentVariable(
+        key: String,
+        value: String,
+    ): Int = platformSetEnv(key, value)
+
+    override fun clearEnvironmentVariable(key: String): Int = platformClearEnv(key)
+
+    @OptIn(ExperimentalForeignApi::class)
+    override fun executeShellCommand(command: String): Int = system(command)
+
+    override fun createTemporaryDirectory(prefix: String): String = createTemporaryDirectoryInternal(prefix)
+
+    override fun deleteRecursively(path: String) {
+        deleteRecursivelyInternal(path)
+    }
+
+    override fun readFileIfPresent(path: String): String = readFileIfPresentInternal(path)
+}
+
+actual fun createTemporaryDirectory(prefix: String): String = createTemporaryDirectoryInternal(prefix)
+
 actual fun deleteRecursively(path: String) {
-    if (!pathExists(path)) return
-
-    if (isDirectory(path)) {
-        val directory = checkNotNull(opendir(path)) { "Failed to open directory '$path' for cleanup" }
-        try {
-            while (true) {
-                val entry = readdir(directory) ?: break
-                val name = entry.pointed.d_name.toKString()
-                if (name == "." || name == "..") continue
-
-                deleteRecursively("$path/$name")
-            }
-        } finally {
-            closedir(directory)
-        }
-
-        check(rmdir(path) == 0) { "Failed to remove directory '$path'" }
-    } else {
-        check(unlink(path) == 0) { "Failed to remove file '$path'" }
-    }
+    deleteRecursivelyInternal(path)
 }
 
-@OptIn(ExperimentalForeignApi::class)
 actual fun <T> withWorkingDirectoryAndHome(
     workingDirectory: String,
     homeDirectory: String,
     block: () -> T,
-): T = withWorkingDirectoryAndEnvironment(workingDirectory, environment = mapOf("HOME" to homeDirectory), block = block)
+): T =
+    withWorkingDirectoryAndEnvironment(
+        workingDirectory = workingDirectory,
+        environment = EnvironmentOverlay.set("HOME" to homeDirectory),
+        block = block
+    )
 
-@OptIn(ExperimentalForeignApi::class)
 actual fun <T> withWorkingDirectoryAndEnvironment(
     workingDirectory: String,
-    environment: Map<String, String>,
+    environment: EnvironmentOverlay,
+    block: () -> T,
+): T = withWorkingDirectoryAndEnvironment(PosixNativeProcessOperations, workingDirectory, environment, block)
+
+internal fun <T> withWorkingDirectoryAndEnvironment(
+    operations: NativeProcessOperations,
+    workingDirectory: String,
+    environment: EnvironmentOverlay,
     block: () -> T,
 ): T {
-    val originalWorkingDirectory = getCurrentWorkingDirectory()
-    val originalEnvironment = environment.keys.associateWith(::readEnvironmentVariable)
+    val originalWorkingDirectory = operations.currentWorkingDirectory()
+    val originalEnvironment = environment.mutations.keys.associateWith(operations::readEnvironmentVariable)
 
-    check(chdir(workingDirectory) == 0) { "Failed to change working directory to '$workingDirectory'" }
-    environment.forEach { (key, value) ->
-        setEnvironmentVariable(key, value)
+    var result: T? = null
+    var failure: Throwable? = null
+
+    try {
+        check(operations.changeWorkingDirectory(workingDirectory) == 0) {
+            "Failed to change working directory to '$workingDirectory'"
+        }
+        applyEnvironmentOverlay(operations, environment)
+        result = block()
+    } catch (throwable: Throwable) {
+        failure = throwable
     }
 
-    return try {
-        block()
-    } finally {
-        check(chdir(originalWorkingDirectory) == 0) {
-            "Failed to restore working directory to '$originalWorkingDirectory'"
+    val cleanupFailure = restoreProcessContext(operations, originalWorkingDirectory, originalEnvironment)
+
+    @Suppress("UNCHECKED_CAST")
+    when {
+        failure != null && cleanupFailure != null -> {
+            failure.addSuppressed(cleanupFailure)
+            throw failure
         }
 
-        originalEnvironment.forEach { (key, value) ->
-            restoreEnvironmentVariable(key, value)
-        }
+        failure != null -> throw failure
+        cleanupFailure != null -> throw cleanupFailure
+        else -> return result as T
     }
 }
 
-@OptIn(ExperimentalForeignApi::class)
 actual fun runExternalProcess(
     workingDirectory: String,
     command: List<String>,
-    environment: Map<String, String>,
+    environment: EnvironmentOverlay,
+): ExternalProcessResult = runExternalProcess(PosixNativeProcessOperations, workingDirectory, command, environment)
+
+internal fun runExternalProcess(
+    operations: NativeProcessOperations,
+    workingDirectory: String,
+    command: List<String>,
+    environment: EnvironmentOverlay,
 ): ExternalProcessResult {
     require(command.isNotEmpty()) { "External process command must not be empty" }
 
-    val captureDirectory = createTemporaryDirectory("loadout-e2e-capture")
+    val captureDirectory = operations.createTemporaryDirectory("loadout-e2e-capture")
     val stdoutPath = "$captureDirectory/stdout.txt"
     val stderrPath = "$captureDirectory/stderr.txt"
-    val shellCommand = buildShellCommand(command)
-    val redirectingCommand = "$shellCommand > ${shellQuote(stdoutPath)} 2> ${shellQuote(stderrPath)}"
+    val redirectingCommand = buildRedirectingCommand(command, stdoutPath, stderrPath)
 
-    val exitCode =
-        withWorkingDirectoryAndEnvironment(workingDirectory, environment) {
-            decodeSystemExitCode(system(redirectingCommand))
+    var stdout = ""
+    var stderr = ""
+    var exitCode = 0
+    var failure: Throwable? = null
+
+    try {
+        exitCode =
+            withWorkingDirectoryAndEnvironment(operations, workingDirectory, environment) {
+                decodeSystemExitCode(operations.executeShellCommand(redirectingCommand))
+            }
+        stdout = operations.readFileIfPresent(stdoutPath)
+        stderr = operations.readFileIfPresent(stderrPath)
+    } catch (throwable: Throwable) {
+        failure = throwable
+    }
+
+    val cleanupFailure = runCatching { operations.deleteRecursively(captureDirectory) }.exceptionOrNull()
+
+    when {
+        failure != null && cleanupFailure != null -> {
+            failure.addSuppressed(cleanupFailure)
+            throw failure
         }
 
-    val stdout = readFileIfPresent(stdoutPath)
-    val stderr = readFileIfPresent(stderrPath)
-    deleteRecursively(captureDirectory)
-
-    return ExternalProcessResult(stdout = stdout, stderr = stderr, exitCode = exitCode)
+        failure != null -> throw failure
+        cleanupFailure != null -> throw cleanupFailure
+        else -> return ExternalProcessResult(stdout = stdout, stderr = stderr, exitCode = exitCode)
+    }
 }
 
-@OptIn(ExperimentalForeignApi::class)
-actual fun readEnvironmentVariable(key: String): String? = getenv(key)?.toKString()
+actual fun readEnvironmentVariable(key: String): String? = readEnvironmentVariableInternal(key)
 
 actual fun currentWorkingDirectory(): String = getCurrentWorkingDirectory()
 
@@ -164,6 +226,103 @@ actual fun setExecutable(path: String) {
     }
 }
 
+private fun applyEnvironmentOverlay(
+    operations: NativeProcessOperations,
+    environment: EnvironmentOverlay,
+) {
+    environment.mutations.forEach { (key, mutation) ->
+        when (mutation) {
+            is EnvironmentMutation.Set -> {
+                check(operations.setEnvironmentVariable(key, mutation.value) == 0) {
+                    "Failed to set $key to '${mutation.value}'"
+                }
+            }
+
+            EnvironmentMutation.Unset -> {
+                check(operations.clearEnvironmentVariable(key) == 0) {
+                    "Failed to clear $key"
+                }
+            }
+        }
+    }
+}
+
+private fun restoreProcessContext(
+    operations: NativeProcessOperations,
+    originalWorkingDirectory: String,
+    originalEnvironment: Map<String, String?>,
+): Throwable? {
+    val failures = mutableListOf<String>()
+
+    if (operations.changeWorkingDirectory(originalWorkingDirectory) != 0) {
+        failures += "Failed to restore working directory to '$originalWorkingDirectory'"
+    }
+
+    originalEnvironment.forEach { (key, value) ->
+        val restoreStatus =
+            when (value) {
+                null -> operations.clearEnvironmentVariable(key)
+                else -> operations.setEnvironmentVariable(key, value)
+            }
+
+        if (restoreStatus != 0) {
+            failures +=
+                when (value) {
+                    null -> "Failed to clear $key during cleanup"
+                    else -> "Failed to restore $key to '$value'"
+                }
+        }
+    }
+
+    return failures
+        .takeIf(List<String>::isNotEmpty)
+        ?.joinToString(separator = "\n")
+        ?.let(::IllegalStateException)
+}
+
+@OptIn(ExperimentalForeignApi::class)
+private fun createTemporaryDirectoryInternal(prefix: String): String {
+    val tempDir =
+        (
+            getenv("TMPDIR")?.toKString()
+                ?: getenv("TEMP")?.toKString()
+                ?: getenv("TMP")?.toKString()
+                ?: "/tmp"
+        ).removeSuffix("/")
+
+    while (true) {
+        val randomSuffix = Random.nextInt(1000000, 9999999)
+        val path = "$tempDir/$prefix-$randomSuffix"
+        if (platformMkdir(path) == 0) {
+            return path
+        }
+    }
+}
+
+@OptIn(ExperimentalForeignApi::class)
+private fun deleteRecursivelyInternal(path: String) {
+    if (!pathExists(path)) return
+
+    if (isDirectory(path)) {
+        val directory = checkNotNull(opendir(path)) { "Failed to open directory '$path' for cleanup" }
+        try {
+            while (true) {
+                val entry = readdir(directory) ?: break
+                val name = entry.pointed.d_name.toKString()
+                if (name == "." || name == "..") continue
+
+                deleteRecursivelyInternal("$path/$name")
+            }
+        } finally {
+            closedir(directory)
+        }
+
+        check(rmdir(path) == 0) { "Failed to remove directory '$path'" }
+    } else {
+        check(unlink(path) == 0) { "Failed to remove file '$path'" }
+    }
+}
+
 @OptIn(ExperimentalForeignApi::class)
 private fun getCurrentWorkingDirectory(): String =
     memScoped {
@@ -174,22 +333,8 @@ private fun getCurrentWorkingDirectory(): String =
         buffer.toKString()
     }
 
-private fun setEnvironmentVariable(
-    key: String,
-    value: String,
-) {
-    check(platformSetEnv(key, value) == 0) { "Failed to set $key to '$value'" }
-}
-
-private fun restoreEnvironmentVariable(
-    key: String,
-    value: String?,
-) {
-    when (value) {
-        null -> check(platformClearEnv(key) == 0) { "Failed to clear $key during cleanup" }
-        else -> setEnvironmentVariable(key, value)
-    }
-}
+@OptIn(ExperimentalForeignApi::class)
+private fun readEnvironmentVariableInternal(key: String): String? = getenv(key)?.toKString()
 
 @OptIn(ExperimentalForeignApi::class)
 private fun isDirectory(path: String): Boolean =
@@ -209,9 +354,37 @@ private fun pathExists(path: String): Boolean =
         stat(path, statBuffer.ptr) == 0
     }
 
-private fun buildShellCommand(arguments: List<String>): String = arguments.joinToString(" ", transform = ::shellQuote)
+@OptIn(ExperimentalNativeApi::class)
+private fun currentShellDialect(): ShellDialect =
+    if (Platform.osFamily.name.contains("windows", ignoreCase = true) ||
+        Platform.osFamily.name.contains("mingw", ignoreCase = true)
+    ) {
+        ShellDialect.WindowsCmd
+    } else {
+        ShellDialect.Posix
+    }
 
-private fun shellQuote(argument: String): String = "'${argument.replace("'", "'\"'\"'")}'"
+internal fun buildRedirectingCommand(
+    command: List<String>,
+    stdoutPath: String,
+    stderrPath: String,
+    shellDialect: ShellDialect = currentShellDialect(),
+): String =
+    "${buildShellCommand(command, shellDialect)} > ${shellQuote(stdoutPath, shellDialect)} 2> ${shellQuote(stderrPath, shellDialect)}"
+
+internal fun buildShellCommand(
+    arguments: List<String>,
+    shellDialect: ShellDialect = currentShellDialect(),
+): String = arguments.joinToString(" ") { argument -> shellQuote(argument, shellDialect) }
+
+internal fun shellQuote(
+    argument: String,
+    shellDialect: ShellDialect = currentShellDialect(),
+): String =
+    when (shellDialect) {
+        ShellDialect.Posix -> "'${argument.replace("'", "'\"'\"'")}'"
+        ShellDialect.WindowsCmd -> "\"${argument.replace("^", "^^").replace("%", "%%").replace("\"", "\"\"")}\""
+    }
 
 private fun decodeSystemExitCode(status: Int): Int =
     when {
@@ -220,7 +393,7 @@ private fun decodeSystemExitCode(status: Int): Int =
     }
 
 @OptIn(ExperimentalForeignApi::class)
-private fun readFileIfPresent(path: String): String {
+private fun readFileIfPresentInternal(path: String): String {
     if (!pathExists(path)) {
         return ""
     }
