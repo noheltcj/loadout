@@ -83,6 +83,10 @@ fun E2eScenario.shouldNotIgnoreRepoManagedLoadoutFiles() {
     shouldNotHaveGitignoreEntries("${Constants.LOADOUTS_DIR}/", "${Constants.FRAGMENTS_DIR}/")
 }
 
+fun E2eScenario.shouldHaveExecutableWorkspaceFile(relativePath: String) {
+    workspaceFileIsExecutable(relativePath) shouldBe true
+}
+
 fun String.shouldContainExactlyOnce(snippet: String) {
     split(snippet).size.minus(1) shouldBe 1
 }
@@ -145,6 +149,18 @@ fun E2eScenario.shouldHaveGeneratedBodyInDirectory(
 
 fun E2eScenario.shouldHaveCurrentLoadoutName(expected: String?) {
     readConfig()?.currentLoadoutName shouldBe expected
+}
+
+fun E2eScenario.shouldHaveRepoDefaultLoadoutName(expected: String?) {
+    readRepoSettings()?.defaultLoadoutName shouldBe expected
+}
+
+fun E2eScenario.shouldHaveGitLocalConfig(
+    key: String,
+    expected: String?,
+    workingDirectory: String? = null,
+) {
+    readGitLocalConfig(key, workingDirectory = workingDirectory ?: workspaceRoot) shouldBe expected
 }
 
 fun E2eScenario.shouldHaveCompositionHash() {

@@ -11,9 +11,16 @@ import domain.entity.Loadout
 import domain.entity.LoadoutConfig
 import domain.entity.LoadoutMetadata
 import domain.entity.packaging.Result
+import e2e.platform.EnvironmentOverlay
 import e2e.platform.createTemporaryDirectory
+import e2e.platform.currentWorkingDirectory
 import e2e.platform.deleteRecursively
-import e2e.platform.withWorkingDirectoryAndHome
+import e2e.platform.environmentOverlay
+import e2e.platform.isExecutablePath
+import e2e.platform.readEnvironmentVariable
+import e2e.platform.runExternalProcess
+import e2e.platform.setExecutable
+import e2e.platform.withWorkingDirectoryAndEnvironment
 
 typealias ScenarioSeed = E2eScenario.() -> Unit
 
@@ -33,8 +40,11 @@ data class CommandResult(
 class E2eScenario private constructor(
     val workspaceRoot: String,
     val homeRoot: String,
+    val xdgConfigRoot: String,
 ) : AutoCloseable {
+    private val projectRoot = currentWorkingDirectory()
     private val serializer = JsonSerializer()
+    private val gitCeilingDirectories = workspaceRoot.substringBeforeLast("/", missingDelimiterValue = workspaceRoot)
 
     fun runCommand(vararg args: String): CommandResult =
         withProcessContext {
@@ -43,10 +53,115 @@ class E2eScenario private constructor(
             }.toCommandResult()
         }
 
+    fun runExternalCommand(
+        vararg args: String,
+        workingDirectory: String = workspaceRoot,
+        environment: EnvironmentOverlay = environmentOverlay(),
+    ): CommandResult =
+        runExternalProcess(
+            workingDirectory = workingDirectory,
+            command = args.toList(),
+            environment = environment + processEnvironment()
+        ).toCommandResult()
+
+    fun runGit(
+        vararg args: String,
+        workingDirectory: String = workspaceRoot,
+        environment: EnvironmentOverlay = environmentOverlay(),
+    ): CommandResult =
+        runExternalCommand(
+            "git",
+            *args,
+            workingDirectory = workingDirectory,
+            environment = environment + gitEnvironment()
+        )
+
+    fun initializeGitRepository(workingDirectory: String = workspaceRoot) {
+        runGit("init", workingDirectory = workingDirectory).requireSuccess("git init")
+        runGit("config", "user.name", "Loadout E2E", workingDirectory = workingDirectory)
+            .requireSuccess("git config user.name")
+        runGit("config", "user.email", "loadout@example.test", workingDirectory = workingDirectory)
+            .requireSuccess("git config user.email")
+    }
+
+    fun commitAllFiles(
+        message: String,
+        workingDirectory: String = workspaceRoot,
+    ) {
+        runGit("add", "-A", workingDirectory = workingDirectory).requireSuccess("git add -A")
+        runGit("commit", "-m", message, workingDirectory = workingDirectory).requireSuccess("git commit")
+    }
+
+    fun switchGitBranch(
+        branchName: String,
+        create: Boolean = false,
+        workingDirectory: String = workspaceRoot,
+    ): CommandResult =
+        if (create) {
+            runGit("switch", "-c", branchName, workingDirectory = workingDirectory)
+        } else {
+            runGit("switch", branchName, workingDirectory = workingDirectory)
+        }
+
+    fun addGitWorktree(
+        relativePath: String,
+        branchName: String? = null,
+        sourceDirectory: String = workspaceRoot,
+    ): CommandResult {
+        val worktreePath = workspacePath(relativePath)
+        val arguments =
+            buildList {
+                add("worktree")
+                add("add")
+                add(worktreePath)
+                branchName?.let(::add)
+            }
+        return runGit(*arguments.toTypedArray(), workingDirectory = sourceDirectory)
+    }
+
+    fun readGitLocalConfig(
+        key: String,
+        workingDirectory: String = workspaceRoot,
+    ): String? {
+        val result = runGit("config", "--local", "--get", key, workingDirectory = workingDirectory)
+        return if (result.exitCode == 0) {
+            result.stdout.trim().ifBlank { null }
+        } else {
+            null
+        }
+    }
+
+    fun loadoutHelperExecutablePath(): String =
+        readEnvironmentVariable(loadoutHelperEnvironmentVariable) ?: defaultLoadoutHelperPath
+
+    fun inspectExternalEnvironment(
+        vararg keys: String,
+        environment: EnvironmentOverlay = environmentOverlay(),
+    ): Map<String, String> {
+        val arguments = listOf(loadoutHelperExecutablePath(), helperPrintEnvironmentCommand) + keys
+        val result = runExternalCommand(*arguments.toTypedArray(), environment = environment)
+        result.requireSuccess("inspect external environment")
+        return result.stdout
+            .lineSequence()
+            .filter { it.isNotBlank() }
+            .associate { line ->
+                val delimiterIndex = line.indexOf('=')
+                check(delimiterIndex >= 0) {
+                    "Expected KEY=value output from helper, but received '$line'"
+                }
+                val key = line.substring(0, delimiterIndex)
+                val value = line.substring(delimiterIndex + 1)
+                key to value
+            }
+    }
+
     fun workspacePath(relativePath: String): String =
         if (relativePath.isBlank()) workspaceRoot else "$workspaceRoot/$relativePath"
 
     fun homePath(relativePath: String): String = if (relativePath.isBlank()) homeRoot else "$homeRoot/$relativePath"
+
+    fun xdgConfigPath(relativePath: String): String =
+        if (relativePath.isBlank()) xdgConfigRoot else "$xdgConfigRoot/$relativePath"
 
     fun writeWorkspaceFile(
         relativePath: String,
@@ -70,6 +185,12 @@ class E2eScenario private constructor(
         }
     }
 
+    fun workspaceFileIsExecutable(relativePath: String): Boolean = isExecutablePath(workspacePath(relativePath))
+
+    fun setWorkspaceFileExecutable(relativePath: String) {
+        setExecutable(workspacePath(relativePath))
+    }
+
     fun readWorkspaceFile(relativePath: String): String? = readFile(relativePath)
 
     fun readHomeFile(relativePath: String): String? = readFile(homePath(relativePath))
@@ -83,10 +204,27 @@ class E2eScenario private constructor(
             serializer.deserialize(it, LoadoutConfig.serializer()).unwrap("deserialize config")
         }
 
+    fun readConfigFromDirectory(directory: String): LoadoutConfig? =
+        readFile("$directory/${Constants.CONFIG_FILE}")?.let {
+            serializer.deserialize(it, LoadoutConfig.serializer()).unwrap("deserialize config in '$directory'")
+        }
+
+    fun readRepoSettings(): RepoSettings? =
+        readWorkspaceFile(repoSettingsPath)?.let {
+            serializer.deserialize(it, RepoSettings.serializer()).unwrap("deserialize repo settings")
+        }
+
     fun writeConfig(config: LoadoutConfig) {
         writeWorkspaceFile(
             Constants.CONFIG_FILE,
             serializer.serialize(config, LoadoutConfig.serializer()).unwrap("serialize config")
+        )
+    }
+
+    fun writeRepoSettings(settings: RepoSettings) {
+        writeWorkspaceFile(
+            repoSettingsPath,
+            serializer.serialize(settings, RepoSettings.serializer()).unwrap("serialize repo settings")
         )
     }
 
@@ -165,6 +303,7 @@ class E2eScenario private constructor(
     override fun close() {
         deleteRecursively(workspaceRoot)
         deleteRecursively(homeRoot)
+        deleteRecursively(xdgConfigRoot)
     }
 
     private fun writeFile(
@@ -197,11 +336,30 @@ class E2eScenario private constructor(
         }
 
     private fun <T> withProcessContext(block: () -> T): T =
-        withWorkingDirectoryAndHome(
+        withWorkingDirectoryAndEnvironment(
             workingDirectory = workspaceRoot,
-            homeDirectory = homeRoot,
+            environment = processEnvironment(),
             block = block
         )
+
+    private fun processEnvironment(): EnvironmentOverlay =
+        environmentOverlay {
+            "HOME" setTo homeRoot
+            "XDG_CONFIG_HOME" setTo xdgConfigRoot
+            "XDG_DATA_HOME" setTo homePath(".local/share")
+            "XDG_STATE_HOME" setTo homePath(".local/state")
+            "XDG_CACHE_HOME" setTo homePath(".cache")
+            "PATH" setTo sanitizedProcessPath()
+        }
+
+    private fun gitEnvironment(): EnvironmentOverlay =
+        environmentOverlay {
+            unset("GIT_DIR", "GIT_WORK_TREE")
+            "GIT_CONFIG_GLOBAL" setTo "/dev/null"
+            "GIT_CONFIG_SYSTEM" setTo "/dev/null"
+            "GIT_CONFIG_NOSYSTEM" setTo "true"
+            "GIT_CEILING_DIRECTORIES" setTo gitCeilingDirectories
+        }
 
     private fun ApplicationScope.createDirectories(path: String) {
         val normalizedPath = path.trim().trimEnd('/')
@@ -224,14 +382,118 @@ class E2eScenario private constructor(
         }
     }
 
+    private fun sanitizedProcessPath(): String {
+        val hostPath = readEnvironmentVariable("PATH").orEmpty()
+        val separator = hostPath.pathListSeparator()
+        val blockedRoots =
+            listOf(workspaceRoot, projectRoot)
+                .map(::normalizeLexicalPath)
+                .distinct()
+
+        val sanitizedEntries =
+            hostPath
+                .split(separator)
+                .map(String::trim)
+                .filter(String::isNotEmpty)
+                .filter(::isAbsolutePath)
+                .map(::normalizeLexicalPath)
+                .filterNot { candidate ->
+                    blockedRoots.any { root -> candidate == root || candidate.startsWith("$root/") }
+                }
+
+        check(sanitizedEntries.isNotEmpty()) {
+            "PATH sanitization removed all safe entries from '$hostPath'"
+        }
+
+        return sanitizedEntries.joinToString(separator.toString())
+    }
+
     companion object {
+        private const val loadoutHelperEnvironmentVariable = "LOADOUT_E2E_HELPER_PATH"
+        private const val helperPrintEnvironmentCommand = "__printenv__"
+        private const val repoSettingsPath = ".loadout.repo.json"
+        private val defaultLoadoutHelperPath =
+            "${currentWorkingDirectory()}/build/e2e-helper/${defaultLoadoutHelperFileName()}"
+
         fun create(): E2eScenario =
             E2eScenario(
                 workspaceRoot = createTemporaryDirectory("loadout-e2e-workspace"),
-                homeRoot = createTemporaryDirectory("loadout-e2e-home")
+                homeRoot = createTemporaryDirectory("loadout-e2e-home"),
+                xdgConfigRoot = createTemporaryDirectory("loadout-e2e-xdg")
             )
     }
 }
+
+private fun String.pathListSeparator(): Char = if (contains(';')) ';' else ':'
+
+private fun isAbsolutePath(path: String): Boolean {
+    val normalized = path.replace('\\', '/')
+    return normalized.startsWith("/") ||
+        normalized.startsWith("//") ||
+        windowsAbsolutePath.matches(normalized)
+}
+
+private fun normalizeLexicalPath(path: String): String {
+    val normalized = path.replace('\\', '/')
+    val prefix =
+        when {
+            normalized.startsWith("//") -> "//"
+            windowsAbsolutePath.matches(normalized) -> normalized.substring(0, 2)
+            normalized.startsWith("/") -> "/"
+            else -> ""
+        }
+    val remainder =
+        when {
+            prefix == "//" -> normalized.removePrefix("//")
+            prefix.length == 2 -> normalized.substring(2).removePrefix("/")
+            prefix == "/" -> normalized.removePrefix("/")
+            else -> normalized
+        }
+
+    val segments = mutableListOf<String>()
+    remainder
+        .split('/')
+        .filter { it.isNotEmpty() && it != "." }
+        .forEach { segment ->
+            if (segment == "..") {
+                if (segments.isNotEmpty() && segments.last() != "..") {
+                    segments.removeAt(segments.lastIndex)
+                } else if (prefix.isEmpty()) {
+                    segments += segment
+                }
+            } else {
+                segments += segment
+            }
+        }
+
+    val joined = segments.joinToString("/")
+    return when {
+        prefix == "//" -> if (joined.isEmpty()) "//" else "//$joined"
+        prefix.length == 2 -> if (joined.isEmpty()) "$prefix/" else "$prefix/$joined"
+        prefix == "/" -> if (joined.isEmpty()) "/" else "/$joined"
+        else -> if (joined.isEmpty()) "." else joined
+    }
+}
+
+private val windowsAbsolutePath = Regex("^[A-Za-z]:/.*")
+
+private fun defaultLoadoutHelperFileName(): String =
+    if (isWindowsLikeHost()) {
+        "loadout-e2e-helper.cmd"
+    } else {
+        "loadout-e2e-helper"
+    }
+
+private fun isWindowsLikeHost(): Boolean =
+    listOf(
+        readEnvironmentVariable("OS"),
+        readEnvironmentVariable("ComSpec"),
+        readEnvironmentVariable("PATHEXT"),
+    ).filterNotNull().any { value ->
+        value.contains("windows", ignoreCase = true) ||
+            value.contains("cmd.exe", ignoreCase = true) ||
+            value.contains(".cmd", ignoreCase = true)
+    }
 
 fun stripGeneratedMetadata(content: String): String {
     val normalized = content.normalizeLineEndings()
@@ -248,9 +510,26 @@ private fun CliktCommandTestResult.toCommandResult(): CommandResult =
         exitCode = statusCode,
     )
 
+private fun e2e.platform.ExternalProcessResult.toCommandResult(): CommandResult =
+    CommandResult(
+        stdout = stdout.normalizeLineEndings(),
+        stderr = stderr.normalizeLineEndings(),
+        output =
+            listOf(stdout.normalizeLineEndings(), stderr.normalizeLineEndings())
+                .filter { it.isNotBlank() }
+                .joinToString("\n"),
+        exitCode = exitCode,
+    )
+
 private fun String.normalizeLineEndings(): String = replace("\r\n", "\n")
 
 private fun String.stripGeneratedMetadata(): String = stripGeneratedMetadata(this)
+
+private fun CommandResult.requireSuccess(context: String) {
+    check(exitCode == 0) {
+        "$context failed with exit $exitCode:\n$output"
+    }
+}
 
 private fun <T, E> Result<T, E>.unwrap(context: String): T =
     when (this) {

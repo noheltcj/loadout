@@ -1,5 +1,12 @@
+import org.gradle.api.DefaultTask
+import org.gradle.api.file.RegularFileProperty
+import org.gradle.api.tasks.Input
+import org.gradle.api.tasks.InputFile
+import org.gradle.api.tasks.OutputFile
+import org.gradle.api.tasks.TaskAction
 import org.jetbrains.kotlin.gradle.plugin.KotlinSourceSet
 import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeTarget
+import org.jetbrains.kotlin.gradle.targets.native.tasks.KotlinNativeTest
 import org.jmailen.gradle.kotlinter.tasks.ConfigurableKtLintTask
 
 plugins {
@@ -96,4 +103,141 @@ tasks.withType<ConfigurableKtLintTask>().configureEach {
             .invariantSeparatorsPath
             .contains("/build/generated/")
     }
+}
+
+data class HostBinarySpec(
+    val targetName: String,
+    val targetTaskSuffix: String,
+    val executableExtension: String,
+    val helperScriptName: String,
+)
+
+val loadoutHelperEnvironmentVariable = "LOADOUT_E2E_HELPER_PATH"
+
+fun currentHostBinarySpec(): HostBinarySpec {
+    val operatingSystem = System.getProperty("os.name")
+    val architecture = System.getProperty("os.arch")
+
+    return when {
+        operatingSystem == "Mac OS X" && (architecture == "aarch64" || architecture == "arm64") ->
+            HostBinarySpec(
+                targetName = "macosArm64",
+                targetTaskSuffix = "MacosArm64",
+                executableExtension = ".kexe",
+                helperScriptName = "loadout-e2e-helper"
+            )
+        operatingSystem == "Mac OS X" ->
+            HostBinarySpec(
+                targetName = "macosX64",
+                targetTaskSuffix = "MacosX64",
+                executableExtension = ".kexe",
+                helperScriptName = "loadout-e2e-helper"
+            )
+        operatingSystem == "Linux" && (architecture == "aarch64" || architecture == "arm64") ->
+            HostBinarySpec(
+                targetName = "linuxArm64",
+                targetTaskSuffix = "LinuxArm64",
+                executableExtension = ".kexe",
+                helperScriptName = "loadout-e2e-helper"
+            )
+        operatingSystem == "Linux" ->
+            HostBinarySpec(
+                targetName = "linuxX64",
+                targetTaskSuffix = "LinuxX64",
+                executableExtension = ".kexe",
+                helperScriptName = "loadout-e2e-helper"
+            )
+        operatingSystem.startsWith("Windows") ->
+            HostBinarySpec(
+                targetName = "mingwX64",
+                targetTaskSuffix = "MingwX64",
+                executableExtension = ".exe",
+                helperScriptName = "loadout-e2e-helper.cmd"
+            )
+        else -> error("Unsupported host platform: $operatingSystem ($architecture)")
+    }
+}
+
+abstract class WriteE2eHelperTask : DefaultTask() {
+    @get:InputFile
+    abstract val mainExecutable: RegularFileProperty
+
+    @get:OutputFile
+    abstract val helperScript: RegularFileProperty
+
+    @get:Input
+    var isWindowsHelper: Boolean = false
+
+    @TaskAction
+    fun writeHelperScript() {
+        val helperScriptFile = helperScript.get().asFile
+        val mainExecutableFile = mainExecutable.get().asFile
+        helperScriptFile.parentFile.mkdirs()
+
+        // Future hook-installation tests must keep using an explicit helper path instead of host PATH resolution.
+        val helperScriptContent =
+            if (isWindowsHelper) {
+                """
+                @echo off
+                if "%~1"=="__printenv__" goto printenv
+                "${mainExecutableFile.absolutePath}" %*
+                exit /b %errorlevel%
+                :printenv
+                shift
+                :printenv_loop
+                if "%~1"=="" exit /b 0
+                call echo %~1=%%%~1%%
+                shift
+                goto printenv_loop
+                """.trimIndent().replace("\n", "\r\n") + "\r\n"
+            } else {
+                """
+                #!/bin/sh
+                if [ "${'$'}1" = "__printenv__" ]; then
+                  shift
+                  for key in "${'$'}@"; do
+                    case "${'$'}key" in
+                      HOME) value="${'$'}HOME" ;;
+                      XDG_CONFIG_HOME) value="${'$'}XDG_CONFIG_HOME" ;;
+                      XDG_DATA_HOME) value="${'$'}XDG_DATA_HOME" ;;
+                      XDG_STATE_HOME) value="${'$'}XDG_STATE_HOME" ;;
+                      XDG_CACHE_HOME) value="${'$'}XDG_CACHE_HOME" ;;
+                      PATH) value="${'$'}PATH" ;;
+                      GIT_DIR) value="${'$'}GIT_DIR" ;;
+                      GIT_WORK_TREE) value="${'$'}GIT_WORK_TREE" ;;
+                      *) value="" ;;
+                    esac
+                    printf '%s=%s\n' "${'$'}key" "${'$'}value"
+                  done
+                  exit 0
+                fi
+                exec ${quoteForShell(mainExecutableFile.absolutePath)} "${'$'}@"
+                """.trimIndent() + "\n"
+            }
+
+        helperScriptFile.writeText(helperScriptContent)
+        helperScriptFile.setExecutable(true)
+    }
+
+    private fun quoteForShell(value: String): String = "'${value.replace("'", "'\"'\"'")}'"
+}
+
+val hostBinarySpec = currentHostBinarySpec()
+val hostMainExecutable =
+    layout.buildDirectory.file(
+        "bin/${hostBinarySpec.targetName}/debugExecutable/${project.name}${hostBinarySpec.executableExtension}"
+    )
+val e2eHelperScript =
+    layout.buildDirectory.file("e2e-helper/${hostBinarySpec.helperScriptName}")
+
+val prepareE2eHelper by tasks.registering(WriteE2eHelperTask::class) {
+    dependsOn("linkDebugExecutable${hostBinarySpec.targetTaskSuffix}")
+    mainExecutable.set(hostMainExecutable)
+    helperScript.set(e2eHelperScript)
+    isWindowsHelper = hostBinarySpec.helperScriptName.endsWith(".cmd")
+}
+
+tasks.withType<KotlinNativeTest>().configureEach {
+    dependsOn(prepareE2eHelper)
+    environment(loadoutHelperEnvironmentVariable, e2eHelperScript.get().asFile.absolutePath)
 }

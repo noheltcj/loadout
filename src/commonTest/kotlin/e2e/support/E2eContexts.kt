@@ -9,6 +9,10 @@ const val architectFragmentPath = "fragments/loadout-architect.md"
 const val firstFragmentPath = "fragments/alpha.md"
 const val secondFragmentPath = "fragments/beta.md"
 const val thirdFragmentPath = "fragments/gamma.md"
+const val repoSettingsPath = ".loadout.repo.json"
+const val hooksDirectoryPath = ".githooks"
+const val postCheckoutHookPath = ".githooks/post-checkout"
+const val postMergeHookPath = ".githooks/post-merge"
 
 const val firstFragmentContent = "## Alpha Fragment\n\nAlpha guidance"
 const val secondFragmentContent = "## Beta Fragment\n\nBeta guidance"
@@ -161,4 +165,8 @@ fun E2eScenario.givenRepoInitializedInLocalMode() {
             appendGeneratedFileStatuses(this@givenRepoInitializedInLocalMode)
         }
     }
+}
+
+fun E2eScenario.givenGitRepositoryExists() {
+    initializeGitRepository()
 }
