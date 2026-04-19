@@ -10,10 +10,12 @@
         "fragments/kotlin/kmp-cli-project-structure.md",
         "fragments/testing/behavior-first-testing.md",
         "fragments/testing/test-execution.md",
-        "fragments/universal/code-review-ideology.md"
+        "fragments/universal/code-review-ideology.md",
+        "fragments/testing/context-composition.md",
+        "fragments/testing/context-composition-code-reviewer.md"
     ],
     "metadata": {
         "createdAt": 1775795180000,
-        "updatedAt": 1775795180000
+        "updatedAt": 1776564873000
     }
 }
