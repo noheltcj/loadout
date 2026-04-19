@@ -28,7 +28,10 @@ class NativeProcessEnvironmentSafetySpec : BehaviorSpec({
                         withWorkingDirectoryAndEnvironment(
                             operations = operations,
                             workingDirectory = "/tmp/workspace",
-                            environment = EnvironmentOverlay.unset("GIT_DIR", "GIT_WORK_TREE"),
+                            environment =
+                                environmentOverlay {
+                                    unset("GIT_DIR", "GIT_WORK_TREE")
+                                },
                         ) {
                             observed["GIT_DIR"] = operations.readEnvironmentVariable("GIT_DIR")
                             observed["GIT_WORK_TREE"] = operations.readEnvironmentVariable("GIT_WORK_TREE")
@@ -75,10 +78,10 @@ class NativeProcessEnvironmentSafetySpec : BehaviorSpec({
                             operations = operations,
                             workingDirectory = "/tmp/workspace",
                             environment =
-                                EnvironmentOverlay.set(
-                                    "HOME" to "/tmp/home",
-                                    "XDG_DATA_HOME" to "/tmp/data",
-                                ),
+                                environmentOverlay {
+                                    "HOME" setTo "/tmp/home"
+                                    "XDG_DATA_HOME" setTo "/tmp/data"
+                                },
                         ) {
                             Unit
                         }
@@ -117,10 +120,10 @@ class NativeProcessEnvironmentSafetySpec : BehaviorSpec({
                             operations = operations,
                             workingDirectory = "/tmp/workspace",
                             environment =
-                                EnvironmentOverlay.set(
-                                    "HOME" to "/tmp/home",
-                                    "XDG_DATA_HOME" to "/tmp/data",
-                                ),
+                                environmentOverlay {
+                                    "HOME" setTo "/tmp/home"
+                                    "XDG_DATA_HOME" setTo "/tmp/data"
+                                },
                         ) {
                             Unit
                         }
@@ -159,7 +162,7 @@ class NativeProcessEnvironmentSafetySpec : BehaviorSpec({
                             operations = operations,
                             workingDirectory = "/tmp/workspace",
                             command = listOf("loadout", "status"),
-                            environment = EnvironmentOverlay.empty,
+                            environment = environmentOverlay(),
                         )
                     }
                 }

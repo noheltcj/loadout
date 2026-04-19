@@ -108,7 +108,10 @@ actual fun <T> withWorkingDirectoryAndHome(
 ): T =
     withWorkingDirectoryAndEnvironment(
         workingDirectory = workingDirectory,
-        environment = EnvironmentOverlay.set("HOME" to homeDirectory),
+        environment =
+            environmentOverlay {
+                "HOME" setTo homeDirectory
+            },
         block = block
     )
 
@@ -125,7 +128,7 @@ internal fun <T> withWorkingDirectoryAndEnvironment(
     block: () -> T,
 ): T {
     val originalWorkingDirectory = operations.currentWorkingDirectory()
-    val originalEnvironment = environment.mutations.keys.associateWith(operations::readEnvironmentVariable)
+    val originalEnvironment = environment.mutationKeys().associateWith(operations::readEnvironmentVariable)
 
     var result: T? = null
     var failure: Throwable? = null
@@ -230,7 +233,7 @@ private fun applyEnvironmentOverlay(
     operations: NativeProcessOperations,
     environment: EnvironmentOverlay,
 ) {
-    environment.mutations.forEach { (key, mutation) ->
+    environment.forEachMutation { key, mutation ->
         when (mutation) {
             is EnvironmentMutation.Set -> {
                 check(operations.setEnvironmentVariable(key, mutation.value) == 0) {
@@ -370,7 +373,10 @@ internal fun buildRedirectingCommand(
     stderrPath: String,
     shellDialect: ShellDialect = currentShellDialect(),
 ): String =
-    "${buildShellCommand(command, shellDialect)} > ${shellQuote(stdoutPath, shellDialect)} 2> ${shellQuote(stderrPath, shellDialect)}"
+    "${buildShellCommand(
+        command,
+        shellDialect
+    )} > ${shellQuote(stdoutPath, shellDialect)} 2> ${shellQuote(stderrPath, shellDialect)}"
 
 internal fun buildShellCommand(
     arguments: List<String>,

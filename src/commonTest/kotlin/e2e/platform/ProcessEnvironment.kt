@@ -1,5 +1,8 @@
 package e2e.platform
 
+@DslMarker
+annotation class EnvironmentOverlayDsl
+
 sealed interface EnvironmentMutation {
     data class Set(
         val value: String,
@@ -8,21 +11,48 @@ sealed interface EnvironmentMutation {
     data object Unset : EnvironmentMutation
 }
 
-data class EnvironmentOverlay(
-    val mutations: Map<String, EnvironmentMutation> = emptyMap(),
+class EnvironmentOverlay private constructor(
+    private val entries: Map<String, EnvironmentMutation> = emptyMap(),
 ) {
-    operator fun plus(other: EnvironmentOverlay): EnvironmentOverlay = EnvironmentOverlay(mutations + other.mutations)
+    operator fun plus(other: EnvironmentOverlay): EnvironmentOverlay = EnvironmentOverlay(entries + other.entries)
 
-    companion object {
-        val empty = EnvironmentOverlay()
+    fun mutationKeys(): Set<String> = entries.keys
 
-        fun set(vararg entries: Pair<String, String>): EnvironmentOverlay =
-            EnvironmentOverlay(entries.associate { (key, value) -> key to EnvironmentMutation.Set(value) })
+    fun forEachMutation(action: (key: String, mutation: EnvironmentMutation) -> Unit) {
+        entries.forEach { (key, mutation) -> action(key, mutation) }
+    }
 
-        fun unset(vararg keys: String): EnvironmentOverlay =
-            EnvironmentOverlay(keys.associateWith { EnvironmentMutation.Unset })
+    internal companion object {
+        fun fromEntries(entries: Map<String, EnvironmentMutation>): EnvironmentOverlay = EnvironmentOverlay(entries)
     }
 }
+
+@EnvironmentOverlayDsl
+class EnvironmentOverlayBuilder {
+    private val entries = linkedMapOf<String, EnvironmentMutation>()
+
+    infix fun String.setTo(value: String) {
+        entries[this] = EnvironmentMutation.Set(value)
+    }
+
+    fun set(
+        key: String,
+        value: String,
+    ) {
+        key setTo value
+    }
+
+    fun unset(vararg keys: String) {
+        keys.forEach { key ->
+            entries[key] = EnvironmentMutation.Unset
+        }
+    }
+
+    internal fun build(): EnvironmentOverlay = EnvironmentOverlay.fromEntries(entries.toMap())
+}
+
+fun environmentOverlay(block: EnvironmentOverlayBuilder.() -> Unit = {}): EnvironmentOverlay =
+    EnvironmentOverlayBuilder().apply(block).build()
 
 data class ExternalProcessResult(
     val stdout: String,
@@ -49,7 +79,7 @@ expect fun <T> withWorkingDirectoryAndEnvironment(
 expect fun runExternalProcess(
     workingDirectory: String,
     command: List<String>,
-    environment: EnvironmentOverlay = EnvironmentOverlay.empty,
+    environment: EnvironmentOverlay = environmentOverlay(),
 ): ExternalProcessResult
 
 expect fun readEnvironmentVariable(key: String): String?
