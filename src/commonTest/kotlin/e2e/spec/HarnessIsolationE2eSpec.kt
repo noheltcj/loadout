@@ -2,8 +2,9 @@
 
 package e2e.spec
 
-import e2e.platform.currentWorkingDirectory
 import e2e.platform.EnvironmentOverlay
+import e2e.platform.currentWorkingDirectory
+import e2e.platform.environmentOverlay
 import e2e.platform.readEnvironmentVariable
 import e2e.platform.withWorkingDirectoryAndEnvironment
 import e2e.support.CommandResult
@@ -39,21 +40,22 @@ class HarnessIsolationE2eSpec : E2eBehaviorSuite({
             action("an external process inherits conflicting host XDG variables") {
                 val execution by memoizedExecution {
                     val poisonedEnvironment =
-                        EnvironmentOverlay.set(
-                            "HOME" to "/host/home",
-                            "XDG_CONFIG_HOME" to "/host/config",
-                            "XDG_DATA_HOME" to "/host/data",
-                            "XDG_STATE_HOME" to "/host/state",
-                            "XDG_CACHE_HOME" to "/host/cache",
+                        environmentOverlay {
+                            "HOME" setTo "/host/home"
+                            "XDG_CONFIG_HOME" setTo "/host/config"
+                            "XDG_DATA_HOME" setTo "/host/data"
+                            "XDG_STATE_HOME" setTo "/host/state"
+                            "XDG_CACHE_HOME" setTo "/host/cache"
+                        }
+                    val visibleEnvironment =
+                        inspectExternalEnvironment(
+                            "HOME",
+                            "XDG_CONFIG_HOME",
+                            "XDG_DATA_HOME",
+                            "XDG_STATE_HOME",
+                            "XDG_CACHE_HOME",
+                            environment = poisonedEnvironment
                         )
-                    val visibleEnvironment = inspectExternalEnvironment(
-                        "HOME",
-                        "XDG_CONFIG_HOME",
-                        "XDG_DATA_HOME",
-                        "XDG_STATE_HOME",
-                        "XDG_CACHE_HOME",
-                        environment = poisonedEnvironment
-                    )
 
                     CommandResult(
                         stdout = visibleEnvironment.entries.joinToString("\n") { (key, value) -> "$key=$value" },
@@ -97,7 +99,10 @@ class HarnessIsolationE2eSpec : E2eBehaviorSuite({
                     val visibleEnvironment =
                         withWorkingDirectoryAndEnvironment(
                             workingDirectory = workspaceRoot,
-                            environment = EnvironmentOverlay.set("PATH" to poisonedPath),
+                            environment =
+                                environmentOverlay {
+                                    "PATH" setTo poisonedPath
+                                },
                         ) {
                             inspectExternalEnvironment("PATH")
                         }
@@ -129,7 +134,10 @@ class HarnessIsolationE2eSpec : E2eBehaviorSuite({
                     shouldThrow<IllegalStateException> {
                         withWorkingDirectoryAndEnvironment(
                             workingDirectory = scenario.workspaceRoot,
-                            environment = EnvironmentOverlay.set("PATH" to poisonedPath),
+                            environment =
+                                environmentOverlay {
+                                    "PATH" setTo poisonedPath
+                                },
                         ) {
                             scenario.inspectExternalEnvironment("PATH")
                         }
@@ -169,10 +177,10 @@ class HarnessIsolationE2eSpec : E2eBehaviorSuite({
                         "--show-toplevel",
                         workingDirectory = workspacePath("nested"),
                         environment =
-                            EnvironmentOverlay.set(
-                                "GIT_DIR" to workspacePath("foreign-repo/.git"),
-                                "GIT_WORK_TREE" to workspacePath("foreign-repo"),
-                            )
+                            environmentOverlay {
+                                "GIT_DIR" setTo workspacePath("foreign-repo/.git")
+                                "GIT_WORK_TREE" setTo workspacePath("foreign-repo")
+                            }
                     )
                 }
 

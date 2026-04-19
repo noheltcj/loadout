@@ -11,10 +11,11 @@ import domain.entity.Loadout
 import domain.entity.LoadoutConfig
 import domain.entity.LoadoutMetadata
 import domain.entity.packaging.Result
+import e2e.platform.EnvironmentOverlay
 import e2e.platform.createTemporaryDirectory
 import e2e.platform.currentWorkingDirectory
 import e2e.platform.deleteRecursively
-import e2e.platform.EnvironmentOverlay
+import e2e.platform.environmentOverlay
 import e2e.platform.isExecutablePath
 import e2e.platform.readEnvironmentVariable
 import e2e.platform.runExternalProcess
@@ -55,7 +56,7 @@ class E2eScenario private constructor(
     fun runExternalCommand(
         vararg args: String,
         workingDirectory: String = workspaceRoot,
-        environment: EnvironmentOverlay = EnvironmentOverlay.empty,
+        environment: EnvironmentOverlay = environmentOverlay(),
     ): CommandResult =
         runExternalProcess(
             workingDirectory = workingDirectory,
@@ -66,7 +67,7 @@ class E2eScenario private constructor(
     fun runGit(
         vararg args: String,
         workingDirectory: String = workspaceRoot,
-        environment: EnvironmentOverlay = EnvironmentOverlay.empty,
+        environment: EnvironmentOverlay = environmentOverlay(),
     ): CommandResult =
         runExternalCommand(
             "git",
@@ -108,12 +109,13 @@ class E2eScenario private constructor(
         sourceDirectory: String = workspaceRoot,
     ): CommandResult {
         val worktreePath = workspacePath(relativePath)
-        val arguments = buildList {
-            add("worktree")
-            add("add")
-            add(worktreePath)
-            branchName?.let(::add)
-        }
+        val arguments =
+            buildList {
+                add("worktree")
+                add("add")
+                add(worktreePath)
+                branchName?.let(::add)
+            }
         return runGit(*arguments.toTypedArray(), workingDirectory = sourceDirectory)
     }
 
@@ -134,7 +136,7 @@ class E2eScenario private constructor(
 
     fun inspectExternalEnvironment(
         vararg keys: String,
-        environment: EnvironmentOverlay = EnvironmentOverlay.empty,
+        environment: EnvironmentOverlay = environmentOverlay(),
     ): Map<String, String> {
         val arguments = listOf(loadoutHelperExecutablePath(), helperPrintEnvironmentCommand) + keys
         val result = runExternalCommand(*arguments.toTypedArray(), environment = environment)
@@ -324,23 +326,23 @@ class E2eScenario private constructor(
         )
 
     private fun processEnvironment(): EnvironmentOverlay =
-        EnvironmentOverlay.set(
-            "HOME" to homeRoot,
-            "XDG_CONFIG_HOME" to xdgConfigRoot,
-            "XDG_DATA_HOME" to homePath(".local/share"),
-            "XDG_STATE_HOME" to homePath(".local/state"),
-            "XDG_CACHE_HOME" to homePath(".cache"),
-            "PATH" to sanitizedProcessPath(),
-        )
+        environmentOverlay {
+            "HOME" setTo homeRoot
+            "XDG_CONFIG_HOME" setTo xdgConfigRoot
+            "XDG_DATA_HOME" setTo homePath(".local/share")
+            "XDG_STATE_HOME" setTo homePath(".local/state")
+            "XDG_CACHE_HOME" setTo homePath(".cache")
+            "PATH" setTo sanitizedProcessPath()
+        }
 
     private fun gitEnvironment(): EnvironmentOverlay =
-        EnvironmentOverlay.unset("GIT_DIR", "GIT_WORK_TREE") +
-            EnvironmentOverlay.set(
-                "GIT_CONFIG_GLOBAL" to "/dev/null",
-                "GIT_CONFIG_SYSTEM" to "/dev/null",
-                "GIT_CONFIG_NOSYSTEM" to "true",
-                "GIT_CEILING_DIRECTORIES" to gitCeilingDirectories,
-            )
+        environmentOverlay {
+            unset("GIT_DIR", "GIT_WORK_TREE")
+            "GIT_CONFIG_GLOBAL" setTo "/dev/null"
+            "GIT_CONFIG_SYSTEM" setTo "/dev/null"
+            "GIT_CONFIG_NOSYSTEM" setTo "true"
+            "GIT_CEILING_DIRECTORIES" setTo gitCeilingDirectories
+        }
 
     private fun ApplicationScope.createDirectories(path: String) {
         val normalizedPath = path.trim().trimEnd('/')
@@ -378,7 +380,9 @@ class E2eScenario private constructor(
                 .filter(String::isNotEmpty)
                 .filter(::isAbsolutePath)
                 .map(::normalizeLexicalPath)
-                .filterNot { candidate -> blockedRoots.any { root -> candidate == root || candidate.startsWith("$root/") } }
+                .filterNot { candidate ->
+                    blockedRoots.any { root -> candidate == root || candidate.startsWith("$root/") }
+                }
 
         check(sanitizedEntries.isNotEmpty()) {
             "PATH sanitization removed all safe entries from '$hostPath'"
