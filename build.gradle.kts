@@ -100,14 +100,16 @@ dependencies {
 
 detekt {
     config.setFrom(layout.projectDirectory.file("config/detekt/config.yml"))
-    basePath.set(layout.projectDirectory)
-    baseline.set(layout.projectDirectory.file("config/detekt/baselines/detekt-baseline.xml"))
 
     allRules = false
+    basePath = layout.projectDirectory
+    baseline = layout.projectDirectory.file("config/detekt/baselines/detekt-baseline.xml")
     buildUponDefaultConfig = true
-    debug = false
+
     disableDefaultRuleSets = false
-    enableCompilerPlugin.set(true)
+    enableCompilerPlugin = true
+
+    debug = false
 }
 
 val lintKotlin by tasks.registering {
@@ -123,7 +125,8 @@ val lintKotlin by tasks.registering {
 val formatKotlin by tasks.registering(Detekt::class) {
     group = "formatting"
     description = "Formats the Kotlin source files."
-    ignoreFailures.set(true)
+    ignoreFailures = true
+    autoCorrect = true
     dependsOn(
         tasks.withType<Detekt>().matching {
             it.name.matches(detektTaskNamePattern)
@@ -142,13 +145,13 @@ val check: Task by tasks.getting {
 
 tasks.withType<Detekt>().configureEach {
     reports {
-        checkstyle.required.set(false)
-        checkstyle.outputLocation.set(layout.buildDirectory.file("reports/detekt/${name}.xml"))
-        html.required.set(false)
-        html.outputLocation.set(layout.buildDirectory.file("reports/detekt/${name}.html"))
-        markdown.required.set(true)
-        markdown.outputLocation.set(layout.buildDirectory.file("reports/detekt/${name}.md"))
-        sarif.required.set(false)
-        sarif.outputLocation.set(layout.buildDirectory.file("reports/detekt/${name}.sarif"))
+        checkstyle.required = false
+        checkstyle.outputLocation = layout.buildDirectory.file("reports/detekt/$name.xml")
+        html.required = false
+        html.outputLocation = layout.buildDirectory.file("reports/detekt/$name.html")
+        markdown.required = true
+        markdown.outputLocation = layout.buildDirectory.file("reports/detekt/$name.md")
+        sarif.required = false
+        sarif.outputLocation = layout.buildDirectory.file("reports/detekt/$name.sarif")
     }
 }
