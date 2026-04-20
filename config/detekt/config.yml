@@ -1,0 +1,28 @@
+config:
+  validation: true
+  warningsAsErrors: true
+
+ktlint:
+  active: true
+  android: false
+  autoCorrect: true
+  ChainMethodContinuation:
+    active: false
+  ClassSignature:
+    active: false
+  TrailingCommaOnCallSite:
+    active: false
+  NestedBlockDepth:
+    active: false
+
+style:
+  active: true
+  UnusedPrivateFunction:
+    active: true
+    allowedNames: ''
+  UnusedPrivateProperty:
+    active: true
+    allowedNames: 'ignored|expected|serialVersionUID'
+  UnusedVariable:
+    active: true
+    allowedNames: '_|ignored|expected'

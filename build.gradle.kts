@@ -1,13 +1,15 @@
+import dev.detekt.gradle.Detekt
+import org.gradle.api.tasks.TaskProvider
 import org.jetbrains.kotlin.gradle.plugin.KotlinSourceSet
 import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeTarget
-import org.jmailen.gradle.kotlinter.tasks.ConfigurableKtLintTask
 
 plugins {
+    id("dev.detekt") version "2.0.0-alpha.2"
+    id("dev.detekt.gradle.compiler-plugin") version "2.0.0-alpha.2"
     kotlin("multiplatform") version "2.2.0"
     kotlin("plugin.serialization") version "2.2.0"
     id("com.google.devtools.ksp") version "2.2.0-2.0.2"
     id("io.kotest") version "6.0.0"
-    id("org.jmailen.kotlinter") version "5.2.0"
 }
 
 group = "com.noheltcj"
@@ -15,6 +17,8 @@ version = "0.4.0"
 
 val kotestVersion = "6.0.0"
 val cliktVersion = "5.0.3"
+val detektVersion = "2.0.0-alpha.2"
+val detektTaskNamePattern = Regex("""detekt.+(Main|Test)SourceSet$""")
 
 repositories {
     mavenCentral()
@@ -90,10 +94,61 @@ fun KotlinNativeTarget.configureBinaries() {
     }
 }
 
-tasks.withType<ConfigurableKtLintTask>().configureEach {
-    exclude { element ->
-        element.file
-            .invariantSeparatorsPath
-            .contains("/build/generated/")
+dependencies {
+    detektPlugins("dev.detekt:detekt-rules-ktlint-wrapper:$detektVersion")
+}
+
+detekt {
+    config.setFrom(layout.projectDirectory.file("config/detekt/config.yml"))
+    basePath.set(layout.projectDirectory)
+    baseline.set(layout.projectDirectory.file("config/detekt/baselines/detekt-baseline.xml"))
+
+    allRules = false
+    buildUponDefaultConfig = true
+    debug = false
+    disableDefaultRuleSets = false
+    enableCompilerPlugin.set(true)
+}
+
+val lintKotlin by tasks.registering {
+    group = "verification"
+    description = "Runs type-resolved detekt checks for unused functions and variables."
+    dependsOn(
+        tasks.withType<Detekt>().matching {
+            it.name.matches(detektTaskNamePattern)
+        }
+    )
+}
+
+val formatKotlin by tasks.registering(Detekt::class) {
+    group = "formatting"
+    description = "Formats the Kotlin source files."
+    ignoreFailures.set(true)
+    dependsOn(
+        tasks.withType<Detekt>().matching {
+            it.name.matches(detektTaskNamePattern)
+        }
+    )
+}
+
+val check: Task by tasks.getting {
+    setDependsOn(
+        dependsOn.filterNot {
+            it is TaskProvider<*> && it.name == "detekt"
+        }
+    )
+    dependsOn("lintKotlin")
+}
+
+tasks.withType<Detekt>().configureEach {
+    reports {
+        checkstyle.required.set(false)
+        checkstyle.outputLocation.set(layout.buildDirectory.file("reports/detekt/${name}.xml"))
+        html.required.set(false)
+        html.outputLocation.set(layout.buildDirectory.file("reports/detekt/${name}.html"))
+        markdown.required.set(true)
+        markdown.outputLocation.set(layout.buildDirectory.file("reports/detekt/${name}.md"))
+        sarif.required.set(false)
+        sarif.outputLocation.set(layout.buildDirectory.file("reports/detekt/${name}.sarif"))
     }
 }
