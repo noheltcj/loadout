@@ -106,7 +106,7 @@ detekt {
     baseline = layout.projectDirectory.file("config/detekt/baselines/detekt-baseline.xml")
     buildUponDefaultConfig = true
 
-    disableDefaultRuleSets = false
+    disableDefaultRuleSets = true
     enableCompilerPlugin = true
 
     debug = false
@@ -121,13 +121,6 @@ val lintKotlin by tasks.registering {
         }
     )
 }
-
-val formatKotlinRequested =
-    providers.provider {
-        gradle.startParameter.taskNames.any { taskName ->
-            taskName.substringAfterLast(':') == "formatKotlin"
-        }
-    }
 
 val formatKotlin by tasks.registering {
     group = "formatting"
@@ -147,6 +140,13 @@ val check: Task by tasks.getting {
     )
     dependsOn("lintKotlin")
 }
+
+val formatKotlinRequested =
+    providers.provider {
+        gradle.startParameter.taskNames.any { taskName ->
+            taskName.substringAfterLast(':') == "formatKotlin"
+        }
+    }
 
 tasks.withType<Detekt>().configureEach {
     if (name.matches(detektTaskNamePattern)) {

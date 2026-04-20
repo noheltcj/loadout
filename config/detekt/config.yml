@@ -4,8 +4,6 @@ config:
 
 ktlint:
   active: true
-  android: false
-  autoCorrect: true
   ChainMethodContinuation:
     active: false
   ClassSignature:
