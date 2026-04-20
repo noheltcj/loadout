@@ -19,19 +19,25 @@ val kotestVersion = "6.0.0"
 val cliktVersion = "5.0.3"
 val detektVersion = "2.0.0-alpha.2"
 val detektTaskNamePattern = Regex("""detekt.+(Main|Test)SourceSet$""")
+val hostOs = System.getProperty("os.name")
+val hostArch = System.getProperty("os.arch")
+val isLinuxArm64Host =
+    hostOs == "Linux" && (hostArch == "aarch64" || hostArch == "arm64")
 
 repositories {
     mavenCentral()
 }
 
 kotlin {
-    macosX64().configureBinaries()
-    macosArm64().configureBinaries()
+    if (!isLinuxArm64Host) {
+        macosX64().configureBinaries()
+        macosArm64().configureBinaries()
 
-    linuxArm64().configureBinaries()
-    linuxX64().configureBinaries()
+        linuxArm64().configureBinaries()
+        linuxX64().configureBinaries()
 
-    mingwX64().configureBinaries()
+        mingwX64().configureBinaries()
+    }
 
     sourceSets {
         val commonMain by getting {
@@ -57,21 +63,23 @@ kotlin {
             dependsOn(commonTest)
         }
 
-        val linuxX64Main by extending(nativeMain)
-        val linuxArm64Main by extending(nativeMain)
+        if (!isLinuxArm64Host) {
+            val linuxX64Main by extending(nativeMain)
+            val linuxArm64Main by extending(nativeMain)
 
-        val macosX64Main by extending(nativeMain)
-        val macosArm64Main by extending(nativeMain)
+            val macosX64Main by extending(nativeMain)
+            val macosArm64Main by extending(nativeMain)
 
-        val mingwX64Main by extending(nativeMain)
+            val mingwX64Main by extending(nativeMain)
 
-        val linuxX64Test by extending(nativeTest)
-        val linuxArm64Test by extending(nativeTest)
+            val linuxX64Test by extending(nativeTest)
+            val linuxArm64Test by extending(nativeTest)
 
-        val macosX64Test by extending(nativeTest)
-        val macosArm64Test by extending(nativeTest)
+            val macosX64Test by extending(nativeTest)
+            val macosArm64Test by extending(nativeTest)
 
-        val mingwX64Test by extending(nativeTest)
+            val mingwX64Test by extending(nativeTest)
+        }
     }
 }
 
