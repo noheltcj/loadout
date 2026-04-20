@@ -154,6 +154,11 @@ tasks.withType<Detekt>().configureEach {
         ignoreFailures.convention(formatKotlinRequested)
     }
 
+    // Generated KSP output is not repo-owned code and should not gate lint.
+    exclude { element ->
+        element.file.invariantSeparatorsPath.contains("/build/generated/")
+    }
+
     reports {
         checkstyle.required = false
         checkstyle.outputLocation = layout.buildDirectory.file("reports/detekt/$name.xml")

@@ -1,5 +1,3 @@
-@file:Suppress("ktlint:standard:property-naming")
-
 package e2e.platform
 
 import data.platform.platformClearEnv
@@ -27,7 +25,7 @@ import platform.posix.stat
 import platform.posix.unlink
 import kotlin.random.Random
 
-private const val pathBufferSize = 4096
+private const val PATH_BUFFER_SIZE = 4096
 
 @OptIn(ExperimentalForeignApi::class)
 actual fun createTemporaryDirectory(prefix: String): String {
@@ -98,8 +96,8 @@ actual fun <T> withWorkingDirectoryAndHome(workingDirectory: String, homeDirecto
 @OptIn(ExperimentalForeignApi::class)
 private fun getCurrentWorkingDirectory(): String =
     memScoped {
-        val buffer = allocArray<ByteVar>(pathBufferSize)
-        checkNotNull(getcwd(buffer, pathBufferSize.convert())) {
+        val buffer = allocArray<ByteVar>(PATH_BUFFER_SIZE)
+        checkNotNull(getcwd(buffer, PATH_BUFFER_SIZE.convert())) {
             "Failed to read the current working directory"
         }
         buffer.toKString()

@@ -1,4 +1,4 @@
-@file:Suppress("ktlint:standard:property-naming")
+@file:Suppress("PropertyName", "ktlint:standard:property-naming")
 
 package e2e.support
 
