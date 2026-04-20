@@ -10,9 +10,7 @@ import domain.service.LoadoutService
 
 class RemoveCommand(
     private val loadoutService: LoadoutService,
-) : CliktCommand(
-        name = "remove",
-    ) {
+) : CliktCommand(name = "remove") {
     override fun help(context: Context): String = "Remove a loadout"
 
     private val loadoutName by argument("name", help = "Name of the loadout to remove")
