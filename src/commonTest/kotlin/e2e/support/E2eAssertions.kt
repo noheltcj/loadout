@@ -97,20 +97,14 @@ fun E2eScenario.shouldContainLocalModeGitignorePatternsExactlyOnce() {
     (loadoutGitignorePatterns + localOnlyGitignorePatterns).forEach(gitignore::shouldContainExactlyOnce)
 }
 
-private fun E2eScenario.readGeneratedMarkdownFile(
-    fileName: String,
-    directory: String?,
-): String? =
+private fun E2eScenario.readGeneratedMarkdownFile(fileName: String, directory: String?): String? =
     if (directory == null) {
         readGeneratedFile(fileName)
     } else {
         readGeneratedFileFromDirectory(directory, fileName)
     }
 
-private fun E2eScenario.forEachGeneratedMarkdownFile(
-    directory: String?,
-    assertion: (String?) -> Unit,
-) {
+private fun E2eScenario.forEachGeneratedMarkdownFile(directory: String?, assertion: (String?) -> Unit) {
     Constants.generatedMarkdownFiles.forEach { fileName ->
         assertion(readGeneratedMarkdownFile(fileName, directory))
     }
@@ -128,10 +122,7 @@ fun E2eScenario.shouldNotHaveGeneratedFiles(directory: String? = null) {
     }
 }
 
-fun E2eScenario.shouldHaveGeneratedBody(
-    expected: String,
-    fileName: String = Constants.CLAUDE_MD,
-) {
+fun E2eScenario.shouldHaveGeneratedBody(expected: String, fileName: String = Constants.CLAUDE_MD) {
     readGeneratedBody(fileName) shouldBe expected
 }
 
@@ -155,16 +146,10 @@ fun E2eScenario.shouldHaveUnchangedCompositionHash(previousHash: String?) {
     readConfig()?.compositionHash shouldBe previousHash
 }
 
-fun E2eScenario.shouldHaveLoadoutFragments(
-    loadoutName: String,
-    expected: List<String>,
-) {
+fun E2eScenario.shouldHaveLoadoutFragments(loadoutName: String, expected: List<String>) {
     readLoadout(loadoutName)?.fragments.shouldNotBeNull().shouldContainExactly(expected)
 }
 
-fun E2eScenario.shouldContainLoadoutFragmentsInOrder(
-    loadoutName: String,
-    expected: List<String>,
-) {
+fun E2eScenario.shouldContainLoadoutFragmentsInOrder(loadoutName: String, expected: List<String>) {
     readLoadout(loadoutName)?.fragments.shouldNotBeNull().shouldContainInOrder(expected)
 }

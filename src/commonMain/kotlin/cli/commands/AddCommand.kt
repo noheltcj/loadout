@@ -12,8 +12,8 @@ class AddCommand(
     private val loadoutService: LoadoutService,
     private val fileRepository: FileRepository,
 ) : CliktCommand(
-        name = "add",
-    ) {
+    name = "add",
+) {
     override val hiddenFromHelp: Boolean = true
     override val treatUnknownOptionsAsArgs: Boolean = true
 

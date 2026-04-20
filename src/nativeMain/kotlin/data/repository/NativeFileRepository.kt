@@ -60,10 +60,7 @@ class NativeFileRepository : FileRepository {
         }
     }
 
-    override fun writeFile(
-        path: String,
-        content: String,
-    ): Result<Unit, LoadoutError.FileSystemError> {
+    override fun writeFile(path: String, content: String): Result<Unit, LoadoutError.FileSystemError> {
         return try {
             val file =
                 fopen(path, "w") ?: return Result.Error(
@@ -105,10 +102,7 @@ class NativeFileRepository : FileRepository {
             }
         }
 
-    override fun listFiles(
-        directory: String,
-        extension: String?,
-    ): Result<List<String>, LoadoutError> {
+    override fun listFiles(directory: String, extension: String?): Result<List<String>, LoadoutError> {
         return try {
             val files = mutableListOf<String>()
             val dir =

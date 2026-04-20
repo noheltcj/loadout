@@ -1,13 +1,15 @@
+import dev.detekt.gradle.Detekt
+import org.gradle.api.tasks.TaskProvider
 import org.jetbrains.kotlin.gradle.plugin.KotlinSourceSet
 import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeTarget
-import org.jmailen.gradle.kotlinter.tasks.ConfigurableKtLintTask
 
 plugins {
+    id("dev.detekt") version "2.0.0-alpha.2"
+    id("dev.detekt.gradle.compiler-plugin") version "2.0.0-alpha.2"
     kotlin("multiplatform") version "2.2.0"
     kotlin("plugin.serialization") version "2.2.0"
     id("com.google.devtools.ksp") version "2.2.0-2.0.2"
     id("io.kotest") version "6.0.0"
-    id("org.jmailen.kotlinter") version "5.2.0"
 }
 
 group = "com.noheltcj"
@@ -15,6 +17,8 @@ version = "0.4.0"
 
 val kotestVersion = "6.0.0"
 val cliktVersion = "5.0.3"
+val detektVersion = "2.0.0-alpha.2"
+val detektTaskNamePattern = Regex("""detekt.+(Main|Test)SourceSet$""")
 
 repositories {
     mavenCentral()
@@ -90,10 +94,79 @@ fun KotlinNativeTarget.configureBinaries() {
     }
 }
 
-tasks.withType<ConfigurableKtLintTask>().configureEach {
+dependencies {
+    detektPlugins("dev.detekt:detekt-rules-ktlint-wrapper:$detektVersion")
+}
+
+detekt {
+    config.setFrom(layout.projectDirectory.file("config/detekt/config.yml"))
+
+    allRules = false
+    basePath = layout.projectDirectory
+    baseline = layout.projectDirectory.file("config/detekt/baselines/detekt-baseline.xml")
+    buildUponDefaultConfig = true
+
+    disableDefaultRuleSets = true
+    enableCompilerPlugin = true
+
+    debug = false
+}
+
+val lintKotlin by tasks.registering {
+    group = "verification"
+    description = "Runs type-resolved detekt checks for unused functions and variables."
+    dependsOn(
+        tasks.withType<Detekt>().matching {
+            it.name.matches(detektTaskNamePattern)
+        }
+    )
+}
+
+val formatKotlin by tasks.registering {
+    group = "formatting"
+    description = "Formats the Kotlin source files."
+    dependsOn(
+        tasks.withType<Detekt>().matching {
+            it.name.matches(detektTaskNamePattern)
+        }
+    )
+}
+
+val check: Task by tasks.getting {
+    setDependsOn(
+        dependsOn.filterNot {
+            it is TaskProvider<*> && it.name == "detekt"
+        }
+    )
+    dependsOn("lintKotlin")
+}
+
+val formatKotlinRequested =
+    providers.provider {
+        gradle.startParameter.taskNames.any { taskName ->
+            taskName.substringAfterLast(':') == "formatKotlin"
+        }
+    }
+
+tasks.withType<Detekt>().configureEach {
+    if (name.matches(detektTaskNamePattern)) {
+        autoCorrect.convention(formatKotlinRequested)
+        ignoreFailures.convention(formatKotlinRequested)
+    }
+
+    // Generated KSP output is not repo-owned code and should not gate lint.
     exclude { element ->
-        element.file
-            .invariantSeparatorsPath
-            .contains("/build/generated/")
+        element.file.invariantSeparatorsPath.contains("/build/generated/")
+    }
+
+    reports {
+        checkstyle.required = false
+        checkstyle.outputLocation = layout.buildDirectory.file("reports/detekt/$name.xml")
+        html.required = false
+        html.outputLocation = layout.buildDirectory.file("reports/detekt/$name.html")
+        markdown.required = true
+        markdown.outputLocation = layout.buildDirectory.file("reports/detekt/$name.md")
+        sarif.required = false
+        sarif.outputLocation = layout.buildDirectory.file("reports/detekt/$name.sarif")
     }
 }

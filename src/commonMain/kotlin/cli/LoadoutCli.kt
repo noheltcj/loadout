@@ -16,19 +16,17 @@ class LoadoutCli(
     private val loadoutService: LoadoutService,
     private val composeLoadout: LoadoutCompositionService,
     private val checkLoadoutSync: CheckLoadoutSyncUseCase,
-) : CliktCommand(
-        name = "loadout",
-    ) {
+) : CliktCommand(name = "loadout") {
+    override val invokeWithoutSubcommand: Boolean = true
+
     override fun help(context: Context): String =
         "Composable, shareable .md system prompts for agentic AI coding systems"
-
-    override val invokeWithoutSubcommand: Boolean = true
 
     private val verbose by option("--verbose", "-v")
         .flag(default = false)
         .help("Enable verbose output")
 
-    // TODO: Add --version option as documented in README
+    /* TODO: Add --version option as documented in README */
 
     override fun run() {
         currentContext.callOnClose { warnIfNotSynchronized() }

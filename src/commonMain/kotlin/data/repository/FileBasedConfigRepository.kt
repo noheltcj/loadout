@@ -33,10 +33,7 @@ class FileBasedConfigRepository(
         }
     }
 
-    override fun saveConfig(
-        config: LoadoutConfig,
-        configPath: String?,
-    ): Result<Unit, LoadoutError> {
+    override fun saveConfig(config: LoadoutConfig, configPath: String?): Result<Unit, LoadoutError> {
         val path = configPath ?: Constants.CONFIG_FILE
 
         return serializer

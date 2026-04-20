@@ -9,11 +9,7 @@ data class Loadout(
     val fragments: List<String> = emptyList(),
     val metadata: LoadoutMetadata,
 ) {
-    fun addFragment(
-        fragmentPath: String,
-        afterFragment: String? = null,
-        currentTimeMillis: Long,
-    ): Loadout {
+    fun addFragment(fragmentPath: String, afterFragment: String? = null, currentTimeMillis: Long): Loadout {
         val updatedFragments =
             if (afterFragment != null) {
                 val index = fragments.indexOf(afterFragment)
@@ -32,20 +28,13 @@ data class Loadout(
         )
     }
 
-    fun removeFragment(
-        fragmentPath: String,
-        currentTimeMillis: Long,
-    ): Loadout =
+    fun removeFragment(fragmentPath: String, currentTimeMillis: Long): Loadout =
         copy(
             fragments = fragments - fragmentPath,
             metadata = metadata.withUpdatedTimestamp(currentTimeMillis),
         )
 
-    fun moveFragment(
-        fragmentPath: String,
-        afterFragment: String?,
-        currentTimeMillis: Long,
-    ): Loadout {
+    fun moveFragment(fragmentPath: String, afterFragment: String?, currentTimeMillis: Long): Loadout {
         val withoutFragment = removeFragment(fragmentPath, currentTimeMillis)
         return withoutFragment.addFragment(fragmentPath, afterFragment, currentTimeMillis)
     }

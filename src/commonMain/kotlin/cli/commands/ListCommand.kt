@@ -14,8 +14,8 @@ import domain.service.LoadoutService
 class ListCommand(
     private val loadoutService: LoadoutService,
 ) : CliktCommand(
-        name = "list",
-    ) {
+    name = "list",
+) {
     override fun help(context: Context): String = "List all available loadouts"
 
     private val verbose by option("--verbose", "-v")

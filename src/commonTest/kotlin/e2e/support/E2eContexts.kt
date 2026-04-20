@@ -1,9 +1,8 @@
-@file:Suppress("ktlint:standard:property-naming")
+@file:Suppress("PropertyName", "ktlint:standard:property-naming")
 
 package e2e.support
 
 import cli.Constants
-import domain.entity.LoadoutConfig
 
 const val architectFragmentPath = "fragments/loadout-architect.md"
 const val firstFragmentPath = "fragments/alpha.md"

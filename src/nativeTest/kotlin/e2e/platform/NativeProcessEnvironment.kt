@@ -1,5 +1,3 @@
-@file:Suppress("ktlint:standard:property-naming")
-
 package e2e.platform
 
 import data.platform.platformClearEnv
@@ -27,7 +25,7 @@ import platform.posix.stat
 import platform.posix.unlink
 import kotlin.random.Random
 
-private const val pathBufferSize = 4096
+private const val PATH_BUFFER_SIZE = 4096
 
 @OptIn(ExperimentalForeignApi::class)
 actual fun createTemporaryDirectory(prefix: String): String {
@@ -37,7 +35,7 @@ actual fun createTemporaryDirectory(prefix: String): String {
                 ?: getenv("TEMP")?.toKString()
                 ?: getenv("TMP")?.toKString()
                 ?: "/tmp"
-        ).removeSuffix("/")
+            ).removeSuffix("/")
 
     while (true) {
         val randomSuffix = Random.nextInt(1000000, 9999999)
@@ -73,11 +71,7 @@ actual fun deleteRecursively(path: String) {
 }
 
 @OptIn(ExperimentalForeignApi::class)
-actual fun <T> withWorkingDirectoryAndHome(
-    workingDirectory: String,
-    homeDirectory: String,
-    block: () -> T,
-): T {
+actual fun <T> withWorkingDirectoryAndHome(workingDirectory: String, homeDirectory: String, block: () -> T): T {
     val originalWorkingDirectory = getCurrentWorkingDirectory()
     val originalHome = getenv("HOME")?.toKString()
 
@@ -102,8 +96,8 @@ actual fun <T> withWorkingDirectoryAndHome(
 @OptIn(ExperimentalForeignApi::class)
 private fun getCurrentWorkingDirectory(): String =
     memScoped {
-        val buffer = allocArray<ByteVar>(pathBufferSize)
-        checkNotNull(getcwd(buffer, pathBufferSize.convert())) {
+        val buffer = allocArray<ByteVar>(PATH_BUFFER_SIZE)
+        checkNotNull(getcwd(buffer, PATH_BUFFER_SIZE.convert())) {
             "Failed to read the current working directory"
         }
         buffer.toKString()

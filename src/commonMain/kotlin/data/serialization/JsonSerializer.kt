@@ -13,20 +13,14 @@ class JsonSerializer {
             encodeDefaults = false
         }
 
-    fun <T> serialize(
-        value: T,
-        serializer: KSerializer<T>,
-    ): Result<String, SerializationException> =
+    fun <T> serialize(value: T, serializer: KSerializer<T>): Result<String, SerializationException> =
         try {
             Result.Success(json.encodeToString(serializer, value))
         } catch (e: SerializationException) {
             Result.Error(e)
         }
 
-    fun <T> deserialize(
-        jsonString: String,
-        deserializer: KSerializer<T>,
-    ): Result<T, SerializationException> =
+    fun <T> deserialize(jsonString: String, deserializer: KSerializer<T>): Result<T, SerializationException> =
         try {
             Result.Success(json.decodeFromString(deserializer, jsonString))
         } catch (e: SerializationException) {

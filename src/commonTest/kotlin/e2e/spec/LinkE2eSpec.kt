@@ -188,10 +188,10 @@ class LinkE2eSpec : E2eBehaviorSuite({
                             givenValidLoadout(
                                 name = "target",
                                 fragments =
-                                    listOf(
-                                        firstFragmentPath to firstFragmentContent,
-                                        secondFragmentPath to secondFragmentContent
-                                    )
+                                listOf(
+                                    firstFragmentPath to firstFragmentContent,
+                                    secondFragmentPath to secondFragmentContent
+                                )
                             )
                             seedFragment(thirdFragmentPath, thirdFragmentContent)
                         }

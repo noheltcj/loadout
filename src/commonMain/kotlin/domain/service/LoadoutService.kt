@@ -11,7 +11,6 @@ import domain.entity.packaging.Result
 import domain.repository.ConfigRepository
 import domain.repository.EnvironmentRepository
 import domain.repository.LoadoutRepository
-import domain.usecase.CheckLoadoutSyncUseCase
 import domain.usecase.WriteComposedFilesUseCase
 import kotlin.collections.plus
 
@@ -21,11 +20,7 @@ class LoadoutService(
     private val environmentRepository: EnvironmentRepository,
     private val writeComposedFiles: WriteComposedFilesUseCase,
 ) {
-    fun createLoadout(
-        name: String,
-        description: String?,
-        fragments: List<String>,
-    ): Result<Loadout, LoadoutError> =
+    fun createLoadout(name: String, description: String?, fragments: List<String>): Result<Loadout, LoadoutError> =
         validateLoadoutName(name)
             .flatMap { validName ->
                 description?.let { validateDescription(it) }?.map { validName }
@@ -183,10 +178,7 @@ class LoadoutService(
             }
     }
 
-    fun removeFragmentFromLoadout(
-        loadoutName: String,
-        fragmentPath: String,
-    ): Result<Loadout, LoadoutError> {
+    fun removeFragmentFromLoadout(loadoutName: String, fragmentPath: String): Result<Loadout, LoadoutError> {
         val now = environmentRepository.currentTimeMillis()
         val normalizedPath = normalizeFragmentPath(fragmentPath)
 

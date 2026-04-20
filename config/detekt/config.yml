@@ -1,0 +1,36 @@
+config:
+  validation: true
+  warningsAsErrors: true
+
+ktlint:
+  active: true
+  ChainMethodContinuation:
+    active: false
+  ClassSignature:
+    active: false
+  FunctionSignature:
+    functionBodyExpressionWrapping: multiline
+  TrailingCommaOnCallSite:
+    active: false
+  BlankLineBetweenWhenConditions:
+    active: false
+
+complexity:
+  active: true
+  NestedBlockDepth:
+    active: false
+
+naming:
+  active: true
+
+style:
+  active: true
+  UnusedPrivateFunction:
+    active: true
+    allowedNames: ''
+  UnusedPrivateProperty:
+    active: true
+    allowedNames: 'ignored|expected|serialVersionUID'
+  UnusedVariable:
+    active: true
+    allowedNames: '_|ignored|expected'

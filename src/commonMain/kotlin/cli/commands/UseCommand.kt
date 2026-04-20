@@ -18,8 +18,8 @@ class UseCommand(
     private val composeLoadout: LoadoutCompositionService,
     private val defaultOutputPaths: List<String>,
 ) : CliktCommand(
-        name = "use",
-    ) {
+    name = "use",
+) {
     override fun help(context: Context): String = "Switch to and compose a loadout"
 
     private val loadoutName by argument("name", help = "Name of the loadout to use")

@@ -84,10 +84,10 @@ class UnlinkE2eSpec : E2eBehaviorSuite({
                 givenValidLoadout(
                     name = "target",
                     fragments =
-                        listOf(
-                            firstFragmentPath to firstFragmentContent,
-                            secondFragmentPath to secondFragmentContent
-                        )
+                    listOf(
+                        firstFragmentPath to firstFragmentContent,
+                        secondFragmentPath to secondFragmentContent
+                    )
                 )
             }
 
@@ -220,10 +220,10 @@ class UnlinkE2eSpec : E2eBehaviorSuite({
                         givenCurrentLoadoutIsSet(
                             name = "alpha",
                             fragments =
-                                listOf(
-                                    firstFragmentPath to firstFragmentContent,
-                                    secondFragmentPath to secondFragmentContent
-                                )
+                            listOf(
+                                firstFragmentPath to firstFragmentContent,
+                                secondFragmentPath to secondFragmentContent
+                            )
                         )
                     }
                 )

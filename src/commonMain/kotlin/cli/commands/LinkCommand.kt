@@ -17,8 +17,8 @@ class LinkCommand(
     private val loadoutService: LoadoutService,
     private val fileRepository: FileRepository,
 ) : CliktCommand(
-        name = "link",
-    ) {
+    name = "link",
+) {
     override fun help(context: Context): String = "Link a fragment into a loadout"
 
     private val fragmentPath by argument(help = "Path to the fragment to link")
