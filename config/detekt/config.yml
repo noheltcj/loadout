@@ -25,15 +25,6 @@ naming:
 
 style:
   active: true
-  # Common knobs to consider:
-  # ForbiddenComment:
-  #   active: false
-  # MagicNumber:
-  #   active: false
-  # ReturnCount:
-  #   active: false
-  # ThrowsCount:
-  #   active: false
   UnusedPrivateFunction:
     active: true
     allowedNames: ''
