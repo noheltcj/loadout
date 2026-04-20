@@ -122,11 +122,16 @@ val lintKotlin by tasks.registering {
     )
 }
 
-val formatKotlin by tasks.registering(Detekt::class) {
+val formatKotlinRequested =
+    providers.provider {
+        gradle.startParameter.taskNames.any { taskName ->
+            taskName.substringAfterLast(':') == "formatKotlin"
+        }
+    }
+
+val formatKotlin by tasks.registering {
     group = "formatting"
     description = "Formats the Kotlin source files."
-    ignoreFailures = true
-    autoCorrect = true
     dependsOn(
         tasks.withType<Detekt>().matching {
             it.name.matches(detektTaskNamePattern)
@@ -144,6 +149,11 @@ val check: Task by tasks.getting {
 }
 
 tasks.withType<Detekt>().configureEach {
+    if (name.matches(detektTaskNamePattern)) {
+        autoCorrect.convention(formatKotlinRequested)
+        ignoreFailures.convention(formatKotlinRequested)
+    }
+
     reports {
         checkstyle.required = false
         checkstyle.outputLocation = layout.buildDirectory.file("reports/detekt/$name.xml")
