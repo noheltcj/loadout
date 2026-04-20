@@ -4,19 +4,12 @@ config:
 
 ktlint:
   active: true
-  # Common knobs to consider:
-  # Filename:
-  #   active: false
-  # FunctionSignature:
-  #   active: false
-  # ImportOrdering:
-  #   active: false
-  # MaximumLineLength:
-  #   active: false
   ChainMethodContinuation:
     active: false
   ClassSignature:
     active: false
+  FunctionSignature:
+    functionBodyExpressionWrapping: multiline
   TrailingCommaOnCallSite:
     active: false
   BlankLineBetweenWhenConditions:
@@ -24,23 +17,11 @@ ktlint:
 
 complexity:
   active: true
-  # Common knobs to consider:
-  # LongMethod:
-  #   active: false
-  # NestedBlockDepth:
-  #   active: false
-  # TooManyFunctions:
-  #   active: false
+  NestedBlockDepth:
+    active: false
 
 naming:
   active: true
-  # Common knobs to consider:
-  # PackageNaming:
-  #   active: false
-  # TopLevelPropertyNaming:
-  #   active: false
-  # MatchingDeclarationName:
-  #   active: false
 
 style:
   active: true

@@ -48,17 +48,11 @@ class E2eScenario private constructor(
 
     fun homePath(relativePath: String): String = if (relativePath.isBlank()) homeRoot else "$homeRoot/$relativePath"
 
-    fun writeWorkspaceFile(
-        relativePath: String,
-        content: String,
-    ) {
+    fun writeWorkspaceFile(relativePath: String, content: String) {
         writeFile(relativePath, content)
     }
 
-    fun writeHomeFile(
-        relativePath: String,
-        content: String,
-    ) {
+    fun writeHomeFile(relativePath: String, content: String) {
         writeFile(homePath(relativePath), content)
     }
 
@@ -126,33 +120,22 @@ class E2eScenario private constructor(
         return loadout
     }
 
-    fun seedFragment(
-        relativePath: String,
-        content: String,
-    ) {
+    fun seedFragment(relativePath: String, content: String) {
         writeWorkspaceFile(relativePath, content)
     }
 
-    fun seedGlobalFragment(
-        relativePath: String,
-        content: String,
-    ) {
+    fun seedGlobalFragment(relativePath: String, content: String) {
         writeHomeFile(".loadout/fragments/$relativePath", content)
     }
 
     fun readGeneratedFile(fileName: String): String? = readWorkspaceFile(fileName)
 
-    fun readGeneratedFileFromDirectory(
-        directory: String,
-        fileName: String,
-    ): String? = readFile("$directory/$fileName")
+    fun readGeneratedFileFromDirectory(directory: String, fileName: String): String? = readFile("$directory/$fileName")
 
     fun readGeneratedBody(fileName: String): String? = readGeneratedFile(fileName)?.stripGeneratedMetadata()
 
-    fun readGeneratedBodyFromDirectory(
-        directory: String,
-        fileName: String,
-    ): String? = readGeneratedFileFromDirectory(directory, fileName)?.stripGeneratedMetadata()
+    fun readGeneratedBodyFromDirectory(directory: String, fileName: String): String? =
+        readGeneratedFileFromDirectory(directory, fileName)?.stripGeneratedMetadata()
 
     fun createCustomOutputDirectory(name: String = "custom-output"): String {
         val absolutePath = workspacePath(name)
@@ -167,10 +150,7 @@ class E2eScenario private constructor(
         deleteRecursively(homeRoot)
     }
 
-    private fun writeFile(
-        path: String,
-        content: String,
-    ) {
+    private fun writeFile(path: String, content: String) {
         withScope {
             createDirectories(path.substringBeforeLast("/", missingDelimiterValue = ""))
             fileRepository.writeFile(path, content).unwrap("write file '$path'")

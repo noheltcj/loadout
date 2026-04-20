@@ -19,8 +19,8 @@ class SyncCommand(
     private val composeLoadout: LoadoutCompositionService,
     private val defaultOutputPaths: List<String>,
 ) : CliktCommand(
-        name = "sync",
-    ) {
+    name = "sync",
+) {
     override fun help(context: Context): String = "Re-compose and synchronize the current loadout"
 
     private val stdOutOnly by option("--std-out")

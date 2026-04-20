@@ -20,8 +20,8 @@ class InitCommand(
     private val composeLoadout: LoadoutCompositionService,
     private val defaultOutputPaths: List<String>,
 ) : CliktCommand(
-        name = COMMAND_NAME,
-    ) {
+    name = COMMAND_NAME,
+) {
     override fun help(context: Context): String =
         "Initialize Loadout in a project by setting up .gitignore, fragments, and default loadout"
 

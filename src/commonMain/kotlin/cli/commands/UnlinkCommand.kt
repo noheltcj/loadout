@@ -14,8 +14,8 @@ import domain.service.LoadoutService
 class UnlinkCommand(
     private val loadoutService: LoadoutService,
 ) : CliktCommand(
-        name = "unlink",
-    ) {
+    name = "unlink",
+) {
     override fun help(context: Context): String = "Unlink a fragment from a loadout"
 
     private val fragmentPath by argument(help = "Path to the fragment to unlink")

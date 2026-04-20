@@ -17,8 +17,8 @@ class CreateCommand(
     private val loadoutService: LoadoutService,
     private val fileRepository: FileRepository,
 ) : CliktCommand(
-        name = "create",
-    ) {
+    name = "create",
+) {
     override fun help(context: Context): String = "Create a new loadout"
 
     private val name by argument(help = "Name of the loadout to create")

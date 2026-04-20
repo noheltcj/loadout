@@ -37,7 +37,7 @@ actual fun createTemporaryDirectory(prefix: String): String {
                 ?: getenv("TEMP")?.toKString()
                 ?: getenv("TMP")?.toKString()
                 ?: "/tmp"
-        ).removeSuffix("/")
+            ).removeSuffix("/")
 
     while (true) {
         val randomSuffix = Random.nextInt(1000000, 9999999)
@@ -73,11 +73,7 @@ actual fun deleteRecursively(path: String) {
 }
 
 @OptIn(ExperimentalForeignApi::class)
-actual fun <T> withWorkingDirectoryAndHome(
-    workingDirectory: String,
-    homeDirectory: String,
-    block: () -> T,
-): T {
+actual fun <T> withWorkingDirectoryAndHome(workingDirectory: String, homeDirectory: String, block: () -> T): T {
     val originalWorkingDirectory = getCurrentWorkingDirectory()
     val originalHome = getenv("HOME")?.toKString()
 

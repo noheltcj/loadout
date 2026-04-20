@@ -12,10 +12,7 @@ import domain.entity.error.LoadoutError
 fun outputPaths(outputDir: String = Constants.DEFAULT_OUTPUT_DIR): List<String> =
     Constants.generatedMarkdownFiles.map { fileName -> "$outputDir/$fileName" }
 
-fun CliktCommand.echoError(
-    error: LoadoutError,
-    verbose: Boolean = false,
-) {
+fun CliktCommand.echoError(error: LoadoutError, verbose: Boolean = false) {
     val cause = error.cause
     echo(error.message, err = true)
     if (verbose && cause != null) {
