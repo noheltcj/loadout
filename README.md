@@ -90,10 +90,12 @@ cd loadout
 # Initialize Loadout in your project
 loadout init
 
-# That's it. You now have:
+# In shared mode (the default), that gives you:
 #   - A starter fragment at fragments/loadout-architect.md
 #   - A "default" loadout that includes it
 #   - Generated AGENTS.md, CLAUDE.md, and GEMINI.md
+#   - .githooks/ with post-checkout and post-merge scripts (committed)
+#   - git configured to use .githooks/ as the hooks path
 ```
 
 From here, the workflow is: **write fragments → compose loadouts → sync outputs.**
@@ -123,6 +125,10 @@ loadout use <name> --std-out
 
 # Delete a loadout
 loadout remove <name>
+
+# View or set the repository default loadout (used by auto-sync hooks)
+loadout config
+loadout config --default-loadout <name>
 ```
 
 ---
@@ -152,6 +158,22 @@ Shared mode lets a team standardize on the same set of agent profiles. Local mod
 
 - `.loadout.json` stores tracked repository settings such as the default loadout for hook-driven sync.
 - `.loadout.local.json` stores local-only runtime state such as the active loadout and last composed content hash.
+
+### Auto-Sync with Git Hooks
+
+In shared mode, `loadout init` commits `.githooks/` hooks alongside your loadout definitions. On every branch checkout and merge, those hooks run `loadout sync --auto` to regenerate the output files from whichever loadout is set as the repository default.
+
+The reason this matters: `AGENTS.md`, `CLAUDE.md`, and `GEMINI.md` are gitignored. A fresh clone or a new worktree won't have them. Without the hooks, every developer (and every agent session) would need to run `loadout sync` manually before getting the right context.
+
+This is especially relevant when using agentic tools like Codex or Antigravity that spin up isolated git worktrees. Each worktree gets the correct guidance files on first checkout — no manual setup, no missing context.
+
+Set the default loadout the hooks will use with:
+
+```bash
+loadout config --default-loadout <name>
+```
+
+If no default is configured, `--auto` is a no-op and the hooks exit cleanly.
 
 ---
 
