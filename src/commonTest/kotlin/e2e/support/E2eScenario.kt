@@ -112,7 +112,7 @@ class E2eScenario private constructor(
     }
 
     fun loadoutHelperExecutablePath(): String =
-        readEnvironmentVariable(LOADOUT_HELPER_ENVIRONMENT_VARIABLE) ?: DEFAULT_LOADOUT_HELPER_PATH
+        readEnvironmentVariable(LOADOUT_E2E_HELPER_PATH_ENVIRONMENT_VARIABLE) ?: DEFAULT_LOADOUT_HELPER_PATH
 
     fun inspectExternalEnvironment(
         vararg keys: String,
@@ -354,11 +354,11 @@ class E2eScenario private constructor(
     }
 
     companion object {
-        private const val LOADOUT_HELPER_ENVIRONMENT_VARIABLE = "LOADOUT_BIN"
+        private const val LOADOUT_E2E_HELPER_PATH_ENVIRONMENT_VARIABLE = "LOADOUT_E2E_HELPER_PATH"
         private const val HELPER_PRINT_ENVIRONMENT_COMMAND = "__printenv__"
         private const val REPO_SETTINGS_PATH = ".loadout.repo.json"
         private val DEFAULT_LOADOUT_HELPER_PATH =
-            "${currentWorkingDirectory()}/build/e2e-helper/${defaultLoadoutHelperFileName()}"
+            "${currentWorkingDirectory()}/scripts/e2e/${defaultLoadoutHelperFileName()}"
 
         fun create(): E2eScenario =
             E2eScenario(
@@ -424,7 +424,7 @@ private fun defaultLoadoutHelperFileName(): String =
     if (isWindowsLikeHost()) {
         "loadout-e2e-helper.cmd"
     } else {
-        "loadout-e2e-helper"
+        "loadout-e2e-helper.sh"
     }
 
 private fun isWindowsLikeHost(): Boolean =

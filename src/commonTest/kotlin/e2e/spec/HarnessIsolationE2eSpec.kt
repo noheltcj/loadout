@@ -36,6 +36,33 @@ class HarnessIsolationE2eSpec : E2eBehaviorSuite({
                 }
             }
 
+            action("the explicit helper path override is absent") {
+                val execution by memoizedExecution {
+                    val resolvedHelperPath =
+                        withWorkingDirectoryAndEnvironment(
+                            workingDirectory = workspaceRoot,
+                            environment =
+                            environmentOverlay {
+                                unset(LOADOUT_E2E_HELPER_PATH_ENVIRONMENT_VARIABLE)
+                            },
+                        ) {
+                            loadoutHelperExecutablePath()
+                        }
+
+                    CommandResult(
+                        stdout = resolvedHelperPath,
+                        stderr = "",
+                        output = resolvedHelperPath,
+                        exitCode = 0,
+                    )
+                }
+
+                then("it falls back to the checked-in helper script for the current host") {
+                    execution.result.stdout.normalizeTempPath() shouldBe
+                        "${currentWorkingDirectory()}/scripts/e2e/${defaultHelperFileName()}".normalizeTempPath()
+                }
+            }
+
             action("an external process inherits conflicting host XDG variables") {
                 val execution by memoizedExecution {
                     val poisonedEnvironment =
@@ -207,6 +234,11 @@ class HarnessIsolationE2eSpec : E2eBehaviorSuite({
     }
 })
 
+private const val LOADOUT_E2E_HELPER_PATH_ENVIRONMENT_VARIABLE = "LOADOUT_E2E_HELPER_PATH"
+
 private fun hostPathListSeparator(): String = if ((readEnvironmentVariable("PATH") ?: "").contains(';')) ";" else ":"
+
+private fun defaultHelperFileName(): String =
+    if (hostPathListSeparator() == ";") "loadout-e2e-helper.cmd" else "loadout-e2e-helper.sh"
 
 private fun String.normalizeTempPath(): String = removePrefix("/private")
