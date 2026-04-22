@@ -24,13 +24,6 @@ This repository treats the nested `fragments/` taxonomy as canonical:
 When adding new fragment content:
 - Keep each fragment focused on one concern
 - Prefer nested paths inside the existing taxonomy over adding new flat top-level files
-- Store repo-owned fragments in `fragments/`
-- Store personal fragments in `~/.loadout/fragments/`
+- Store fragments in `fragments/`
 
-### Working Expectations
-
-- Treat the CLI as a BDD-tested product and preserve that testing posture when changing behavior
-- Prefer loadouts that include architecture, modeling, and testing context together
-- Keep `e2e` coverage strong for realistic CLI workflows and use `unit` coverage for focused logic only
-- Update `plans/` when deferring substantial implementation work for a later session
-- Run `loadout sync` after modifying fragment content
+Run `loadout sync` after modifying fragment content

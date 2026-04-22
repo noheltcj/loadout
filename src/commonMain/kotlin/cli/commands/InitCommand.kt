@@ -29,7 +29,7 @@ class InitCommand(
     private val mode by option("--mode", "-m")
         .enum<InitMode>(ignoreCase = true)
         .default(InitMode.SHARED)
-        .help("Mode: 'shared' (default) for team collaboration, 'local' for local-only configuration")
+        .help("Mode: 'shared' (recommended) for team collaboration, 'local' for local-only configuration")
 
     override fun run() {
         setupGitignore()
@@ -407,20 +407,70 @@ class InitCommand(
     }
 
     private fun postCheckoutHookScript(): String =
-        """
+        $$"""
             #!/bin/sh
-            if [ "${'$'}3" = "0" ]; then
+            if [ "$3" = "0" ]; then
               exit 0
             fi
-            helper_path="${'$'}{LOADOUT_BIN:-loadout}"
-            "${'$'}helper_path" sync --auto >/dev/null || exit 0
+
+            if [ -n "$LOADOUT_BIN" ]; then
+                helper_path="$LOADOUT_BIN"
+            else
+                helper_path="loadout"
+                if ! command -v "$helper_path" >/dev/null 2>&1; then
+                    # GUI client fallbacks (common absolute install paths)
+                    # Currently a bit brittle, but no current maintainers use git GUI clients
+                    for p in \
+                        "/opt/homebrew/bin/loadout" \
+                        "/usr/local/bin/loadout" \
+                        "$HOME/.local/bin/loadout"
+                    do
+                        if [ -x "$p" ]; then
+                            helper_path="$p"
+                            break
+                        fi
+                    done
+                fi
+            fi
+
+            if command -v "$helper_path" >/dev/null 2>&1; then
+                "$helper_path" sync --auto >/dev/null || exit 0
+            else
+                echo "[Loadout] CLI not found. Skipping auto-sync." >&2
+                exit 0
+            fi
         """.trimIndent() + "\n"
 
     private fun postMergeHookScript(): String =
-        """
+        $$"""
             #!/bin/sh
-            helper_path="${'$'}{LOADOUT_BIN:-loadout}"
-            "${'$'}helper_path" sync --auto >/dev/null || exit 0
+
+            if [ -n "$LOADOUT_BIN" ]; then
+                helper_path="$LOADOUT_BIN"
+            else
+                helper_path="loadout"
+                if ! command -v "$helper_path" >/dev/null 2>&1; then
+                    # GUI client fallbacks (common absolute install paths)
+                    # Currently a bit brittle, but no current maintainers use git GUI clients
+                    for p in \
+                        "/opt/homebrew/bin/loadout" \
+                        "/usr/local/bin/loadout" \
+                        "$HOME/.local/bin/loadout"
+                    do
+                        if [ -x "$p" ]; then
+                            helper_path="$p"
+                            break
+                        fi
+                    done
+                fi
+            fi
+
+            if command -v "$helper_path" >/dev/null 2>&1; then
+                "$helper_path" sync --auto >/dev/null || exit 0
+            else
+                echo "[Loadout] CLI not found. Skipping auto-sync." >&2
+                exit 0
+            fi
         """.trimIndent() + "\n"
 
     companion object {
@@ -459,13 +509,11 @@ class InitCommand(
             |Fragments are modular markdown files that compose into the final CLAUDE.md, AGENTS.md, and GEMINI.md:
             |- Keep fragments focused on a single concern (coding style, project structure, etc.)
             |- Use clear, concise language that AI agents can follow
-            |- Store project-specific fragments in `fragments/`
-            |- Store personal/global fragments in `~/.loadout/fragments/`
+            |- Store fragments in `fragments/`
             |
-            |### Best Practices
+            |### Loadout Guidelines
             |
-            |- Create task-specific loadouts (e.g., "refactoring", "testing", "documentation")
-            |- Share loadouts with your team by committing `.loadouts/` and `fragments/`
+            |- Create task-specific loadouts (e.g., "engineering", "code-review", "documentation")
             |- Run `loadout sync` after modifying any fragment content
             """.trimMargin()
     }

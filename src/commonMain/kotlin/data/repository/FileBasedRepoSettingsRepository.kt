@@ -12,14 +12,12 @@ class FileBasedRepoSettingsRepository(
     private val fileRepository: FileRepository,
     private val serializer: JsonSerializer,
 ) : RepoSettingsRepository {
-    override fun loadSettings(path: String?): Result<RepoSettings, LoadoutError> {
-        val settingsPath = path ?: Constants.REPO_SETTINGS_FILE
-
-        return if (!fileRepository.fileExists(settingsPath)) {
+    override fun loadSettings(): Result<RepoSettings, LoadoutError> =
+        if (!fileRepository.fileExists(Constants.REPO_SETTINGS_FILE)) {
             Result.Success(RepoSettings(defaultLoadoutName = null))
         } else {
             fileRepository
-                .readFile(settingsPath)
+                .readFile(Constants.REPO_SETTINGS_FILE)
                 .flatMap { content ->
                     serializer
                         .deserialize(content, RepoSettings.serializer())
@@ -31,17 +29,14 @@ class FileBasedRepoSettingsRepository(
                         }
                 }
         }
-    }
 
-    override fun saveSettings(settings: RepoSettings, path: String?): Result<Unit, LoadoutError> {
-        val settingsPath = path ?: Constants.REPO_SETTINGS_FILE
-
-        return serializer
+    override fun saveSettings(settings: RepoSettings): Result<Unit, LoadoutError> =
+        serializer
             .serialize(settings, RepoSettings.serializer())
             .mapError { LoadoutError.ConfigurationError("Failed to serialize repo settings: ${it.message}", it) }
             .flatMap { json ->
                 fileRepository
-                    .writeFile(settingsPath, json)
+                    .writeFile(Constants.REPO_SETTINGS_FILE, json)
                     .mapError {
                         LoadoutError.ConfigurationError(
                             "Failed to write repo settings file: ${it.message}",
@@ -49,7 +44,4 @@ class FileBasedRepoSettingsRepository(
                         )
                     }
             }
-    }
-
-    override fun getDefaultPath(): String = Constants.REPO_SETTINGS_FILE
 }

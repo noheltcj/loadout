@@ -140,15 +140,8 @@ class E2eScenario private constructor(
 
     fun homePath(relativePath: String): String = if (relativePath.isBlank()) homeRoot else "$homeRoot/$relativePath"
 
-    fun xdgConfigPath(relativePath: String): String =
-        if (relativePath.isBlank()) xdgConfigRoot else "$xdgConfigRoot/$relativePath"
-
     fun writeWorkspaceFile(relativePath: String, content: String) {
         writeFile(relativePath, content)
-    }
-
-    fun writeHomeFile(relativePath: String, content: String) {
-        writeFile(homePath(relativePath), content)
     }
 
     fun deleteWorkspaceFile(relativePath: String) {
@@ -166,12 +159,6 @@ class E2eScenario private constructor(
     }
 
     fun readWorkspaceFile(relativePath: String): String? = readFile(relativePath)
-
-    fun readHomeFile(relativePath: String): String? = readFile(homePath(relativePath))
-
-    fun workspaceFileExists(relativePath: String): Boolean = fileExists(relativePath)
-
-    fun homeFileExists(relativePath: String): Boolean = fileExists(homePath(relativePath))
 
     fun readConfig(): LoadoutConfig? =
         readWorkspaceFile(Constants.CONFIG_FILE)?.let {
@@ -242,10 +229,6 @@ class E2eScenario private constructor(
         writeWorkspaceFile(relativePath, content)
     }
 
-    fun seedGlobalFragment(relativePath: String, content: String) {
-        writeHomeFile(".loadout/fragments/$relativePath", content)
-    }
-
     fun readGeneratedFile(fileName: String): String? = readWorkspaceFile(fileName)
 
     fun readGeneratedFileFromDirectory(directory: String, fileName: String): String? = readFile("$directory/$fileName")
@@ -283,11 +266,6 @@ class E2eScenario private constructor(
             } else {
                 fileRepository.readFile(path).unwrap("read file '$path'")
             }
-        }
-
-    private fun fileExists(path: String): Boolean =
-        withScope {
-            fileRepository.fileExists(path)
         }
 
     private fun <T> withScope(block: ApplicationScope.() -> T): T =
@@ -436,7 +414,7 @@ private fun normalizeLexicalPath(path: String): String {
         prefix == "//" -> if (joined.isEmpty()) "//" else "//$joined"
         prefix.length == 2 -> if (joined.isEmpty()) "$prefix/" else "$prefix/$joined"
         prefix == "/" -> if (joined.isEmpty()) "/" else "/$joined"
-        else -> if (joined.isEmpty()) "." else joined
+        else -> joined.ifEmpty { "." }
     }
 }
 
@@ -464,8 +442,6 @@ fun stripGeneratedMetadata(content: String): String {
     val normalized = content.normalizeLineEndings()
     return normalized.substringAfter("\n\n", missingDelimiterValue = normalized)
 }
-
-fun normalizeText(text: String): String = text.normalizeLineEndings()
 
 private fun CliktCommandTestResult.toCommandResult(): CommandResult =
     CommandResult(

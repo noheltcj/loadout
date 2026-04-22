@@ -245,8 +245,6 @@ class LoadoutService(
                 } ?: Result.Success(null)
             }
 
-    fun getRepoSettings(): Result<RepoSettings, LoadoutError> = repoSettingsRepository.loadSettings()
-
     fun getRepoDefaultLoadoutName(): Result<String?, LoadoutError> =
         repoSettingsRepository
             .loadSettings()
