@@ -14,11 +14,12 @@ import e2e.support.givenSourceLoadoutExists
 import e2e.support.givenTwoValidLoadoutsExist
 import e2e.support.secondFragmentContent
 import e2e.support.secondFragmentPath
-import e2e.support.shouldHaveCurrentLoadoutName
+import e2e.support.shouldHaveActiveLoadoutName
 import e2e.support.shouldHaveExitCode
 import e2e.support.shouldHaveGeneratedBody
 import e2e.support.shouldHaveGeneratedFiles
 import e2e.support.shouldHaveLoadoutFragments
+import e2e.support.shouldHaveRepositoryDefaultLoadoutName
 import e2e.support.shouldHaveStaleWarning
 import e2e.support.shouldNotHaveStaleWarning
 import e2e.support.thirdFragmentContent
@@ -34,7 +35,8 @@ class WorkflowE2eSpec : E2eBehaviorSuite({
 
             then("it starts with the default loadout created and active") {
                 val scenario by memoizedScenario(seed = initializedSharedRepo)
-                scenario.shouldHaveCurrentLoadoutName("default")
+                scenario.shouldHaveActiveLoadoutName("default")
+                scenario.shouldHaveRepositoryDefaultLoadoutName("default")
             }
 
             action("loadout create is run for the first project-specific loadout with one or more fragments") {
@@ -65,7 +67,7 @@ class WorkflowE2eSpec : E2eBehaviorSuite({
                     val execution by memoizedAction("use", "project", seed = projectLoadoutExists)
 
                     then("it switches the workspace to the new loadout cleanly") {
-                        execution.scenario.shouldHaveCurrentLoadoutName("project")
+                        execution.scenario.shouldHaveActiveLoadoutName("project")
                     }
 
                     then("it writes CLAUDE.md, AGENTS.md, and GEMINI.md for that new loadout") {
@@ -95,7 +97,7 @@ class WorkflowE2eSpec : E2eBehaviorSuite({
                 }
 
                 then("it records the new current loadout") {
-                    execution.scenario.shouldHaveCurrentLoadoutName("beta")
+                    execution.scenario.shouldHaveActiveLoadoutName("beta")
                 }
             }
         }

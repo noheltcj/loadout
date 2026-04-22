@@ -3,23 +3,23 @@ package domain.service
 import domain.entity.ComposedOutput
 import domain.entity.DeleteLoadoutResult
 import domain.entity.Loadout
-import domain.entity.LoadoutConfig
 import domain.entity.LoadoutMetadata
-import domain.entity.RepoSettings
+import domain.entity.LocalLoadoutState
+import domain.entity.RepositorySettings
 import domain.entity.WriteComposedFilesResult
 import domain.entity.error.LoadoutError
 import domain.entity.packaging.Result
-import domain.repository.ConfigRepository
 import domain.repository.EnvironmentRepository
 import domain.repository.LoadoutRepository
-import domain.repository.RepoSettingsRepository
+import domain.repository.LocalLoadoutStateRepository
+import domain.repository.RepositorySettingsRepository
 import domain.usecase.WriteComposedFilesUseCase
 import kotlin.collections.plus
 
 class LoadoutService(
     private val loadoutRepository: LoadoutRepository,
-    private val configRepository: ConfigRepository,
-    private val repoSettingsRepository: RepoSettingsRepository,
+    private val localLoadoutStateRepository: LocalLoadoutStateRepository,
+    private val repositorySettingsRepository: RepositorySettingsRepository,
     private val environmentRepository: EnvironmentRepository,
     private val writeComposedFiles: WriteComposedFilesUseCase,
 ) {
@@ -131,15 +131,15 @@ class LoadoutService(
 
     fun deleteLoadout(name: String): Result<DeleteLoadoutResult, LoadoutError> =
         validateLoadoutName(name).flatMap { validName ->
-            configRepository.loadConfig().flatMap { config ->
-                val clearedCurrentLoadout = config.currentLoadoutName == validName
+            localLoadoutStateRepository.loadLocalState().flatMap { localLoadoutState ->
+                val clearedCurrentLoadout = localLoadoutState.activeLoadoutName == validName
 
                 loadoutRepository.delete(validName).flatMap {
                     if (clearedCurrentLoadout) {
-                        configRepository.saveConfig(
-                            LoadoutConfig(
-                                currentLoadoutName = null,
-                                compositionHash = null
+                        localLoadoutStateRepository.saveLocalState(
+                            LocalLoadoutState(
+                                activeLoadoutName = null,
+                                lastComposedContentHash = null,
                             )
                         )
                     } else {
@@ -209,25 +209,25 @@ class LoadoutService(
             .flatMap { (composedOutput, writeResult) ->
                 when (writeResult) {
                     WriteComposedFilesResult.Overwritten -> {
-                        configRepository
-                            .saveConfig(
-                                LoadoutConfig(
-                                    currentLoadoutName = composedOutput.loadoutName,
-                                    compositionHash = composedOutput.metadata.contentHash
+                        localLoadoutStateRepository
+                            .saveLocalState(
+                                LocalLoadoutState(
+                                    activeLoadoutName = composedOutput.loadoutName,
+                                    lastComposedContentHash = composedOutput.metadata.contentHash,
                                 )
                             )
                     }
                     WriteComposedFilesResult.AlreadyUpToDate -> {
-                        configRepository
-                            .loadConfig()
-                            .flatMap { config ->
-                                if (config.currentLoadoutName == composedOutput.loadoutName) {
+                        localLoadoutStateRepository
+                            .loadLocalState()
+                            .flatMap { localLoadoutState ->
+                                if (localLoadoutState.activeLoadoutName == composedOutput.loadoutName) {
                                     Result.Success(Unit)
                                 } else {
-                                    configRepository.saveConfig(
-                                        LoadoutConfig(
-                                            currentLoadoutName = composedOutput.loadoutName,
-                                            compositionHash = composedOutput.metadata.contentHash
+                                    localLoadoutStateRepository.saveLocalState(
+                                        LocalLoadoutState(
+                                            activeLoadoutName = composedOutput.loadoutName,
+                                            lastComposedContentHash = composedOutput.metadata.contentHash,
                                         )
                                     )
                                 }
@@ -237,40 +237,40 @@ class LoadoutService(
             }
 
     fun getCurrentLoadout(): Result<Loadout?, LoadoutError> =
-        configRepository
-            .loadConfig()
-            .flatMap { config ->
-                config.currentLoadoutName?.let { currentName ->
-                    getLoadout(currentName).map { it as Loadout? }
+        localLoadoutStateRepository
+            .loadLocalState()
+            .flatMap { localLoadoutState ->
+                localLoadoutState.activeLoadoutName?.let { activeLoadoutName ->
+                    getLoadout(activeLoadoutName).map { it as Loadout? }
                 } ?: Result.Success(null)
             }
 
-    fun getRepoDefaultLoadoutName(): Result<String?, LoadoutError> =
-        repoSettingsRepository
-            .loadSettings()
+    fun getRepositoryDefaultLoadoutName(): Result<String?, LoadoutError> =
+        repositorySettingsRepository
+            .loadRepositorySettings()
             .map { settings -> settings.defaultLoadoutName }
 
-    fun setRepoDefaultLoadoutName(loadoutName: String?): Result<RepoSettings, LoadoutError> =
+    fun setRepositoryDefaultLoadoutName(loadoutName: String?): Result<RepositorySettings, LoadoutError> =
         if (loadoutName != null) {
             validateLoadoutName(loadoutName).flatMap { validName ->
                 if (!loadoutRepository.exists(validName)) {
                     Result.Error(LoadoutError.LoadoutNotFound(validName))
                 } else {
-                    val settings = RepoSettings(defaultLoadoutName = validName)
-                    repoSettingsRepository.saveSettings(settings).map { settings }
+                    val settings = RepositorySettings(defaultLoadoutName = validName)
+                    repositorySettingsRepository.saveRepositorySettings(settings).map { settings }
                 }
             }
         } else {
-            val settings = RepoSettings(defaultLoadoutName = null)
-            repoSettingsRepository.saveSettings(settings).map { settings }
+            val settings = RepositorySettings(defaultLoadoutName = null)
+            repositorySettingsRepository.saveRepositorySettings(settings).map { settings }
         }
 
     fun getAutoSyncLoadout(): Result<Loadout?, LoadoutError> =
-        repoSettingsRepository
-            .loadSettings()
+        repositorySettingsRepository
+            .loadRepositorySettings()
             .flatMap { settings ->
-                settings.defaultLoadoutName?.let { repoDefaultLoadoutName ->
-                    getLoadout(repoDefaultLoadoutName).map { loadout -> loadout as Loadout? }
+                settings.defaultLoadoutName?.let { repositoryDefaultLoadoutName ->
+                    getLoadout(repositoryDefaultLoadoutName).map { loadout -> loadout as Loadout? }
                 } ?: getCurrentLoadout()
             }
 

@@ -8,9 +8,9 @@ import com.github.ajalt.clikt.testing.CliktCommandTestResult
 import com.github.ajalt.clikt.testing.test
 import data.serialization.JsonSerializer
 import domain.entity.Loadout
-import domain.entity.LoadoutConfig
 import domain.entity.LoadoutMetadata
-import domain.entity.RepoSettings
+import domain.entity.LocalLoadoutState
+import domain.entity.RepositorySettings
 import domain.entity.packaging.Result
 import e2e.platform.EnvironmentOverlay
 import e2e.platform.createTemporaryDirectory
@@ -160,32 +160,38 @@ class E2eScenario private constructor(
 
     fun readWorkspaceFile(relativePath: String): String? = readFile(relativePath)
 
-    fun readConfig(): LoadoutConfig? =
-        readWorkspaceFile(Constants.CONFIG_FILE)?.let {
-            serializer.deserialize(it, LoadoutConfig.serializer()).unwrap("deserialize config")
+    fun readLocalLoadoutState(): LocalLoadoutState? =
+        readWorkspaceFile(Constants.LOCAL_LOADOUT_STATE_FILE)?.let {
+            serializer.deserialize(it, LocalLoadoutState.serializer()).unwrap("deserialize local loadout state")
         }
 
-    fun readConfigFromDirectory(directory: String): LoadoutConfig? =
-        readFile("$directory/${Constants.CONFIG_FILE}")?.let {
-            serializer.deserialize(it, LoadoutConfig.serializer()).unwrap("deserialize config in '$directory'")
+    fun readLocalLoadoutStateFromDirectory(directory: String): LocalLoadoutState? =
+        readFile("$directory/${Constants.LOCAL_LOADOUT_STATE_FILE}")?.let {
+            serializer
+                .deserialize(it, LocalLoadoutState.serializer())
+                .unwrap("deserialize local loadout state in '$directory'")
         }
 
-    fun readRepoSettings(): RepoSettings? =
-        readWorkspaceFile(REPO_SETTINGS_PATH)?.let {
-            serializer.deserialize(it, RepoSettings.serializer()).unwrap("deserialize repo settings")
+    fun readRepositorySettings(): RepositorySettings? =
+        readWorkspaceFile(Constants.REPOSITORY_SETTINGS_FILE)?.let {
+            serializer.deserialize(it, RepositorySettings.serializer()).unwrap("deserialize repository settings")
         }
 
-    fun writeConfig(config: LoadoutConfig) {
+    fun writeLocalLoadoutState(localLoadoutState: LocalLoadoutState) {
         writeWorkspaceFile(
-            Constants.CONFIG_FILE,
-            serializer.serialize(config, LoadoutConfig.serializer()).unwrap("serialize config")
+            Constants.LOCAL_LOADOUT_STATE_FILE,
+            serializer
+                .serialize(localLoadoutState, LocalLoadoutState.serializer())
+                .unwrap("serialize local loadout state")
         )
     }
 
-    fun writeRepoSettings(settings: RepoSettings) {
+    fun writeRepositorySettings(repositorySettings: RepositorySettings) {
         writeWorkspaceFile(
-            REPO_SETTINGS_PATH,
-            serializer.serialize(settings, RepoSettings.serializer()).unwrap("serialize repo settings")
+            Constants.REPOSITORY_SETTINGS_FILE,
+            serializer
+                .serialize(repositorySettings, RepositorySettings.serializer())
+                .unwrap("serialize repository settings")
         )
     }
 
@@ -356,7 +362,6 @@ class E2eScenario private constructor(
     companion object {
         private const val LOADOUT_E2E_HELPER_PATH_ENVIRONMENT_VARIABLE = "LOADOUT_E2E_HELPER_PATH"
         private const val HELPER_PRINT_ENVIRONMENT_COMMAND = "__printenv__"
-        private const val REPO_SETTINGS_PATH = ".loadout.repo.json"
         private val DEFAULT_LOADOUT_HELPER_PATH =
             "${currentWorkingDirectory()}/scripts/e2e/${defaultLoadoutHelperFileName()}"
 

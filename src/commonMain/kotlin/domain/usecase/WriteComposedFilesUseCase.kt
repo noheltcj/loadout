@@ -4,12 +4,12 @@ import domain.entity.ComposedOutput
 import domain.entity.WriteComposedFilesResult
 import domain.entity.error.LoadoutError
 import domain.entity.packaging.Result
-import domain.repository.ConfigRepository
 import domain.repository.FileRepository
+import domain.repository.LocalLoadoutStateRepository
 
 class WriteComposedFilesUseCase(
     private val fileRepository: FileRepository,
-    private val configRepository: ConfigRepository,
+    private val localLoadoutStateRepository: LocalLoadoutStateRepository,
 ) {
     /**
      * Writes the composed output to the specified file paths.
@@ -22,9 +22,9 @@ class WriteComposedFilesUseCase(
         composedOutput: ComposedOutput,
         outputPaths: List<String>,
     ): Result<WriteComposedFilesResult, LoadoutError> =
-        configRepository.loadConfig().flatMap { config ->
+        localLoadoutStateRepository.loadLocalState().flatMap { localLoadoutState ->
             val currentHash = composedOutput.metadata.contentHash
-            val storedHash = config.compositionHash
+            val storedHash = localLoadoutState.lastComposedContentHash
 
             val allFilesExist = outputPaths.all { fileRepository.fileExists(it) }
 

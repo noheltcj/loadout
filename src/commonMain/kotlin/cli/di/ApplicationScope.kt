@@ -1,14 +1,14 @@
 package cli.di
 
 import cli.outputPaths
-import data.repository.FileBasedConfigRepository
 import data.repository.FileBasedFragmentRepository
 import data.repository.FileBasedLoadoutRepository
-import data.repository.FileBasedRepoSettingsRepository
+import data.repository.FileBasedLocalLoadoutStateRepository
+import data.repository.FileBasedRepositorySettingsRepository
 import data.serialization.JsonSerializer
 import domain.repository.EnvironmentRepository
 import domain.repository.FileRepository
-import domain.repository.RepoSettingsRepository
+import domain.repository.RepositorySettingsRepository
 import domain.service.LoadoutCompositionService
 import domain.service.LoadoutService
 import domain.usecase.CheckLoadoutSyncUseCase
@@ -26,8 +26,9 @@ fun <T> withApplicationScope(scopedBlock: ApplicationScope.() -> T): T {
 
     val defaultOutputPaths = outputPaths()
 
-    val configRepository = FileBasedConfigRepository(fileRepository = fileRepository, serializer = serializer)
-    val repoSettingsRepository = FileBasedRepoSettingsRepository(
+    val localLoadoutStateRepository =
+        FileBasedLocalLoadoutStateRepository(fileRepository = fileRepository, serializer = serializer)
+    val repositorySettingsRepository = FileBasedRepositorySettingsRepository(
         fileRepository = fileRepository,
         serializer = serializer
     )
@@ -46,20 +47,20 @@ fun <T> withApplicationScope(scopedBlock: ApplicationScope.() -> T): T {
         )
     val checkLoadoutSync =
         CheckLoadoutSyncUseCase(
-            configRepository = configRepository,
+            localLoadoutStateRepository = localLoadoutStateRepository,
             loadoutRepository = loadoutRepository,
             compositionService = loadoutCompositionService
         )
     val writeComposedFiles =
         WriteComposedFilesUseCase(
             fileRepository = fileRepository,
-            configRepository = configRepository
+            localLoadoutStateRepository = localLoadoutStateRepository
         )
     val loadoutService =
         LoadoutService(
             loadoutRepository = loadoutRepository,
-            configRepository = configRepository,
-            repoSettingsRepository = repoSettingsRepository,
+            localLoadoutStateRepository = localLoadoutStateRepository,
+            repositorySettingsRepository = repositorySettingsRepository,
             environmentRepository = environmentRepository,
             writeComposedFiles = writeComposedFiles
         )
@@ -69,7 +70,7 @@ fun <T> withApplicationScope(scopedBlock: ApplicationScope.() -> T): T {
             fileRepository = fileRepository,
             environmentRepository = environmentRepository,
             loadoutService = loadoutService,
-            repoSettingsRepository = repoSettingsRepository,
+            repositorySettingsRepository = repositorySettingsRepository,
             loadoutCompositionService = loadoutCompositionService,
             checkLoadoutSync = checkLoadoutSync,
             writeComposedFiles = writeComposedFiles,
@@ -82,7 +83,7 @@ data class ApplicationScope(
     val fileRepository: FileRepository,
     val environmentRepository: EnvironmentRepository,
     val loadoutService: LoadoutService,
-    val repoSettingsRepository: RepoSettingsRepository,
+    val repositorySettingsRepository: RepositorySettingsRepository,
     val loadoutCompositionService: LoadoutCompositionService,
     val checkLoadoutSync: CheckLoadoutSyncUseCase,
     val writeComposedFiles: WriteComposedFilesUseCase,

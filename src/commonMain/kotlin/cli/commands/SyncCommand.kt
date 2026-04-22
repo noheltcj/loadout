@@ -32,7 +32,7 @@ class SyncCommand(
 
     private val autoSync by option("--auto")
         .flag(default = false)
-        .help("Resolve the repo default loadout when no current loadout is set")
+        .help("Resolve the repository default loadout when no current loadout is set")
 
     override fun run() {
         if (stdOutOnly && outputDir != null) {

@@ -16,19 +16,21 @@ import e2e.support.givenTwoValidLoadoutsExist
 import e2e.support.hooksDirectoryPath
 import e2e.support.postCheckoutHookPath
 import e2e.support.postMergeHookPath
+import e2e.support.requireWorkspaceFile
 import e2e.support.shouldContainInStdout
 import e2e.support.shouldContainLoadoutGitignorePatterns
 import e2e.support.shouldContainLocalModeGitignorePatternsExactlyOnce
 import e2e.support.shouldContainLocalOnlyGitignorePatterns
+import e2e.support.shouldContainRepositorySettingsGitignorePatterns
 import e2e.support.shouldContainSharedModeGitignorePatternsExactlyOnce
-import e2e.support.shouldHaveCurrentLoadoutName
+import e2e.support.shouldHaveActiveLoadoutName
 import e2e.support.shouldHaveExecutableWorkspaceFile
 import e2e.support.shouldHaveExitCode
 import e2e.support.shouldHaveGeneratedFiles
 import e2e.support.shouldHaveGitLocalConfig
 import e2e.support.shouldHaveGitignoreEntries
 import e2e.support.shouldHaveNoUnexpectedStderr
-import e2e.support.shouldHaveRepoDefaultLoadoutName
+import e2e.support.shouldHaveRepositoryDefaultLoadoutName
 import e2e.support.shouldNotHaveGitignoreEntries
 import e2e.support.shouldNotIgnoreRepoManagedLoadoutFiles
 import io.kotest.matchers.collections.shouldContainExactly
@@ -37,6 +39,11 @@ import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 
+private data class HookFileContentsCapture(
+    val postCheckoutHookContent: String,
+    val postMergeHookContent: String,
+)
+
 class InitE2eSpec : E2eBehaviorSuite({
     context("loadout init spec") {
         given("an isolated workspace") {
@@ -44,13 +51,13 @@ class InitE2eSpec : E2eBehaviorSuite({
                 val execution by memoizedAction("init")
 
                 then(
-                    "it adds `# Loadout CLI`, `.loadout.json`, `CLAUDE.md`, `AGENTS.md`, and `GEMINI.md` to .gitignore"
+                    "it adds local runtime state and generated markdown outputs to .gitignore"
                 ) {
                     execution.scenario.shouldContainLoadoutGitignorePatterns()
                     execution.result.shouldHaveNoUnexpectedStderr()
                 }
 
-                then("it does not ignore `.loadouts/` or `fragments/`") {
+                then("it does not ignore repository-managed files") {
                     execution.scenario.shouldNotIgnoreRepoManagedLoadoutFiles()
                 }
 
@@ -70,7 +77,7 @@ class InitE2eSpec : E2eBehaviorSuite({
                 }
 
                 then("it activates the default loadout") {
-                    execution.scenario.shouldHaveCurrentLoadoutName("default")
+                    execution.scenario.shouldHaveActiveLoadoutName("default")
                 }
 
                 then("it writes CLAUDE.md, AGENTS.md, and GEMINI.md to the default output directory") {
@@ -89,8 +96,8 @@ class InitE2eSpec : E2eBehaviorSuite({
                     writeWorkspaceFile(
                         ".gitignore",
                         """
-                        # Loadout CLI
-                        ${Constants.CONFIG_FILE}
+                        # Loadout local runtime state
+                        ${Constants.LOCAL_LOADOUT_STATE_FILE}
                         ${Constants.CLAUDE_MD}
                         ${Constants.AGENTS_MD}
                         ${Constants.GEMINI_MD}
@@ -115,13 +122,17 @@ class InitE2eSpec : E2eBehaviorSuite({
                 val execution by memoizedAction("init", "--mode", "local")
 
                 then(
-                    "it adds `# Loadout CLI`, `.loadout.json`, `CLAUDE.md`, `AGENTS.md`, and `GEMINI.md` to .gitignore"
+                    "it adds local runtime state and generated markdown outputs to .gitignore"
                 ) {
                     execution.scenario.shouldContainLoadoutGitignorePatterns()
                 }
 
-                then("it adds `# Loadout configuration (local-only)` to .gitignore") {
-                    execution.scenario.shouldHaveGitignoreEntries("# Loadout configuration (local-only)")
+                then("it adds repository settings to .gitignore") {
+                    execution.scenario.shouldContainRepositorySettingsGitignorePatterns()
+                }
+
+                then("it adds the local-only definitions header to .gitignore") {
+                    execution.scenario.shouldHaveGitignoreEntries("# Loadout local-only definitions")
                 }
 
                 then("it adds `.loadouts/` and `fragments/` to .gitignore") {
@@ -133,7 +144,7 @@ class InitE2eSpec : E2eBehaviorSuite({
                 }
 
                 then("it activates the default loadout") {
-                    execution.scenario.shouldHaveCurrentLoadoutName("default")
+                    execution.scenario.shouldHaveActiveLoadoutName("default")
                 }
 
                 then("it writes CLAUDE.md, AGENTS.md, and GEMINI.md to the default output directory") {
@@ -152,13 +163,16 @@ class InitE2eSpec : E2eBehaviorSuite({
                     writeWorkspaceFile(
                         ".gitignore",
                         """
-                        # Loadout CLI
-                        ${Constants.CONFIG_FILE}
+                        # Loadout local runtime state
+                        ${Constants.LOCAL_LOADOUT_STATE_FILE}
                         ${Constants.CLAUDE_MD}
                         ${Constants.AGENTS_MD}
                         ${Constants.GEMINI_MD}
 
-                        # Loadout configuration (local-only)
+                        # Loadout repository settings
+                        ${Constants.REPOSITORY_SETTINGS_FILE}
+
+                        # Loadout local-only definitions
                         ${Constants.LOADOUTS_DIR}/
                         ${Constants.FRAGMENTS_DIR}/
                         """.trimIndent()
@@ -255,7 +269,7 @@ class InitE2eSpec : E2eBehaviorSuite({
                 }
 
                 then("it seeds the repo default loadout as default") {
-                    execution.scenario.shouldHaveRepoDefaultLoadoutName("default")
+                    execution.scenario.shouldHaveRepositoryDefaultLoadoutName("default")
                 }
 
                 then("it does not add the tracked hooks directory to .gitignore") {
@@ -270,28 +284,26 @@ class InitE2eSpec : E2eBehaviorSuite({
                     }
 
                 action("loadout init is run in shared mode again") {
-                    val execution by memoizedExecution(
-                        seed = sharedInitHasAlreadyInstalledTrackedHooks
-                    ) {
-                        writeWorkspaceFile(
-                            "scratch/before-post-checkout.txt",
-                            readWorkspaceFile(postCheckoutHookPath) ?: "<missing>\n"
-                        )
-                        writeWorkspaceFile(
-                            "scratch/before-post-merge.txt",
-                            readWorkspaceFile(postMergeHookPath) ?: "<missing>\n"
-                        )
+                    val execution by memoizedCapturedExecution(
+                        seed = sharedInitHasAlreadyInstalledTrackedHooks,
+                        capture = {
+                            HookFileContentsCapture(
+                                postCheckoutHookContent = requireWorkspaceFile(postCheckoutHookPath),
+                                postMergeHookContent = requireWorkspaceFile(postMergeHookPath),
+                            )
+                        },
+                    ) { _ ->
                         runCommand("init")
                     }
 
                     then("it keeps the post-checkout hook content stable") {
                         execution.scenario.readWorkspaceFile(postCheckoutHookPath) shouldBe
-                            execution.scenario.readWorkspaceFile("scratch/before-post-checkout.txt")
+                            execution.captured.postCheckoutHookContent
                     }
 
                     then("it keeps the post-merge hook content stable") {
                         execution.scenario.readWorkspaceFile(postMergeHookPath) shouldBe
-                            execution.scenario.readWorkspaceFile("scratch/before-post-merge.txt")
+                            execution.captured.postMergeHookContent
                     }
 
                     then("it keeps git configured to the tracked hooks directory only once") {
@@ -316,7 +328,7 @@ class InitE2eSpec : E2eBehaviorSuite({
                     )
 
                     then("it uses the existing loadout as the repo default") {
-                        execution.scenario.shouldHaveRepoDefaultLoadoutName("existing")
+                        execution.scenario.shouldHaveRepositoryDefaultLoadoutName("existing")
                     }
                 }
             }
@@ -334,7 +346,7 @@ class InitE2eSpec : E2eBehaviorSuite({
                     )
 
                     then("it leaves the repo default unset") {
-                        execution.scenario.shouldHaveRepoDefaultLoadoutName(null)
+                        execution.scenario.shouldHaveRepositoryDefaultLoadoutName(null)
                     }
 
                     then("it prints follow-up guidance for choosing a repo default loadout") {

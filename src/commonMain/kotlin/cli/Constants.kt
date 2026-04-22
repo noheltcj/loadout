@@ -10,11 +10,11 @@ object Constants {
     /** Directory containing fragment files */
     const val FRAGMENTS_DIR = "fragments"
 
-    /** Configuration file tracking current loadout state */
-    const val CONFIG_FILE = ".loadout.json"
+    /** Repository-owned settings shared through version control */
+    const val REPOSITORY_SETTINGS_FILE = ".loadout.json"
 
-    /** Repository-owned settings that apply across worktrees */
-    const val REPO_SETTINGS_FILE = ".loadout.repo.json"
+    /** Local-only runtime state scoped to a single worktree */
+    const val LOCAL_LOADOUT_STATE_FILE = ".loadout.local.json"
 
     /** Primary output file for Claude Code */
     const val CLAUDE_MD = "CLAUDE.md"

@@ -2,7 +2,7 @@
 
 package e2e.spec
 
-import domain.entity.LoadoutConfig
+import domain.entity.LocalLoadoutState
 import e2e.support.E2eBehaviorSuite
 import e2e.support.ScenarioSeed
 import e2e.support.action
@@ -81,7 +81,12 @@ class StatusE2eSpec : E2eBehaviorSuite({
             given("composing the current loadout fails") {
                 val brokenCurrentLoadout: ScenarioSeed = {
                     seedLoadout(name = "broken", fragments = listOf(firstFragmentPath))
-                    writeConfig(LoadoutConfig(currentLoadoutName = "broken", compositionHash = null))
+                    writeLocalLoadoutState(
+                        LocalLoadoutState(
+                            activeLoadoutName = "broken",
+                            lastComposedContentHash = null,
+                        )
+                    )
                 }
 
                 action("loadout is run without a subcommand") {

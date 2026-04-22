@@ -13,12 +13,17 @@ import e2e.support.secondFragmentContent
 import e2e.support.secondFragmentPath
 import e2e.support.shouldContainInOutput
 import e2e.support.shouldContainInStdout
-import e2e.support.shouldHaveCurrentLoadoutName
+import e2e.support.shouldHaveActiveLoadoutName
 import e2e.support.shouldHaveExitCode
 import e2e.support.shouldHaveGeneratedBody
 import e2e.support.shouldHaveGeneratedBodyInDirectory
 import e2e.support.shouldHaveGeneratedFiles
 import e2e.support.shouldNotHaveGeneratedFiles
+import io.kotest.matchers.nulls.shouldBeNull
+
+private data class OutputDirectoryCapture(
+    val outputDirectory: String,
+)
 
 class UseE2eSpec : E2eBehaviorSuite({
     context("loadout use spec") {
@@ -46,7 +51,7 @@ class UseE2eSpec : E2eBehaviorSuite({
                         }
                     )
 
-                    currentScenario.scenario.shouldHaveCurrentLoadoutName("current")
+                    currentScenario.scenario.shouldHaveActiveLoadoutName("current")
                 }
             }
         }
@@ -64,7 +69,11 @@ class UseE2eSpec : E2eBehaviorSuite({
                 }
 
                 then("it marks that loadout as current") {
-                    execution.scenario.shouldHaveCurrentLoadoutName("alpha")
+                    execution.scenario.shouldHaveActiveLoadoutName("alpha")
+                }
+
+                then("it does not create repository settings") {
+                    execution.scenario.readRepositorySettings().shouldBeNull()
                 }
 
                 then("it writes CLAUDE.md, AGENTS.md, and GEMINI.md to the default output directory") {
@@ -97,31 +106,44 @@ class UseE2eSpec : E2eBehaviorSuite({
                     val execution by memoizedAction("use", "alpha", "--std-out", seed = validLoadoutWithCurrent)
 
                     then("it does not change the current loadout") {
-                        execution.scenario.shouldHaveCurrentLoadoutName("current")
+                        execution.scenario.shouldHaveActiveLoadoutName("current")
+                    }
+
+                    then("it leaves the generated body unchanged") {
                         execution.scenario.shouldHaveGeneratedBody(secondFragmentContent)
                     }
                 }
             }
 
             action("loadout use is run with --output and a custom directory") {
-                val execution by memoizedExecution(
+                val execution by memoizedCapturedExecution(
                     seed = {
                         givenValidLoadout(name = "alpha", fragments = listOf(firstFragmentPath to firstFragmentContent))
-                    }
-                ) {
-                    val outputDirectory = createCustomOutputDirectory()
-                    writeWorkspaceFile(".output-dir", outputDirectory)
-                    runCommand("use", "alpha", "--output", outputDirectory)
+                    },
+                    capture = {
+                        OutputDirectoryCapture(outputDirectory = createCustomOutputDirectory())
+                    },
+                ) { captured ->
+                    runCommand("use", "alpha", "--output", captured.outputDirectory)
                 }
 
                 then("it writes CLAUDE.md, AGENTS.md, and GEMINI.md to the requested directory") {
-                    val outputDirectory = execution.scenario.readWorkspaceFile(".output-dir")!!
-                    execution.scenario.shouldHaveGeneratedFiles(directory = outputDirectory)
-                    execution.scenario.shouldHaveGeneratedBodyInDirectory(outputDirectory, firstFragmentContent)
+                    execution.scenario.shouldHaveGeneratedFiles(directory = execution.captured.outputDirectory)
+                }
+
+                then("it writes the expected composed body to the requested directory") {
+                    execution.scenario.shouldHaveGeneratedBodyInDirectory(
+                        execution.captured.outputDirectory,
+                        firstFragmentContent,
+                    )
                 }
 
                 then("it marks that loadout as current") {
-                    execution.scenario.shouldHaveCurrentLoadoutName("alpha")
+                    execution.scenario.shouldHaveActiveLoadoutName("alpha")
+                }
+
+                then("it does not write repository settings") {
+                    execution.scenario.readRepositorySettings().shouldBeNull()
                 }
             }
         }

@@ -150,6 +150,9 @@ loadout init --mode local # local mode - everything stays gitignored
 
 Shared mode lets a team standardize on the same set of agent profiles. Local mode is for personal workflows where each developer curates their own.
 
+- `.loadout.json` stores tracked repository settings such as the default loadout for hook-driven sync.
+- `.loadout.local.json` stores local-only runtime state such as the active loadout and last composed content hash.
+
 ---
 
 ## Why Fragments?

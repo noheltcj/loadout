@@ -23,15 +23,15 @@ class ConfigCommand(
         val result =
             defaultLoadoutName?.let { loadoutName ->
                 loadoutService
-                    .setRepoDefaultLoadoutName(loadoutName)
+                    .setRepositoryDefaultLoadoutName(loadoutName)
                     .map { settings -> settings.defaultLoadoutName }
-            } ?: loadoutService.getRepoDefaultLoadoutName()
+            } ?: loadoutService.getRepositoryDefaultLoadoutName()
 
         when (result) {
             is Result.Success -> {
                 val configuredLoadoutName = result.value
                 if (configuredLoadoutName == null) {
-                    echo("No repo default loadout set.")
+                    echo("No repository default loadout set.")
                 } else {
                     echo("Default loadout: $configuredLoadoutName")
                 }

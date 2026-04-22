@@ -130,7 +130,7 @@ class InitCommand(
             }
 
             if (mode == InitMode.SHARED && loadouts.size > 1) {
-                echo("Set the repo default loadout with:")
+                echo("Set the repository default loadout with:")
                 echo("  loadout config --default-loadout <name>")
             }
             return
@@ -161,7 +161,7 @@ class InitCommand(
                             is Result.Success -> {
                                 if (mode == InitMode.SHARED) {
                                     when (
-                                        val repoDefaultResult = loadoutService.setRepoDefaultLoadoutName(
+                                        val repoDefaultResult = loadoutService.setRepositoryDefaultLoadoutName(
                                             DEFAULT_LOADOUT_NAME
                                         )
                                     ) {
@@ -210,7 +210,7 @@ class InitCommand(
         when (loadoutNames.size) {
             0 -> return
             1 -> {
-                when (val result = loadoutService.setRepoDefaultLoadoutName(loadoutNames.single())) {
+                when (val result = loadoutService.setRepositoryDefaultLoadoutName(loadoutNames.single())) {
                     is Result.Success -> { /* Repo default set */ }
                     is Result.Error -> {
                         echoError(result.error)
@@ -219,7 +219,7 @@ class InitCommand(
                 }
             }
             else -> {
-                when (val result = loadoutService.setRepoDefaultLoadoutName(null)) {
+                when (val result = loadoutService.setRepositoryDefaultLoadoutName(null)) {
                     is Result.Success -> { /* Repo default intentionally unset */ }
                     is Result.Error -> {
                         echoError(result.error)
@@ -537,11 +537,14 @@ enum class InitMode(
         get() =
             when (this) {
                 SHARED ->
-                    listOf(GITIGNORE_HEADER, Constants.CONFIG_FILE) + Constants.generatedMarkdownFiles
+                    listOf(GITIGNORE_HEADER, Constants.LOCAL_LOADOUT_STATE_FILE) + Constants.generatedMarkdownFiles
                 LOCAL ->
-                    listOf(GITIGNORE_HEADER, Constants.CONFIG_FILE) +
+                    listOf(GITIGNORE_HEADER, Constants.LOCAL_LOADOUT_STATE_FILE) +
                         Constants.generatedMarkdownFiles +
                         listOf(
+                            "",
+                            REPOSITORY_SETTINGS_HEADER,
+                            Constants.REPOSITORY_SETTINGS_FILE,
                             "",
                             LOCAL_ONLY_GITIGNORE_HEADER,
                             "${Constants.LOADOUTS_DIR}/",
@@ -550,7 +553,8 @@ enum class InitMode(
             }
 
     companion object {
-        private const val GITIGNORE_HEADER = "# Loadout CLI"
-        private const val LOCAL_ONLY_GITIGNORE_HEADER = "# Loadout configuration (local-only)"
+        private const val GITIGNORE_HEADER = "# Loadout local runtime state"
+        private const val REPOSITORY_SETTINGS_HEADER = "# Loadout repository settings"
+        private const val LOCAL_ONLY_GITIGNORE_HEADER = "# Loadout local-only definitions"
     }
 }

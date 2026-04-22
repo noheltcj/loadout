@@ -3,7 +3,7 @@
 package e2e.spec
 
 import cli.Constants
-import domain.entity.RepoSettings
+import domain.entity.RepositorySettings
 import e2e.support.E2eBehaviorSuite
 import e2e.support.ScenarioSeed
 import e2e.support.action
@@ -42,7 +42,8 @@ class HookE2eSpec : E2eBehaviorSuite({
 
                 then("it records the resolved current loadout in the new worktree config") {
                     val worktreeDirectory = execution.scenario.workspacePath("worktrees/prompt-sync")
-                    execution.scenario.readConfigFromDirectory(worktreeDirectory)?.currentLoadoutName shouldBe "default"
+                    execution.scenario.readLocalLoadoutStateFromDirectory(worktreeDirectory)?.activeLoadoutName shouldBe
+                        "default"
                 }
             }
 
@@ -107,7 +108,7 @@ class HookE2eSpec : E2eBehaviorSuite({
         given("a shared git repository with an invalid repo default loadout") {
             val sharedGitRepositoryWithInvalidRepoDefaultLoadout: ScenarioSeed =
                 initializedSharedGitRepository.andThen {
-                    writeRepoSettings(RepoSettings(defaultLoadoutName = "missing"))
+                    writeRepositorySettings(RepositorySettings(defaultLoadoutName = "missing"))
                 }
 
             action("git switch is run") {

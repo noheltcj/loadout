@@ -12,7 +12,8 @@ import e2e.support.givenGitRepositoryExists
 import e2e.support.shouldContainInOutput
 import e2e.support.shouldContainInStdout
 import e2e.support.shouldHaveExitCode
-import e2e.support.shouldHaveRepoDefaultLoadoutName
+import e2e.support.shouldHaveRepositoryDefaultLoadoutName
+import io.kotest.matchers.shouldBe
 
 class ConfigE2eSpec : E2eBehaviorSuite({
     context("loadout config spec") {
@@ -50,11 +51,15 @@ class ConfigE2eSpec : E2eBehaviorSuite({
                     )
 
                     then("it updates the repo default loadout selection") {
-                        execution.scenario.shouldHaveRepoDefaultLoadoutName("alpha")
+                        execution.scenario.shouldHaveRepositoryDefaultLoadoutName("alpha")
                     }
 
                     then("it reports the new repo default loadout") {
                         execution.result.shouldContainInStdout("Default loadout: alpha")
+                    }
+
+                    then("it leaves local state unchanged") {
+                        execution.scenario.readLocalLoadoutState()?.activeLoadoutName shouldBe "default"
                     }
                 }
             }
@@ -76,7 +81,7 @@ class ConfigE2eSpec : E2eBehaviorSuite({
                 }
 
                 then("it leaves the repo default loadout unchanged") {
-                    execution.scenario.shouldHaveRepoDefaultLoadoutName("default")
+                    execution.scenario.shouldHaveRepositoryDefaultLoadoutName("default")
                 }
             }
         }

@@ -13,7 +13,7 @@ import e2e.support.secondFragmentContent
 import e2e.support.secondFragmentPath
 import e2e.support.shouldContainInOutput
 import e2e.support.shouldContainInStdout
-import e2e.support.shouldHaveCurrentLoadoutName
+import e2e.support.shouldHaveActiveLoadoutName
 import e2e.support.shouldHaveExitCode
 import e2e.support.shouldHaveGeneratedBody
 import e2e.support.shouldHaveLoadoutFragments
@@ -116,7 +116,7 @@ class UnlinkE2eSpec : E2eBehaviorSuite({
                     }
 
                     then("it does not change the current loadout") {
-                        execution.scenario.shouldHaveCurrentLoadoutName("current")
+                        execution.scenario.shouldHaveActiveLoadoutName("current")
                     }
                 }
 

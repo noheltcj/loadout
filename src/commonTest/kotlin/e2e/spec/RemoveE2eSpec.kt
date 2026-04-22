@@ -12,9 +12,10 @@ import e2e.support.secondFragmentContent
 import e2e.support.secondFragmentPath
 import e2e.support.shouldContainInOutput
 import e2e.support.shouldContainInStdout
-import e2e.support.shouldHaveCurrentLoadoutName
+import e2e.support.shouldHaveActiveLoadoutName
 import e2e.support.shouldHaveExitCode
 import e2e.support.shouldHaveGeneratedBody
+import e2e.support.shouldHaveRepositoryDefaultLoadoutName
 import e2e.support.shouldNotHaveStaleWarning
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
@@ -101,7 +102,7 @@ class RemoveE2eSpec : E2eBehaviorSuite({
                 }
 
                 then("it keeps the current loadout selection unchanged") {
-                    execution.scenario.shouldHaveCurrentLoadoutName("alpha")
+                    execution.scenario.shouldHaveActiveLoadoutName("alpha")
                 }
 
                 then("it does not rewrite the existing generated files") {
@@ -140,11 +141,15 @@ class RemoveE2eSpec : E2eBehaviorSuite({
                 }
 
                 then("it clears the current loadout name") {
-                    execution.scenario.shouldHaveCurrentLoadoutName(null)
+                    execution.scenario.shouldHaveActiveLoadoutName(null)
                 }
 
                 then("it clears the stored composition hash") {
-                    execution.scenario.readConfig()?.compositionHash shouldBe null
+                    execution.scenario.readLocalLoadoutState()?.lastComposedContentHash shouldBe null
+                }
+
+                then("it leaves repository settings untouched") {
+                    execution.scenario.shouldHaveRepositoryDefaultLoadoutName(null)
                 }
 
                 then("it leaves the generated files untouched") {
