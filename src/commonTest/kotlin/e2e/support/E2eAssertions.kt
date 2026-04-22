@@ -146,11 +146,7 @@ fun E2eScenario.shouldHaveRepoDefaultLoadoutName(expected: String?) {
     readRepoSettings()?.defaultLoadoutName shouldBe expected
 }
 
-fun E2eScenario.shouldHaveGitLocalConfig(
-    key: String,
-    expected: String?,
-    workingDirectory: String? = null,
-) {
+fun E2eScenario.shouldHaveGitLocalConfig(key: String, expected: String?, workingDirectory: String? = null) {
     readGitLocalConfig(key, workingDirectory = workingDirectory ?: workspaceRoot) shouldBe expected
 }
 

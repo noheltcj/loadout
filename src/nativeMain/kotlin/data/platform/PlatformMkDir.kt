@@ -9,3 +9,5 @@ package data.platform
  * @return 0 on success, non-zero on failure
  */
 internal expect fun platformMkdir(path: String): Int
+
+internal expect fun platformMakeExecutable(path: String): Int

@@ -10,6 +10,7 @@ import data.serialization.JsonSerializer
 import domain.entity.Loadout
 import domain.entity.LoadoutConfig
 import domain.entity.LoadoutMetadata
+import domain.entity.RepoSettings
 import domain.entity.packaging.Result
 import e2e.platform.EnvironmentOverlay
 import e2e.platform.createTemporaryDirectory
@@ -53,6 +54,12 @@ class E2eScenario private constructor(
             }.toCommandResult()
         }
 
+    /**
+     * Runs an external command inside the harness sandbox.
+     *
+     * The harness-owned environment overlay is authoritative. Caller-provided entries are additive
+     * only for keys the sandbox does not already manage.
+     */
     fun runExternalCommand(
         vararg args: String,
         workingDirectory: String = workspaceRoot,
@@ -64,6 +71,12 @@ class E2eScenario private constructor(
             environment = environment + processEnvironment()
         ).toCommandResult()
 
+    /**
+     * Runs git inside the harness sandbox.
+     *
+     * The harness-owned git overlay is authoritative. Caller-provided entries are additive only for
+     * keys the sandbox does not already manage.
+     */
     fun runGit(
         vararg args: String,
         workingDirectory: String = workspaceRoot,
@@ -84,45 +97,12 @@ class E2eScenario private constructor(
             .requireSuccess("git config user.email")
     }
 
-    fun commitAllFiles(
-        message: String,
-        workingDirectory: String = workspaceRoot,
-    ) {
+    fun commitAllFiles(message: String, workingDirectory: String = workspaceRoot) {
         runGit("add", "-A", workingDirectory = workingDirectory).requireSuccess("git add -A")
         runGit("commit", "-m", message, workingDirectory = workingDirectory).requireSuccess("git commit")
     }
 
-    fun switchGitBranch(
-        branchName: String,
-        create: Boolean = false,
-        workingDirectory: String = workspaceRoot,
-    ): CommandResult =
-        if (create) {
-            runGit("switch", "-c", branchName, workingDirectory = workingDirectory)
-        } else {
-            runGit("switch", branchName, workingDirectory = workingDirectory)
-        }
-
-    fun addGitWorktree(
-        relativePath: String,
-        branchName: String? = null,
-        sourceDirectory: String = workspaceRoot,
-    ): CommandResult {
-        val worktreePath = workspacePath(relativePath)
-        val arguments =
-            buildList {
-                add("worktree")
-                add("add")
-                add(worktreePath)
-                branchName?.let(::add)
-            }
-        return runGit(*arguments.toTypedArray(), workingDirectory = sourceDirectory)
-    }
-
-    fun readGitLocalConfig(
-        key: String,
-        workingDirectory: String = workspaceRoot,
-    ): String? {
+    fun readGitLocalConfig(key: String, workingDirectory: String = workspaceRoot): String? {
         val result = runGit("config", "--local", "--get", key, workingDirectory = workingDirectory)
         return if (result.exitCode == 0) {
             result.stdout.trim().ifBlank { null }
@@ -132,13 +112,13 @@ class E2eScenario private constructor(
     }
 
     fun loadoutHelperExecutablePath(): String =
-        readEnvironmentVariable(loadoutHelperEnvironmentVariable) ?: defaultLoadoutHelperPath
+        readEnvironmentVariable(LOADOUT_HELPER_ENVIRONMENT_VARIABLE) ?: DEFAULT_LOADOUT_HELPER_PATH
 
     fun inspectExternalEnvironment(
         vararg keys: String,
         environment: EnvironmentOverlay = environmentOverlay(),
     ): Map<String, String> {
-        val arguments = listOf(loadoutHelperExecutablePath(), helperPrintEnvironmentCommand) + keys
+        val arguments = listOf(loadoutHelperExecutablePath(), HELPER_PRINT_ENVIRONMENT_COMMAND) + keys
         val result = runExternalCommand(*arguments.toTypedArray(), environment = environment)
         result.requireSuccess("inspect external environment")
         return result.stdout
@@ -163,10 +143,7 @@ class E2eScenario private constructor(
     fun xdgConfigPath(relativePath: String): String =
         if (relativePath.isBlank()) xdgConfigRoot else "$xdgConfigRoot/$relativePath"
 
-    fun writeWorkspaceFile(
-        relativePath: String,
-        content: String,
-    ) {
+    fun writeWorkspaceFile(relativePath: String, content: String) {
         writeFile(relativePath, content)
     }
 
@@ -207,7 +184,7 @@ class E2eScenario private constructor(
         }
 
     fun readRepoSettings(): RepoSettings? =
-        readWorkspaceFile(repoSettingsPath)?.let {
+        readWorkspaceFile(REPO_SETTINGS_PATH)?.let {
             serializer.deserialize(it, RepoSettings.serializer()).unwrap("deserialize repo settings")
         }
 
@@ -220,7 +197,7 @@ class E2eScenario private constructor(
 
     fun writeRepoSettings(settings: RepoSettings) {
         writeWorkspaceFile(
-            repoSettingsPath,
+            REPO_SETTINGS_PATH,
             serializer.serialize(settings, RepoSettings.serializer()).unwrap("serialize repo settings")
         )
     }
@@ -337,7 +314,14 @@ class E2eScenario private constructor(
 
     private fun gitEnvironment(): EnvironmentOverlay =
         environmentOverlay {
-            unset("GIT_DIR", "GIT_WORK_TREE")
+            unset(
+                "GIT_DIR",
+                "GIT_WORK_TREE",
+                "GIT_AUTHOR_NAME",
+                "GIT_AUTHOR_EMAIL",
+                "GIT_COMMITTER_NAME",
+                "GIT_COMMITTER_EMAIL",
+            )
             "GIT_CONFIG_GLOBAL" setTo "/dev/null"
             "GIT_CONFIG_SYSTEM" setTo "/dev/null"
             "GIT_CONFIG_NOSYSTEM" setTo "true"
@@ -392,10 +376,10 @@ class E2eScenario private constructor(
     }
 
     companion object {
-        private const val loadoutHelperEnvironmentVariable = "LOADOUT_E2E_HELPER_PATH"
-        private const val helperPrintEnvironmentCommand = "__printenv__"
-        private const val repoSettingsPath = ".loadout.repo.json"
-        private val defaultLoadoutHelperPath =
+        private const val LOADOUT_HELPER_ENVIRONMENT_VARIABLE = "LOADOUT_BIN"
+        private const val HELPER_PRINT_ENVIRONMENT_COMMAND = "__printenv__"
+        private const val REPO_SETTINGS_PATH = ".loadout.repo.json"
+        private val DEFAULT_LOADOUT_HELPER_PATH =
             "${currentWorkingDirectory()}/build/e2e-helper/${defaultLoadoutHelperFileName()}"
 
         fun create(): E2eScenario =
@@ -411,9 +395,7 @@ private fun String.pathListSeparator(): Char = if (contains(';')) ';' else ':'
 
 private fun isAbsolutePath(path: String): Boolean {
     val normalized = path.replace('\\', '/')
-    return normalized.startsWith("/") ||
-        normalized.startsWith("//") ||
-        windowsAbsolutePath.matches(normalized)
+    return normalized.startsWith("/") || windowsAbsolutePath.matches(normalized)
 }
 
 private fun normalizeLexicalPath(path: String): String {
@@ -498,9 +480,9 @@ private fun e2e.platform.ExternalProcessResult.toCommandResult(): CommandResult 
         stdout = stdout.normalizeLineEndings(),
         stderr = stderr.normalizeLineEndings(),
         output =
-            listOf(stdout.normalizeLineEndings(), stderr.normalizeLineEndings())
-                .filter { it.isNotBlank() }
-                .joinToString("\n"),
+        listOf(stdout.normalizeLineEndings(), stderr.normalizeLineEndings())
+            .filter { it.isNotBlank() }
+            .joinToString("\n"),
         exitCode = exitCode,
     )
 

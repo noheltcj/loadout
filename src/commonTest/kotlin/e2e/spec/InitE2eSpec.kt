@@ -23,12 +23,12 @@ import e2e.support.shouldContainLocalOnlyGitignorePatterns
 import e2e.support.shouldContainSharedModeGitignorePatternsExactlyOnce
 import e2e.support.shouldHaveCurrentLoadoutName
 import e2e.support.shouldHaveExecutableWorkspaceFile
+import e2e.support.shouldHaveExitCode
 import e2e.support.shouldHaveGeneratedFiles
 import e2e.support.shouldHaveGitLocalConfig
 import e2e.support.shouldHaveGitignoreEntries
 import e2e.support.shouldHaveNoUnexpectedStderr
 import e2e.support.shouldHaveRepoDefaultLoadoutName
-import e2e.support.shouldHaveExitCode
 import e2e.support.shouldNotHaveGitignoreEntries
 import e2e.support.shouldNotIgnoreRepoManagedLoadoutFiles
 import io.kotest.matchers.collections.shouldContainExactly
@@ -220,23 +220,13 @@ class InitE2eSpec : E2eBehaviorSuite({
                         execution.scenario.readLoadout("default").shouldBeNull()
                         execution.scenario.listLoadoutNames().shouldContainExactly(listOf("existing"))
                     }
-                }
-
-                given("the starter fragment does not already exist before init") {
-                    action("loadout init is run in shared mode") {
-                        val execution by memoizedAction(
-                            "init",
-                            seed = existingLoadoutsAlreadyExistBeforeInit
+                    then("it prints guidance for adding the starter fragment to an existing loadout") {
+                        execution.result.stdout.shouldContain(
+                            "Existing loadouts found. Link the new fragment with:"
                         )
-
-                        then("it prints guidance for adding the starter fragment to an existing loadout") {
-                            execution.result.stdout.shouldContain(
-                                "Existing loadouts found. Link the new fragment with:"
-                            )
-                            execution.result.stdout.shouldContain(
-                                "loadout link fragments/loadout-architect.md --to <loadout-name>"
-                            )
-                        }
+                        execution.result.stdout.shouldContain(
+                            "loadout link fragments/loadout-architect.md --to <loadout-name>"
+                        )
                     }
                 }
             }

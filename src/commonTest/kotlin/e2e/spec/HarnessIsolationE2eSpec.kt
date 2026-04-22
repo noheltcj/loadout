@@ -2,7 +2,6 @@
 
 package e2e.spec
 
-import e2e.platform.EnvironmentOverlay
 import e2e.platform.currentWorkingDirectory
 import e2e.platform.environmentOverlay
 import e2e.platform.readEnvironmentVariable
@@ -21,7 +20,7 @@ import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldStartWith
 
 class HarnessIsolationE2eSpec : E2eBehaviorSuite({
-    context("e2e harness isolation spec ($harnessSafetyReviewPath)") {
+    context("e2e harness isolation spec") {
         given("an isolated temp workspace") {
             action("the dedicated loadout helper executable is invoked directly") {
                 val execution by memoizedExecution {
@@ -100,9 +99,9 @@ class HarnessIsolationE2eSpec : E2eBehaviorSuite({
                         withWorkingDirectoryAndEnvironment(
                             workingDirectory = workspaceRoot,
                             environment =
-                                environmentOverlay {
-                                    "PATH" setTo poisonedPath
-                                },
+                            environmentOverlay {
+                                "PATH" setTo poisonedPath
+                            },
                         ) {
                             inspectExternalEnvironment("PATH")
                         }
@@ -135,9 +134,9 @@ class HarnessIsolationE2eSpec : E2eBehaviorSuite({
                         withWorkingDirectoryAndEnvironment(
                             workingDirectory = scenario.workspaceRoot,
                             environment =
-                                environmentOverlay {
-                                    "PATH" setTo poisonedPath
-                                },
+                            environmentOverlay {
+                                "PATH" setTo poisonedPath
+                            },
                         ) {
                             scenario.inspectExternalEnvironment("PATH")
                         }
@@ -177,10 +176,10 @@ class HarnessIsolationE2eSpec : E2eBehaviorSuite({
                         "--show-toplevel",
                         workingDirectory = workspacePath("nested"),
                         environment =
-                            environmentOverlay {
-                                "GIT_DIR" setTo workspacePath("foreign-repo/.git")
-                                "GIT_WORK_TREE" setTo workspacePath("foreign-repo")
-                            }
+                        environmentOverlay {
+                            "GIT_DIR" setTo workspacePath("foreign-repo/.git")
+                            "GIT_WORK_TREE" setTo workspacePath("foreign-repo")
+                        }
                     )
                 }
 
@@ -207,8 +206,6 @@ class HarnessIsolationE2eSpec : E2eBehaviorSuite({
         }
     }
 })
-
-private const val harnessSafetyReviewPath = "reviews/current-review-issues.md"
 
 private fun hostPathListSeparator(): String = if ((readEnvironmentVariable("PATH") ?: "").contains(';')) ";" else ":"
 

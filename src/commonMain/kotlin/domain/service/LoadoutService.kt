@@ -5,18 +5,21 @@ import domain.entity.DeleteLoadoutResult
 import domain.entity.Loadout
 import domain.entity.LoadoutConfig
 import domain.entity.LoadoutMetadata
+import domain.entity.RepoSettings
 import domain.entity.WriteComposedFilesResult
 import domain.entity.error.LoadoutError
 import domain.entity.packaging.Result
 import domain.repository.ConfigRepository
 import domain.repository.EnvironmentRepository
 import domain.repository.LoadoutRepository
+import domain.repository.RepoSettingsRepository
 import domain.usecase.WriteComposedFilesUseCase
 import kotlin.collections.plus
 
 class LoadoutService(
     private val loadoutRepository: LoadoutRepository,
     private val configRepository: ConfigRepository,
+    private val repoSettingsRepository: RepoSettingsRepository,
     private val environmentRepository: EnvironmentRepository,
     private val writeComposedFiles: WriteComposedFilesUseCase,
 ) {
@@ -240,6 +243,37 @@ class LoadoutService(
                 config.currentLoadoutName?.let { currentName ->
                     getLoadout(currentName).map { it as Loadout? }
                 } ?: Result.Success(null)
+            }
+
+    fun getRepoSettings(): Result<RepoSettings, LoadoutError> = repoSettingsRepository.loadSettings()
+
+    fun getRepoDefaultLoadoutName(): Result<String?, LoadoutError> =
+        repoSettingsRepository
+            .loadSettings()
+            .map { settings -> settings.defaultLoadoutName }
+
+    fun setRepoDefaultLoadoutName(loadoutName: String?): Result<RepoSettings, LoadoutError> =
+        if (loadoutName != null) {
+            validateLoadoutName(loadoutName).flatMap { validName ->
+                if (!loadoutRepository.exists(validName)) {
+                    Result.Error(LoadoutError.LoadoutNotFound(validName))
+                } else {
+                    val settings = RepoSettings(defaultLoadoutName = validName)
+                    repoSettingsRepository.saveSettings(settings).map { settings }
+                }
+            }
+        } else {
+            val settings = RepoSettings(defaultLoadoutName = null)
+            repoSettingsRepository.saveSettings(settings).map { settings }
+        }
+
+    fun getAutoSyncLoadout(): Result<Loadout?, LoadoutError> =
+        repoSettingsRepository
+            .loadSettings()
+            .flatMap { settings ->
+                settings.defaultLoadoutName?.let { repoDefaultLoadoutName ->
+                    getLoadout(repoDefaultLoadoutName).map { loadout -> loadout as Loadout? }
+                } ?: getCurrentLoadout()
             }
 
     private fun validateLoadoutName(name: String): Result<String, LoadoutError> =

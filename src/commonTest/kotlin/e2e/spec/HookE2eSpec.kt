@@ -3,8 +3,8 @@
 package e2e.spec
 
 import cli.Constants
+import domain.entity.RepoSettings
 import e2e.support.E2eBehaviorSuite
-import e2e.support.RepoSettings
 import e2e.support.ScenarioSeed
 import e2e.support.action
 import e2e.support.andThen
@@ -18,17 +18,16 @@ import io.kotest.matchers.string.shouldContain
 
 class HookE2eSpec : E2eBehaviorSuite({
     context("loadout hook auto-sync spec") {
-        given("a shared git repository has been initialized and committed") {
-            val initializedSharedGitRepository: ScenarioSeed = {
-                givenGitRepositoryExists()
-                runCommand("init")
-                writeWorkspaceFile("tracked.txt", "tracked\n")
-                commitAllFiles("initial commit")
-            }
+        val initializedSharedGitRepository: ScenarioSeed = {
+            givenGitRepositoryExists()
+            runCommand("init")
+            writeWorkspaceFile("tracked.txt", "tracked\n")
+            commitAllFiles("initial commit")
+        }
 
+        given("a shared git repository has been initialized and committed") {
             action("git worktree add is run for a new branch") {
                 val execution by memoizedExecution(seed = initializedSharedGitRepository) {
-                    // TODO: This should use the scenario helper functions. Those may require modification to support this.
                     runGit("worktree", "add", "-b", "prompt-sync", workspacePath("worktrees/prompt-sync"))
                 }
 
@@ -107,7 +106,7 @@ class HookE2eSpec : E2eBehaviorSuite({
 
         given("a shared git repository with an invalid repo default loadout") {
             val sharedGitRepositoryWithInvalidRepoDefaultLoadout: ScenarioSeed =
-                initializedSharedGitRepositorySeed().andThen {
+                initializedSharedGitRepository.andThen {
                     writeRepoSettings(RepoSettings(defaultLoadoutName = "missing"))
                 }
 
@@ -130,7 +129,7 @@ class HookE2eSpec : E2eBehaviorSuite({
 
         given("a shared git repository whose hook helper cannot be executed") {
             val sharedGitRepositoryWithBrokenHookHelper: ScenarioSeed =
-                initializedSharedGitRepositorySeed().andThen {
+                initializedSharedGitRepository.andThen {
                     runGit("config", "core.hooksPath", ".githooks").shouldHaveExitCode(0)
                     writeWorkspaceFile(
                         ".githooks/post-checkout",
@@ -163,11 +162,3 @@ class HookE2eSpec : E2eBehaviorSuite({
         }
     }
 })
-
-private fun initializedSharedGitRepositorySeed(): ScenarioSeed =
-    {
-        givenGitRepositoryExists()
-        runCommand("init")
-        writeWorkspaceFile("tracked.txt", "tracked\n")
-        commitAllFiles("initial commit")
-    }

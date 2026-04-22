@@ -13,6 +13,9 @@ object Constants {
     /** Configuration file tracking current loadout state */
     const val CONFIG_FILE = ".loadout.json"
 
+    /** Repository-owned settings that apply across worktrees */
+    const val REPO_SETTINGS_FILE = ".loadout.repo.json"
+
     /** Primary output file for Claude Code */
     const val CLAUDE_MD = "CLAUDE.md"
 

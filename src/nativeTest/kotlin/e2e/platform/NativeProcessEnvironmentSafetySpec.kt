@@ -10,16 +10,16 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 
 class NativeProcessEnvironmentSafetySpec : BehaviorSpec({
-    context("native process environment safety spec ($harnessSafetyReviewPath)") {
+    context("native process environment safety spec") {
         given("an inherited git environment exists") {
             val operations =
                 FakeNativeProcessOperations(
                     initialWorkingDirectory = "/host/repo",
                     initialEnvironment =
-                        mapOf(
-                            "GIT_DIR" to "/host/repo/.git",
-                            "GIT_WORK_TREE" to "/host/repo",
-                        )
+                    mapOf(
+                        "GIT_DIR" to "/host/repo/.git",
+                        "GIT_WORK_TREE" to "/host/repo",
+                    )
                 )
 
             When("execution unsets the inherited git variables") {
@@ -29,9 +29,9 @@ class NativeProcessEnvironmentSafetySpec : BehaviorSpec({
                             operations = operations,
                             workingDirectory = "/tmp/workspace",
                             environment =
-                                environmentOverlay {
-                                    unset("GIT_DIR", "GIT_WORK_TREE")
-                                },
+                            environmentOverlay {
+                                unset("GIT_DIR", "GIT_WORK_TREE")
+                            },
                         ) {
                             observed["GIT_DIR"] = operations.readEnvironmentVariable("GIT_DIR")
                             observed["GIT_WORK_TREE"] = operations.readEnvironmentVariable("GIT_WORK_TREE")
@@ -64,10 +64,10 @@ class NativeProcessEnvironmentSafetySpec : BehaviorSpec({
                 FakeNativeProcessOperations(
                     initialWorkingDirectory = "/host/repo",
                     initialEnvironment =
-                        mapOf(
-                            "HOME" to "/host/home",
-                            "XDG_DATA_HOME" to "/host/data",
-                        ),
+                    mapOf(
+                        "HOME" to "/host/home",
+                        "XDG_DATA_HOME" to "/host/data",
+                    ),
                     failingChangeDirectories = setOf("/host/repo")
                 )
 
@@ -78,10 +78,10 @@ class NativeProcessEnvironmentSafetySpec : BehaviorSpec({
                             operations = operations,
                             workingDirectory = "/tmp/workspace",
                             environment =
-                                environmentOverlay {
-                                    "HOME" setTo "/tmp/home"
-                                    "XDG_DATA_HOME" setTo "/tmp/data"
-                                },
+                            environmentOverlay {
+                                "HOME" setTo "/tmp/home"
+                                "XDG_DATA_HOME" setTo "/tmp/data"
+                            },
                         ) {
                             Unit
                         }
@@ -107,9 +107,9 @@ class NativeProcessEnvironmentSafetySpec : BehaviorSpec({
                 FakeNativeProcessOperations(
                     initialWorkingDirectory = "/host/repo",
                     initialEnvironment =
-                        mapOf(
-                            "HOME" to "/host/home",
-                        ),
+                    mapOf(
+                        "HOME" to "/host/home",
+                    ),
                     failingSetKeys = setOf("XDG_DATA_HOME")
                 )
 
@@ -120,10 +120,10 @@ class NativeProcessEnvironmentSafetySpec : BehaviorSpec({
                             operations = operations,
                             workingDirectory = "/tmp/workspace",
                             environment =
-                                environmentOverlay {
-                                    "HOME" setTo "/tmp/home"
-                                    "XDG_DATA_HOME" setTo "/tmp/data"
-                                },
+                            environmentOverlay {
+                                "HOME" setTo "/tmp/home"
+                                "XDG_DATA_HOME" setTo "/tmp/data"
+                            },
                         ) {
                             Unit
                         }
@@ -199,8 +199,6 @@ class NativeProcessEnvironmentSafetySpec : BehaviorSpec({
     }
 })
 
-private const val harnessSafetyReviewPath = "reviews/current-review-issues.md"
-
 private class FakeNativeProcessOperations(
     initialWorkingDirectory: String,
     initialEnvironment: Map<String, String>,
@@ -227,10 +225,7 @@ private class FakeNativeProcessOperations(
 
     override fun readEnvironmentVariable(key: String): String? = environment[key]
 
-    override fun setEnvironmentVariable(
-        key: String,
-        value: String,
-    ): Int {
+    override fun setEnvironmentVariable(key: String, value: String): Int {
         if (key in failingSetKeys) {
             return -1
         }

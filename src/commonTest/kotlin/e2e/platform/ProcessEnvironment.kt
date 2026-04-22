@@ -35,10 +35,7 @@ class EnvironmentOverlayBuilder {
         entries[this] = EnvironmentMutation.Set(value)
     }
 
-    fun set(
-        key: String,
-        value: String,
-    ) {
+    fun set(key: String, value: String) {
         key setTo value
     }
 
@@ -63,12 +60,6 @@ data class ExternalProcessResult(
 expect fun createTemporaryDirectory(prefix: String): String
 
 expect fun deleteRecursively(path: String)
-
-expect fun <T> withWorkingDirectoryAndHome(
-    workingDirectory: String,
-    homeDirectory: String,
-    block: () -> T,
-): T
 
 expect fun <T> withWorkingDirectoryAndEnvironment(
     workingDirectory: String,

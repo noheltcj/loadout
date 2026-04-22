@@ -34,9 +34,9 @@ import kotlin.experimental.ExperimentalNativeApi
 import kotlin.native.Platform
 import kotlin.random.Random
 
-private const val pathBufferSize = 4096
-private const val executablePermissionMask = 493
-private const val anyExecutableBitMask = 73u
+private const val PATH_BUFFER_SIZE = 4096
+private const val EXECUTABLE_PERMISSION_MASK = 493
+private const val ANY_EXECUTABLE_BIT_MASK = 73u
 
 internal enum class ShellDialect {
     Posix,
@@ -50,10 +50,7 @@ internal interface NativeProcessOperations {
 
     fun readEnvironmentVariable(key: String): String?
 
-    fun setEnvironmentVariable(
-        key: String,
-        value: String,
-    ): Int
+    fun setEnvironmentVariable(key: String, value: String): Int
 
     fun clearEnvironmentVariable(key: String): Int
 
@@ -74,10 +71,7 @@ private object PosixNativeProcessOperations : NativeProcessOperations {
 
     override fun readEnvironmentVariable(key: String): String? = readEnvironmentVariableInternal(key)
 
-    override fun setEnvironmentVariable(
-        key: String,
-        value: String,
-    ): Int = platformSetEnv(key, value)
+    override fun setEnvironmentVariable(key: String, value: String): Int = platformSetEnv(key, value)
 
     override fun clearEnvironmentVariable(key: String): Int = platformClearEnv(key)
 
@@ -98,20 +92,6 @@ actual fun createTemporaryDirectory(prefix: String): String = createTemporaryDir
 actual fun deleteRecursively(path: String) {
     deleteRecursivelyInternal(path)
 }
-
-actual fun <T> withWorkingDirectoryAndHome(
-    workingDirectory: String,
-    homeDirectory: String,
-    block: () -> T,
-): T =
-    withWorkingDirectoryAndEnvironment(
-        workingDirectory = workingDirectory,
-        environment =
-            environmentOverlay {
-                "HOME" setTo homeDirectory
-            },
-        block = block
-    )
 
 actual fun <T> withWorkingDirectoryAndEnvironment(
     workingDirectory: String,
@@ -217,20 +197,17 @@ actual fun isExecutablePath(path: String): Boolean =
             return false
         }
 
-        statBuffer.st_mode.toUInt() and anyExecutableBitMask != 0u
+        statBuffer.st_mode.toUInt() and ANY_EXECUTABLE_BIT_MASK != 0u
     }
 
 @OptIn(ExperimentalForeignApi::class)
 actual fun setExecutable(path: String) {
-    check(chmod(path, executablePermissionMask.convert()) == 0) {
+    check(chmod(path, EXECUTABLE_PERMISSION_MASK.convert()) == 0) {
         "Failed to set executable bit on '$path'"
     }
 }
 
-private fun applyEnvironmentOverlay(
-    operations: NativeProcessOperations,
-    environment: EnvironmentOverlay,
-) {
+private fun applyEnvironmentOverlay(operations: NativeProcessOperations, environment: EnvironmentOverlay) {
     environment.forEachMutation { key, mutation ->
         when (mutation) {
             is EnvironmentMutation.Set -> {
@@ -289,7 +266,7 @@ private fun createTemporaryDirectoryInternal(prefix: String): String {
                 ?: getenv("TEMP")?.toKString()
                 ?: getenv("TMP")?.toKString()
                 ?: "/tmp"
-        ).removeSuffix("/")
+            ).removeSuffix("/")
 
     while (true) {
         val randomSuffix = Random.nextInt(1000000, 9999999)
@@ -327,8 +304,8 @@ private fun deleteRecursivelyInternal(path: String) {
 @OptIn(ExperimentalForeignApi::class)
 private fun getCurrentWorkingDirectory(): String =
     memScoped {
-        val buffer = allocArray<ByteVar>(pathBufferSize)
-        checkNotNull(getcwd(buffer, pathBufferSize.convert())) {
+        val buffer = allocArray<ByteVar>(PATH_BUFFER_SIZE)
+        checkNotNull(getcwd(buffer, PATH_BUFFER_SIZE.convert())) {
             "Failed to read the current working directory"
         }
         buffer.toKString()
@@ -376,15 +353,10 @@ internal fun buildRedirectingCommand(
         shellDialect
     )} > ${shellQuote(stdoutPath, shellDialect)} 2> ${shellQuote(stderrPath, shellDialect)}"
 
-internal fun buildShellCommand(
-    arguments: List<String>,
-    shellDialect: ShellDialect = currentShellDialect(),
-): String = arguments.joinToString(" ") { argument -> shellQuote(argument, shellDialect) }
+internal fun buildShellCommand(arguments: List<String>, shellDialect: ShellDialect = currentShellDialect()): String =
+    arguments.joinToString(" ") { argument -> shellQuote(argument, shellDialect) }
 
-internal fun shellQuote(
-    argument: String,
-    shellDialect: ShellDialect = currentShellDialect(),
-): String =
+internal fun shellQuote(argument: String, shellDialect: ShellDialect = currentShellDialect()): String =
     when (shellDialect) {
         ShellDialect.Posix -> "'${argument.replace("'", "'\"'\"'")}'"
         ShellDialect.WindowsCmd -> "\"${argument.replace("^", "^^").replace("%", "%%").replace("\"", "\"\"")}\""

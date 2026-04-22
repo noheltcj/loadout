@@ -2,6 +2,7 @@ package cli.commands
 
 import cli.Constants
 import cli.commands.extension.echoComposedFilesWriteResult
+import cli.echoError
 import com.github.ajalt.clikt.core.CliktCommand
 import com.github.ajalt.clikt.core.Context
 import com.github.ajalt.clikt.core.ProgramResult
@@ -33,6 +34,7 @@ class InitCommand(
     override fun run() {
         setupGitignore()
         val fragmentCreated = createStarterFragment()
+        configureTrackedHooksIfNeeded()
         setupDefaultLoadoutIfNeeded(fragmentCreated)
     }
 
@@ -119,10 +121,17 @@ class InitCommand(
             }
 
         if (loadouts.isNotEmpty()) {
+            configureRepoDefaultForExistingLoadouts(loadouts.map { loadout -> loadout.name })
+
             if (fragmentCreated) {
                 echo("")
                 echo("Existing loadouts found. Link the new fragment with:")
                 echo("  loadout link $ARCHITECT_FRAGMENT_PATH --to <loadout-name>")
+            }
+
+            if (mode == InitMode.SHARED && loadouts.size > 1) {
+                echo("Set the repo default loadout with:")
+                echo("  loadout config --default-loadout <name>")
             }
             return
         }
@@ -150,6 +159,20 @@ class InitCommand(
                                 )
                         ) {
                             is Result.Success -> {
+                                if (mode == InitMode.SHARED) {
+                                    when (
+                                        val repoDefaultResult = loadoutService.setRepoDefaultLoadoutName(
+                                            DEFAULT_LOADOUT_NAME
+                                        )
+                                    ) {
+                                        is Result.Success -> { /* Repo default seeded */ }
+                                        is Result.Error -> {
+                                            echoError(repoDefaultResult.error)
+                                            throw ProgramResult(1)
+                                        }
+                                    }
+                                }
+
                                 echoComposedFilesWriteResult(
                                     result = setResult.value,
                                     loadoutName = DEFAULT_LOADOUT_NAME,
@@ -179,9 +202,235 @@ class InitCommand(
         echo("Note: ${mode.completionNote}")
     }
 
+    private fun configureRepoDefaultForExistingLoadouts(loadoutNames: List<String>) {
+        if (mode != InitMode.SHARED) {
+            return
+        }
+
+        when (loadoutNames.size) {
+            0 -> return
+            1 -> {
+                when (val result = loadoutService.setRepoDefaultLoadoutName(loadoutNames.single())) {
+                    is Result.Success -> { /* Repo default set */ }
+                    is Result.Error -> {
+                        echoError(result.error)
+                        throw ProgramResult(1)
+                    }
+                }
+            }
+            else -> {
+                when (val result = loadoutService.setRepoDefaultLoadoutName(null)) {
+                    is Result.Success -> { /* Repo default intentionally unset */ }
+                    is Result.Error -> {
+                        echoError(result.error)
+                        throw ProgramResult(1)
+                    }
+                }
+            }
+        }
+    }
+
+    private fun configureTrackedHooksIfNeeded() {
+        if (mode != InitMode.SHARED) {
+            return
+        }
+
+        val gitConfigPath = resolveGitConfigPath() ?: return
+        val configuredHooksPath =
+            when (val result = readConfiguredHooksPath(gitConfigPath)) {
+                is Result.Success -> result.value
+                is Result.Error -> {
+                    echoError(result.error)
+                    throw ProgramResult(1)
+                }
+            }
+
+        if (configuredHooksPath != null && configuredHooksPath != HOOKS_DIRECTORY_PATH) {
+            echo("Git hooks are already managed by core.hooksPath = $configuredHooksPath")
+            echo("To use Loadout-managed tracked hooks instead, point core.hooksPath at $HOOKS_DIRECTORY_PATH")
+            return
+        }
+
+        when (val directoryResult = fileRepository.createDirectory(HOOKS_DIRECTORY_PATH)) {
+            is Result.Success -> { /* Hook directory created or already exists */ }
+            is Result.Error -> {
+                echoError(directoryResult.error)
+                throw ProgramResult(1)
+            }
+        }
+
+        writeHookFile(POST_CHECKOUT_HOOK_PATH, postCheckoutHookScript())
+        writeHookFile(POST_MERGE_HOOK_PATH, postMergeHookScript())
+
+        when (val result = updateConfiguredHooksPath(gitConfigPath, HOOKS_DIRECTORY_PATH)) {
+            is Result.Success -> { /* Git hook path configured */ }
+            is Result.Error -> {
+                echoError(result.error)
+                throw ProgramResult(1)
+            }
+        }
+    }
+
+    private fun writeHookFile(path: String, content: String) {
+        when (val writeResult = fileRepository.writeFile(path, content)) {
+            is Result.Success -> { /* Hook file written */ }
+            is Result.Error -> {
+                echoError(writeResult.error)
+                throw ProgramResult(1)
+            }
+        }
+
+        when (val executableResult = fileRepository.setExecutable(path)) {
+            is Result.Success -> { /* Hook file marked executable */ }
+            is Result.Error -> {
+                echoError(executableResult.error)
+                throw ProgramResult(1)
+            }
+        }
+    }
+
+    private fun resolveGitConfigPath(): String? =
+        when {
+            fileRepository.fileExists(GIT_CONFIG_PATH) -> GIT_CONFIG_PATH
+            fileRepository.fileExists(GIT_PATH) -> {
+                when (val gitFileResult = fileRepository.readFile(GIT_PATH)) {
+                    is Result.Success -> {
+                        val gitDirectoryPath = gitFileResult.value.removePrefix("gitdir:").trim()
+                        if (gitDirectoryPath.isBlank()) {
+                            null
+                        } else {
+                            "$gitDirectoryPath/config"
+                        }
+                    }
+                    is Result.Error -> null
+                }
+            }
+            else -> null
+        }
+
+    private fun readConfiguredHooksPath(gitConfigPath: String): Result<String?, domain.entity.error.LoadoutError> =
+        fileRepository
+            .readFile(gitConfigPath)
+            .map { content -> parseConfiguredHooksPath(content) }
+
+    private fun updateConfiguredHooksPath(
+        gitConfigPath: String,
+        hooksPath: String,
+    ): Result<Unit, domain.entity.error.LoadoutError> =
+        fileRepository
+            .readFile(gitConfigPath)
+            .map { content -> content.withConfiguredHooksPath(hooksPath) }
+            .flatMap { updatedContent -> fileRepository.writeFile(gitConfigPath, updatedContent) }
+
+    private fun parseConfiguredHooksPath(configContent: String): String? {
+        var inCoreSection = false
+
+        configContent.lineSequence().forEach { rawLine ->
+            val line = rawLine.trim()
+
+            if (line.startsWith("[") && line.endsWith("]")) {
+                inCoreSection = line.equals("[core]", ignoreCase = true)
+                return@forEach
+            }
+
+            if (inCoreSection && line.startsWith("hooksPath", ignoreCase = true)) {
+                return line.substringAfter('=').trim().ifBlank { null }
+            }
+        }
+
+        return null
+    }
+
+    private fun String.withConfiguredHooksPath(hooksPath: String): String {
+        val originalLines = lines()
+        val updatedLines = mutableListOf<String>()
+        var lineIndex = 0
+        var coreSectionFound = false
+        var hooksPathWritten = false
+
+        while (lineIndex < originalLines.size) {
+            val line = originalLines[lineIndex]
+            val trimmedLine = line.trim()
+
+            if (trimmedLine.equals("[core]", ignoreCase = true)) {
+                coreSectionFound = true
+                updatedLines += line
+                lineIndex += 1
+
+                while (lineIndex < originalLines.size) {
+                    val sectionLine = originalLines[lineIndex]
+                    val trimmedSectionLine = sectionLine.trim()
+
+                    if (trimmedSectionLine.startsWith("[") && trimmedSectionLine.endsWith("]")) {
+                        break
+                    }
+
+                    if (trimmedSectionLine.startsWith("hooksPath", ignoreCase = true)) {
+                        if (!hooksPathWritten) {
+                            updatedLines += "\thooksPath = $hooksPath"
+                            hooksPathWritten = true
+                        }
+                    } else {
+                        updatedLines += sectionLine
+                    }
+
+                    lineIndex += 1
+                }
+
+                if (!hooksPathWritten) {
+                    updatedLines += "\thooksPath = $hooksPath"
+                    hooksPathWritten = true
+                }
+
+                continue
+            }
+
+            updatedLines += line
+            lineIndex += 1
+        }
+
+        if (!coreSectionFound) {
+            if (updatedLines.isNotEmpty() && updatedLines.last().isNotBlank()) {
+                updatedLines += ""
+            }
+            updatedLines += "[core]"
+            updatedLines += "\thooksPath = $hooksPath"
+        }
+
+        return updatedLines.joinToString(separator = "\n").let { content ->
+            if (content.endsWith("\n")) {
+                content
+            } else {
+                "$content\n"
+            }
+        }
+    }
+
+    private fun postCheckoutHookScript(): String =
+        """
+            #!/bin/sh
+            if [ "${'$'}3" = "0" ]; then
+              exit 0
+            fi
+            helper_path="${'$'}{LOADOUT_BIN:-loadout}"
+            "${'$'}helper_path" sync --auto >/dev/null || exit 0
+        """.trimIndent() + "\n"
+
+    private fun postMergeHookScript(): String =
+        """
+            #!/bin/sh
+            helper_path="${'$'}{LOADOUT_BIN:-loadout}"
+            "${'$'}helper_path" sync --auto >/dev/null || exit 0
+        """.trimIndent() + "\n"
+
     companion object {
         private const val COMMAND_NAME = "init"
+        private const val GIT_PATH = ".git"
+        private const val GIT_CONFIG_PATH = ".git/config"
         private const val GITIGNORE_PATH = ".gitignore"
+        private const val HOOKS_DIRECTORY_PATH = ".githooks"
+        private const val POST_CHECKOUT_HOOK_PATH = "$HOOKS_DIRECTORY_PATH/post-checkout"
+        private const val POST_MERGE_HOOK_PATH = "$HOOKS_DIRECTORY_PATH/post-merge"
         private const val ARCHITECT_FRAGMENT_FILENAME = "loadout-architect.md"
         private const val ARCHITECT_FRAGMENT_PATH = "${Constants.FRAGMENTS_DIR}/$ARCHITECT_FRAGMENT_FILENAME"
         private const val DEFAULT_LOADOUT_NAME = "default"

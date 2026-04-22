@@ -1,4 +1,4 @@
-package e2e.support
+package domain.entity
 
 import kotlinx.serialization.Serializable
 

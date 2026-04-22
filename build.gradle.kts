@@ -186,9 +186,9 @@ data class HostBinarySpec(
     val helperScriptName: String,
 )
 
-private val posixHelperScriptName = "loadout-e2e-helper"
-private val windowsHelperScriptName = "loadout-e2e-helper.cmd"
-val loadoutHelperEnvironmentVariable = "LOADOUT_E2E_HELPER_PATH"
+private val POSIX_HELPER_SCRIPT_NAME = "loadout-e2e-helper"
+private val WINDOWS_HELPER_SCRIPT_NAME = "loadout-e2e-helper.cmd"
+val LOADOUT_HELPER_ENVIRONMENT_VARIABLE = "LOADOUT_BIN"
 
 fun currentHostBinarySpec(): HostBinarySpec {
     val operatingSystem = System.getProperty("os.name").lowercase(Locale.US)
@@ -200,35 +200,35 @@ fun currentHostBinarySpec(): HostBinarySpec {
                 targetName = "macosArm64",
                 targetTaskSuffix = "MacosArm64",
                 executableExtension = ".kexe",
-                helperScriptName = posixHelperScriptName
+                helperScriptName = POSIX_HELPER_SCRIPT_NAME
             )
         operatingSystem == "mac os x" ->
             HostBinarySpec(
                 targetName = "macosX64",
                 targetTaskSuffix = "MacosX64",
                 executableExtension = ".kexe",
-                helperScriptName = posixHelperScriptName
+                helperScriptName = POSIX_HELPER_SCRIPT_NAME
             )
         operatingSystem == "linux" && (architecture == "aarch64" || architecture == "arm64") ->
             HostBinarySpec(
                 targetName = "linuxArm64",
                 targetTaskSuffix = "LinuxArm64",
                 executableExtension = ".kexe",
-                helperScriptName = posixHelperScriptName
+                helperScriptName = POSIX_HELPER_SCRIPT_NAME
             )
         operatingSystem == "linux" ->
             HostBinarySpec(
                 targetName = "linuxX64",
                 targetTaskSuffix = "LinuxX64",
                 executableExtension = ".kexe",
-                helperScriptName = posixHelperScriptName
+                helperScriptName = POSIX_HELPER_SCRIPT_NAME
             )
         operatingSystem.startsWith("windows") ->
             HostBinarySpec(
                 targetName = "mingwX64",
                 targetTaskSuffix = "MingwX64",
                 executableExtension = ".exe",
-                helperScriptName = windowsHelperScriptName
+                helperScriptName = WINDOWS_HELPER_SCRIPT_NAME
             )
         else -> error("Unsupported host platform: $operatingSystem ($architecture)")
     }
@@ -330,10 +330,10 @@ val prepareE2eHelper by tasks.registering(WriteE2eHelperTask::class) {
     dependsOn("linkDebugExecutable${hostBinarySpec.targetTaskSuffix}")
     mainExecutable.set(hostMainExecutable)
     helperScript.set(e2eHelperScript)
-    isWindowsHelper = hostBinarySpec.helperScriptName == windowsHelperScriptName
+    isWindowsHelper = hostBinarySpec.helperScriptName == WINDOWS_HELPER_SCRIPT_NAME
 }
 
 tasks.withType<KotlinNativeTest>().configureEach {
     dependsOn(prepareE2eHelper)
-    environment(loadoutHelperEnvironmentVariable, e2eHelperScript.get().asFile.absolutePath)
+    environment(LOADOUT_HELPER_ENVIRONMENT_VARIABLE, e2eHelperScript.get().asFile.absolutePath)
 }
