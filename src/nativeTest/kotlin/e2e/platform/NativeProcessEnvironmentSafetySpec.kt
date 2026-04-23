@@ -2,6 +2,7 @@
 
 package e2e.platform
 
+import e2e.support.action
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.collections.shouldContain
@@ -22,7 +23,7 @@ class NativeProcessEnvironmentSafetySpec : BehaviorSpec({
                     )
                 )
 
-            When("execution unsets the inherited git variables") {
+            action("execution unsets the inherited git variables") {
                 val observedEnvironment by lazy {
                     mutableMapOf<String, String?>().also { observed ->
                         withWorkingDirectoryAndEnvironment(
@@ -40,16 +41,16 @@ class NativeProcessEnvironmentSafetySpec : BehaviorSpec({
                     }
                 }
 
-                Then("it clears the git variables during execution") {
+                then("it clears the git variables during execution") {
                     observedEnvironment["GIT_DIR"] shouldBe null
                     observedEnvironment["GIT_WORK_TREE"] shouldBe null
                 }
 
-                Then("it runs the block in the requested working directory") {
+                then("it runs the block in the requested working directory") {
                     observedEnvironment["cwd"] shouldBe "/tmp/workspace"
                 }
 
-                Then("it restores the inherited git environment afterward") {
+                then("it restores the inherited git environment afterward") {
                     operations.environment shouldContainExactly
                         mapOf(
                             "GIT_DIR" to "/host/repo/.git",
@@ -71,7 +72,7 @@ class NativeProcessEnvironmentSafetySpec : BehaviorSpec({
                     failingChangeDirectories = setOf("/host/repo")
                 )
 
-            When("the process context is cleaned up") {
+            action("the process context is cleaned up") {
                 val failure by lazy {
                     shouldThrow<IllegalStateException> {
                         withWorkingDirectoryAndEnvironment(
@@ -88,11 +89,11 @@ class NativeProcessEnvironmentSafetySpec : BehaviorSpec({
                     }
                 }
 
-                Then("it reports the working-directory restoration failure") {
+                then("it reports the working-directory restoration failure") {
                     failure.message.shouldContain("Failed to restore working directory to '/host/repo'")
                 }
 
-                Then("it still restores the original environment values") {
+                then("it still restores the original environment values") {
                     operations.environment shouldContainExactly
                         mapOf(
                             "HOME" to "/host/home",
@@ -113,7 +114,7 @@ class NativeProcessEnvironmentSafetySpec : BehaviorSpec({
                     failingSetKeys = setOf("XDG_DATA_HOME")
                 )
 
-            When("the overlay apply fails") {
+            action("the overlay apply fails") {
                 val failure by lazy {
                     shouldThrow<IllegalStateException> {
                         withWorkingDirectoryAndEnvironment(
@@ -130,15 +131,15 @@ class NativeProcessEnvironmentSafetySpec : BehaviorSpec({
                     }
                 }
 
-                Then("it reports the apply failure") {
+                then("it reports the apply failure") {
                     failure.message.shouldContain("Failed to set XDG_DATA_HOME to '/tmp/data'")
                 }
 
-                Then("it still restores the original environment after the partial mutation") {
+                then("it still restores the original environment after the partial mutation") {
                     operations.environment shouldContainExactly mapOf("HOME" to "/host/home")
                 }
 
-                Then("it restores the original working directory") {
+                then("it restores the original working directory") {
                     operations.workingDirectory shouldBe "/host/repo"
                 }
             }
@@ -155,7 +156,7 @@ class NativeProcessEnvironmentSafetySpec : BehaviorSpec({
                     readFailure = IllegalStateException("capture read failed")
                 }
 
-            When("an external process result is collected") {
+            action("an external process result is collected") {
                 val failure by lazy {
                     shouldThrow<IllegalStateException> {
                         runExternalProcess(
@@ -167,18 +168,18 @@ class NativeProcessEnvironmentSafetySpec : BehaviorSpec({
                     }
                 }
 
-                Then("it surfaces the capture read failure") {
+                then("it surfaces the capture read failure") {
                     failure.message shouldBe "capture read failed"
                 }
 
-                Then("it still deletes the temporary capture directory") {
+                then("it still deletes the temporary capture directory") {
                     operations.deletedPaths.shouldContain("/tmp/loadout-e2e-capture")
                 }
             }
         }
 
         given("building a Windows command line for an external process") {
-            When("the executable and capture paths contain spaces") {
+            action("the executable and capture paths contain spaces") {
                 val commandLine by lazy {
                     buildRedirectingCommand(
                         command = listOf("C:/Program Files/Git/bin/git.exe", "status"),
@@ -188,7 +189,7 @@ class NativeProcessEnvironmentSafetySpec : BehaviorSpec({
                     )
                 }
 
-                Then("it uses cmd-compatible quoting for each argument and redirect target") {
+                then("it uses cmd-compatible quoting for each argument and redirect target") {
                     commandLine shouldBe
                         "\"C:/Program Files/Git/bin/git.exe\" \"status\" > " +
                         "\"C:/Users/Test User/stdout.txt\" 2> " +

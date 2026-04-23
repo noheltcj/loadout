@@ -5,6 +5,7 @@ package e2e.spec
 import e2e.support.E2eBehaviorSuite
 import e2e.support.ScenarioSeed
 import e2e.support.action
+import e2e.support.andThen
 import e2e.support.firstFragmentContent
 import e2e.support.firstFragmentPath
 import e2e.support.givenCurrentLoadoutIsSet
@@ -38,20 +39,26 @@ class UseE2eSpec : E2eBehaviorSuite({
                 then("it exits with result 1") {
                     execution.result.shouldHaveExitCode(1)
                 }
+            }
 
-                then("it does not change the current loadout") {
-                    val currentScenario by memoizedAction(
+            given("another loadout is currently active") {
+                val invalidLoadoutWithCurrent: ScenarioSeed = {
+                    givenCurrentLoadoutIsSet(
+                        name = "current",
+                        fragments = listOf(secondFragmentPath to secondFragmentContent)
+                    )
+                }
+
+                action("loadout use is run") {
+                    val execution by memoizedAction(
                         "use",
                         "missing",
-                        seed = {
-                            givenCurrentLoadoutIsSet(
-                                name = "current",
-                                fragments = listOf(secondFragmentPath to secondFragmentContent)
-                            )
-                        }
+                        seed = invalidLoadoutWithCurrent
                     )
 
-                    currentScenario.scenario.shouldHaveActiveLoadoutName("current")
+                    then("it does not change the current loadout") {
+                        execution.scenario.shouldHaveActiveLoadoutName("current")
+                    }
                 }
             }
         }
@@ -94,13 +101,13 @@ class UseE2eSpec : E2eBehaviorSuite({
             }
 
             given("another loadout is currently active") {
-                val validLoadoutWithCurrent: ScenarioSeed = {
-                    givenCurrentLoadoutIsSet(
-                        name = "current",
-                        fragments = listOf(secondFragmentPath to secondFragmentContent)
-                    )
-                    givenValidLoadout(name = "alpha", fragments = listOf(firstFragmentPath to firstFragmentContent))
-                }
+                val validLoadoutWithCurrent: ScenarioSeed =
+                    validLoadout.andThen {
+                        givenCurrentLoadoutIsSet(
+                            name = "current",
+                            fragments = listOf(secondFragmentPath to secondFragmentContent)
+                        )
+                    }
 
                 action("loadout use is run with --std-out") {
                     val execution by memoizedAction("use", "alpha", "--std-out", seed = validLoadoutWithCurrent)
@@ -117,9 +124,7 @@ class UseE2eSpec : E2eBehaviorSuite({
 
             action("loadout use is run with --output and a custom directory") {
                 val execution by memoizedCapturedExecution(
-                    seed = {
-                        givenValidLoadout(name = "alpha", fragments = listOf(firstFragmentPath to firstFragmentContent))
-                    },
+                    seed = validLoadout,
                     capture = {
                         OutputDirectoryCapture(outputDirectory = createCustomOutputDirectory())
                     },

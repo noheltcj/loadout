@@ -36,7 +36,7 @@ class HarnessIsolationE2eSpec : E2eBehaviorSuite({
                 }
             }
 
-            action("the explicit helper path override is absent") {
+            action("the helper executable path is resolved without an explicit override") {
                 val execution by memoizedExecution {
                     val resolvedHelperPath =
                         withWorkingDirectoryAndEnvironment(
