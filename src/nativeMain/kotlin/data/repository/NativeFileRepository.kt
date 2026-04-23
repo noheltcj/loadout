@@ -1,5 +1,6 @@
 package data.repository
 
+import data.platform.platformMakeExecutable
 import data.platform.platformMkdir
 import domain.entity.error.LoadoutError
 import domain.entity.packaging.Result
@@ -83,6 +84,17 @@ class NativeFileRepository : FileRepository {
             Result.Error(LoadoutError.FileSystemError("Error writing file: $path", e))
         }
     }
+
+    override fun setExecutable(path: String): Result<Unit, LoadoutError.FileSystemError> =
+        try {
+            if (platformMakeExecutable(path) == 0) {
+                Result.Success(Unit)
+            } else {
+                Result.Error(LoadoutError.FileSystemError("Failed to set executable bit on: $path"))
+            }
+        } catch (e: Exception) {
+            Result.Error(LoadoutError.FileSystemError("Error setting executable bit on: $path", e))
+        }
 
     override fun fileExists(path: String): Boolean = access(path, F_OK) == 0
 

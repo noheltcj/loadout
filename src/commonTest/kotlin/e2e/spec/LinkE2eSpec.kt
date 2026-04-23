@@ -5,6 +5,7 @@ package e2e.spec
 import e2e.support.E2eBehaviorSuite
 import e2e.support.ScenarioSeed
 import e2e.support.action
+import e2e.support.andThen
 import e2e.support.firstFragmentContent
 import e2e.support.firstFragmentPath
 import e2e.support.givenCurrentLoadoutIsSet
@@ -13,7 +14,7 @@ import e2e.support.secondFragmentContent
 import e2e.support.secondFragmentPath
 import e2e.support.shouldContainInOutput
 import e2e.support.shouldContainInStdout
-import e2e.support.shouldHaveCurrentLoadoutName
+import e2e.support.shouldHaveActiveLoadoutName
 import e2e.support.shouldHaveExitCode
 import e2e.support.shouldHaveGeneratedBody
 import e2e.support.shouldHaveLoadoutFragments
@@ -136,19 +137,22 @@ class LinkE2eSpec : E2eBehaviorSuite({
             }
 
             given("the fragment is not already in the target loadout") {
+                val targetDoesNotContainRequestedFragment: ScenarioSeed =
+                    validInactiveTarget.andThen {
+                        seedFragment(thirdFragmentPath, thirdFragmentContent)
+                    }
+
                 action("loadout link is run without --after") {
                     val execution by memoizedAction(
                         "link",
                         thirdFragmentPath,
                         "--to",
                         "target",
-                        seed = {
-                            givenValidLoadout(name = "target")
+                        seed = targetDoesNotContainRequestedFragment.andThen {
                             givenCurrentLoadoutIsSet(
                                 name = "current",
                                 fragments = listOf(secondFragmentPath to secondFragmentContent)
                             )
-                            seedFragment(thirdFragmentPath, thirdFragmentContent)
                         }
                     )
 
@@ -172,7 +176,7 @@ class LinkE2eSpec : E2eBehaviorSuite({
                     }
 
                     then("it does not change the current loadout") {
-                        execution.scenario.shouldHaveCurrentLoadoutName("current")
+                        execution.scenario.shouldHaveActiveLoadoutName("current")
                     }
                 }
 
@@ -184,16 +188,12 @@ class LinkE2eSpec : E2eBehaviorSuite({
                         "target",
                         "--after",
                         firstFragmentPath,
-                        seed = {
-                            givenValidLoadout(
+                        seed = targetDoesNotContainRequestedFragment.andThen {
+                            seedFragment(secondFragmentPath, secondFragmentContent)
+                            seedLoadout(
                                 name = "target",
-                                fragments =
-                                listOf(
-                                    firstFragmentPath to firstFragmentContent,
-                                    secondFragmentPath to secondFragmentContent
-                                )
+                                fragments = listOf(firstFragmentPath, secondFragmentPath)
                             )
-                            seedFragment(thirdFragmentPath, thirdFragmentContent)
                         }
                     )
 
@@ -229,10 +229,7 @@ class LinkE2eSpec : E2eBehaviorSuite({
                         "target",
                         "--after",
                         "fragments/missing.md",
-                        seed = {
-                            givenValidLoadout(name = "target")
-                            seedFragment(thirdFragmentPath, thirdFragmentContent)
-                        }
+                        seed = targetDoesNotContainRequestedFragment
                     )
 
                     then("it appends the new fragment to the end of the loadout instead of failing") {
@@ -253,13 +250,7 @@ class LinkE2eSpec : E2eBehaviorSuite({
                         "./$thirdFragmentPath", // Normalized internally -> thirdFragmentPath
                         "--to",
                         "target",
-                        seed = {
-                            givenValidLoadout(
-                                name = "target",
-                                fragments = listOf(firstFragmentPath to firstFragmentContent)
-                            )
-                            seedFragment(thirdFragmentPath, thirdFragmentContent)
-                        }
+                        seed = targetDoesNotContainRequestedFragment
                     )
 
                     then("it appends the new fragment to the loadout using the normalized path") {
@@ -276,13 +267,15 @@ class LinkE2eSpec : E2eBehaviorSuite({
             }
 
             given("the fragment is already in the target loadout") {
+                val targetAlreadyContainsRequestedFragment: ScenarioSeed = validInactiveTarget
+
                 action("loadout link is run") {
                     val execution by memoizedAction(
                         "link",
                         firstFragmentPath,
                         "--to",
                         "target",
-                        seed = validInactiveTarget
+                        seed = targetAlreadyContainsRequestedFragment
                     )
 
                     then("it outputs a duplicate fragment error") {
@@ -304,8 +297,7 @@ class LinkE2eSpec : E2eBehaviorSuite({
                         firstFragmentPath,
                         "--to",
                         "target",
-                        seed = {
-                            seedFragment(firstFragmentPath, firstFragmentContent)
+                        seed = targetAlreadyContainsRequestedFragment.andThen {
                             seedLoadout(name = "target", fragments = listOf("./$firstFragmentPath"))
                         }
                     )

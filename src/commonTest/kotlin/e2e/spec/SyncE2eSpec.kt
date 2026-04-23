@@ -3,7 +3,7 @@
 package e2e.spec
 
 import cli.Constants
-import domain.entity.LoadoutConfig
+import domain.entity.LocalLoadoutState
 import e2e.support.E2eBehaviorSuite
 import e2e.support.ScenarioSeed
 import e2e.support.action
@@ -12,19 +12,31 @@ import e2e.support.firstFragmentPath
 import e2e.support.givenConfigPointsAtDeletedLoadout
 import e2e.support.givenCurrentLoadoutFragmentsHaveChangedSinceLastComposition
 import e2e.support.givenCurrentLoadoutIsAlreadySynchronized
+import e2e.support.requireGeneratedBody
+import e2e.support.requireLastComposedContentHash
 import e2e.support.shouldContainInOutput
 import e2e.support.shouldContainInStdout
-import e2e.support.shouldHaveCurrentLoadoutName
+import e2e.support.shouldHaveActiveLoadoutName
 import e2e.support.shouldHaveExitCode
 import e2e.support.shouldHaveGeneratedBody
 import e2e.support.shouldHaveGeneratedBodyInDirectory
 import e2e.support.shouldHaveGeneratedFiles
 import e2e.support.shouldHaveStaleWarning
-import e2e.support.shouldHaveUnchangedCompositionHash
+import e2e.support.shouldHaveUnchangedLastComposedContentHash
 import e2e.support.shouldNotHaveStaleWarning
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.string.shouldNotContain
+
+private data class SynchronizedLoadoutCapture(
+    val generatedBody: String,
+    val lastComposedContentHash: String,
+)
+
+private data class SyncOutputDirectoryCapture(
+    val outputDirectory: String,
+    val previousLastComposedContentHash: String,
+)
 
 class SyncE2eSpec : E2eBehaviorSuite({
     context("loadout sync spec") {
@@ -78,7 +90,12 @@ class SyncE2eSpec : E2eBehaviorSuite({
         given("composing the current loadout fails") {
             val brokenCurrentLoadout: ScenarioSeed = {
                 seedLoadout(name = "broken", fragments = listOf(firstFragmentPath))
-                writeConfig(LoadoutConfig(currentLoadoutName = "broken", compositionHash = null))
+                writeLocalLoadoutState(
+                    LocalLoadoutState(
+                        activeLoadoutName = "broken",
+                        lastComposedContentHash = null,
+                    )
+                )
             }
 
             action("loadout sync is run") {
@@ -100,8 +117,12 @@ class SyncE2eSpec : E2eBehaviorSuite({
             }
 
             action("loadout sync is run") {
-                val execution by memoizedExecution(seed = currentLoadoutIsAlreadySynchronized) {
-                    writeWorkspaceFile("scratch/before-claude.txt", readGeneratedFile(Constants.CLAUDE_MD).orEmpty())
+                val execution by memoizedCapturedExecution(
+                    seed = currentLoadoutIsAlreadySynchronized,
+                    capture = {
+                        requireGeneratedBody()
+                    },
+                ) { _ ->
                     runCommand("sync")
                 }
 
@@ -110,8 +131,7 @@ class SyncE2eSpec : E2eBehaviorSuite({
                 }
 
                 then("it does not rewrite the output files") {
-                    execution.scenario.readGeneratedFile(Constants.CLAUDE_MD) shouldBe
-                        execution.scenario.readWorkspaceFile("scratch/before-claude.txt")
+                    execution.scenario.requireGeneratedBody() shouldBe execution.captured
                 }
             }
 
@@ -125,16 +145,25 @@ class SyncE2eSpec : E2eBehaviorSuite({
                     execution.scenario.shouldHaveGeneratedFiles()
                 }
 
-                then("it outputs that it rewrote the files") {
+                then("it reports that it rewrote the files") {
                     execution.result.shouldContainInStdout("Generated files")
+                }
+
+                then("it does not report the up-to-date message") {
                     execution.result.stdout.shouldNotContain("is active and up to date. Nothing to do.")
                 }
             }
 
             action("loadout sync is run with --std-out") {
-                val execution by memoizedExecution(seed = currentLoadoutIsAlreadySynchronized) {
-                    writeWorkspaceFile("scratch/before-claude.txt", readGeneratedFile(Constants.CLAUDE_MD).orEmpty())
-                    writeWorkspaceFile("scratch/before-hash.txt", readConfig()?.compositionHash ?: "<null>")
+                val execution by memoizedCapturedExecution(
+                    seed = currentLoadoutIsAlreadySynchronized,
+                    capture = {
+                        SynchronizedLoadoutCapture(
+                            generatedBody = requireGeneratedBody(),
+                            lastComposedContentHash = requireLastComposedContentHash(),
+                        )
+                    },
+                ) { _ ->
                     runCommand("sync", "--std-out")
                 }
 
@@ -143,35 +172,44 @@ class SyncE2eSpec : E2eBehaviorSuite({
                 }
 
                 then("it does not write files") {
-                    execution.scenario.readGeneratedFile(Constants.CLAUDE_MD) shouldBe
-                        execution.scenario.readWorkspaceFile("scratch/before-claude.txt")
+                    execution.scenario.requireGeneratedBody() shouldBe execution.captured.generatedBody
                 }
 
                 then("it does not change the stored composition hash") {
-                    val previousHash =
-                        execution.scenario.readWorkspaceFile("scratch/before-hash.txt")?.takeUnless { it == "<null>" }
-                    execution.scenario.shouldHaveUnchangedCompositionHash(previousHash)
+                    execution.scenario.shouldHaveUnchangedLastComposedContentHash(
+                        execution.captured.lastComposedContentHash
+                    )
                 }
             }
 
             action("loadout sync is run with --output and a custom directory") {
-                val execution by memoizedExecution(seed = currentLoadoutIsAlreadySynchronized) {
-                    writeWorkspaceFile("scratch/before-hash.txt", readConfig()?.compositionHash ?: "<null>")
-                    val outputDirectory = createCustomOutputDirectory()
-                    writeWorkspaceFile("scratch/output-dir.txt", outputDirectory)
-                    runCommand("sync", "--output", outputDirectory)
+                val execution by memoizedCapturedExecution(
+                    seed = currentLoadoutIsAlreadySynchronized,
+                    capture = {
+                        SyncOutputDirectoryCapture(
+                            outputDirectory = createCustomOutputDirectory(),
+                            previousLastComposedContentHash = requireLastComposedContentHash(),
+                        )
+                    },
+                ) { captured ->
+                    runCommand("sync", "--output", captured.outputDirectory)
                 }
 
                 then("it writes CLAUDE.md, AGENTS.md, and GEMINI.md to the requested directory") {
-                    val outputDirectory = execution.scenario.readWorkspaceFile("scratch/output-dir.txt")!!
-                    execution.scenario.shouldHaveGeneratedFiles(directory = outputDirectory)
-                    execution.scenario.shouldHaveGeneratedBodyInDirectory(outputDirectory, firstFragmentContent)
+                    execution.scenario.shouldHaveGeneratedFiles(directory = execution.captured.outputDirectory)
+                }
+
+                then("it writes the current composed body to the requested directory") {
+                    execution.scenario.shouldHaveGeneratedBodyInDirectory(
+                        execution.captured.outputDirectory,
+                        firstFragmentContent,
+                    )
                 }
 
                 then("it leaves the stored composition hash unchanged") {
-                    val previousHash =
-                        execution.scenario.readWorkspaceFile("scratch/before-hash.txt")?.takeUnless { it == "<null>" }
-                    execution.scenario.shouldHaveUnchangedCompositionHash(previousHash)
+                    execution.scenario.shouldHaveUnchangedLastComposedContentHash(
+                        execution.captured.previousLastComposedContentHash
+                    )
                 }
             }
         }
@@ -180,15 +218,17 @@ class SyncE2eSpec : E2eBehaviorSuite({
             val updatedContent = "## Alpha Fragment\n\nUpdated guidance"
 
             action("loadout sync is run") {
-                val execution by memoizedExecution(
+                val execution by memoizedCapturedExecution(
                     seed = {
                         givenCurrentLoadoutFragmentsHaveChangedSinceLastComposition(
                             name = "alpha",
                             updatedContent = updatedContent
                         )
-                    }
-                ) {
-                    writeWorkspaceFile("scratch/before-hash.txt", readConfig()?.compositionHash ?: "<null>")
+                    },
+                    capture = {
+                        requireLastComposedContentHash()
+                    },
+                ) { _ ->
                     runCommand("sync")
                 }
 
@@ -201,9 +241,7 @@ class SyncE2eSpec : E2eBehaviorSuite({
                 }
 
                 then("it updates the stored composition hash") {
-                    val previousHash =
-                        execution.scenario.readWorkspaceFile("scratch/before-hash.txt")?.takeUnless { it == "<null>" }
-                    execution.scenario.readConfig()?.compositionHash shouldNotBe previousHash
+                    execution.scenario.requireLastComposedContentHash() shouldNotBe execution.captured
                 }
 
                 then("the next command exits with result 0") {
@@ -216,15 +254,17 @@ class SyncE2eSpec : E2eBehaviorSuite({
             }
 
             action("loadout sync is run with --std-out") {
-                val execution by memoizedExecution(
+                val execution by memoizedCapturedExecution(
                     seed = {
                         givenCurrentLoadoutFragmentsHaveChangedSinceLastComposition(
                             name = "alpha",
                             updatedContent = updatedContent
                         )
-                    }
-                ) {
-                    writeWorkspaceFile("scratch/before-hash.txt", readConfig()?.compositionHash ?: "<null>")
+                    },
+                    capture = {
+                        requireLastComposedContentHash()
+                    },
+                ) { _ ->
                     runCommand("sync", "--std-out")
                 }
 
@@ -237,9 +277,7 @@ class SyncE2eSpec : E2eBehaviorSuite({
                 }
 
                 then("it does not change the stored composition hash") {
-                    val previousHash =
-                        execution.scenario.readWorkspaceFile("scratch/before-hash.txt")?.takeUnless { it == "<null>" }
-                    execution.scenario.shouldHaveUnchangedCompositionHash(previousHash)
+                    execution.scenario.shouldHaveUnchangedLastComposedContentHash(execution.captured)
                 }
 
                 then("the next command exits with result 0") {
@@ -252,34 +290,41 @@ class SyncE2eSpec : E2eBehaviorSuite({
             }
 
             action("loadout sync is run with --output and a custom directory") {
-                val execution by memoizedExecution(
+                val execution by memoizedCapturedExecution(
                     seed = {
                         givenCurrentLoadoutFragmentsHaveChangedSinceLastComposition(
                             name = "alpha",
                             updatedContent = updatedContent
                         )
-                    }
-                ) {
-                    writeWorkspaceFile("scratch/before-hash.txt", readConfig()?.compositionHash ?: "<null>")
-                    val outputDirectory = createCustomOutputDirectory()
-                    writeWorkspaceFile("scratch/output-dir.txt", outputDirectory)
-                    runCommand("sync", "--output", outputDirectory)
+                    },
+                    capture = {
+                        SyncOutputDirectoryCapture(
+                            outputDirectory = createCustomOutputDirectory(),
+                            previousLastComposedContentHash = requireLastComposedContentHash(),
+                        )
+                    },
+                ) { captured ->
+                    runCommand("sync", "--output", captured.outputDirectory)
                 }
 
                 then("it writes CLAUDE.md, AGENTS.md, and GEMINI.md to the requested directory") {
-                    val outputDirectory = execution.scenario.readWorkspaceFile("scratch/output-dir.txt")!!
-                    execution.scenario.shouldHaveGeneratedFiles(directory = outputDirectory)
-                    execution.scenario.shouldHaveGeneratedBodyInDirectory(outputDirectory, updatedContent)
+                    execution.scenario.shouldHaveGeneratedFiles(directory = execution.captured.outputDirectory)
+                }
+
+                then("it writes the recomposed body to the requested directory") {
+                    execution.scenario.shouldHaveGeneratedBodyInDirectory(
+                        execution.captured.outputDirectory,
+                        updatedContent,
+                    )
                 }
 
                 then("it updates the stored composition hash for the current composition") {
-                    val previousHash =
-                        execution.scenario.readWorkspaceFile("scratch/before-hash.txt")?.takeUnless { it == "<null>" }
-                    execution.scenario.readConfig()?.compositionHash shouldNotBe previousHash
+                    execution.scenario.requireLastComposedContentHash() shouldNotBe
+                        execution.captured.previousLastComposedContentHash
                 }
 
                 then("it records the current loadout name") {
-                    execution.scenario.shouldHaveCurrentLoadoutName("alpha")
+                    execution.scenario.shouldHaveActiveLoadoutName("alpha")
                 }
 
                 then("the next command exits with result 0") {

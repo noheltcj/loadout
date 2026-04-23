@@ -8,6 +8,10 @@ const val architectFragmentPath = "fragments/loadout-architect.md"
 const val firstFragmentPath = "fragments/alpha.md"
 const val secondFragmentPath = "fragments/beta.md"
 const val thirdFragmentPath = "fragments/gamma.md"
+const val repositorySettingsPath = ".loadout.json"
+const val hooksDirectoryPath = ".githooks"
+const val postCheckoutHookPath = ".githooks/post-checkout"
+const val postMergeHookPath = ".githooks/post-merge"
 
 const val firstFragmentContent = "## Alpha Fragment\n\nAlpha guidance"
 const val secondFragmentContent = "## Beta Fragment\n\nBeta guidance"
@@ -87,10 +91,10 @@ fun E2eScenario.givenCurrentLoadoutIsSet(
     check(useResult.exitCode == 0) {
         "Expected setup command 'use $name' to succeed, but got exit ${useResult.exitCode}:\n${useResult.output}"
     }
-    check(readConfig()?.currentLoadoutName == name) {
+    check(readLocalLoadoutState()?.activeLoadoutName == name) {
         buildString {
-            append("Expected current loadout '$name' after setup, but config was ")
-            append(readWorkspaceFile(Constants.CONFIG_FILE))
+            append("Expected active loadout '$name' after setup, but local state was ")
+            append(readWorkspaceFile(Constants.LOCAL_LOADOUT_STATE_FILE))
             append("\nCommand output:\n")
             append(useResult.output)
             appendGeneratedFileStatuses(this@givenCurrentLoadoutIsSet)
@@ -102,8 +106,8 @@ fun E2eScenario.givenCurrentLoadoutIsSet(
                 append("Expected $fileName to exist after setting current loadout '$name'")
                 append("\nCommand output:\n")
                 append(useResult.output)
-                append("\nConfig:\n")
-                append(readWorkspaceFile(Constants.CONFIG_FILE))
+                append("\nLocal state:\n")
+                append(readWorkspaceFile(Constants.LOCAL_LOADOUT_STATE_FILE))
             }
         }
     }
@@ -131,10 +135,10 @@ fun E2eScenario.givenRepoInitializedInSharedMode() {
     check(initResult.exitCode == 0) {
         "Expected setup command 'init shared repo' to succeed, but got exit ${initResult.exitCode}:\n${initResult.output}"
     }
-    check(readConfig()?.currentLoadoutName == "default") {
+    check(readLocalLoadoutState()?.activeLoadoutName == "default") {
         buildString {
-            append("Expected shared init to activate default loadout, but config was ")
-            append(readWorkspaceFile(Constants.CONFIG_FILE))
+            append("Expected shared init to activate default loadout, but local state was ")
+            append(readWorkspaceFile(Constants.LOCAL_LOADOUT_STATE_FILE))
             append("\nCommand output:\n")
             append(initResult.output)
             append("\nDefault loadout:\n")
@@ -149,10 +153,10 @@ fun E2eScenario.givenRepoInitializedInLocalMode() {
     check(initResult.exitCode == 0) {
         "Expected setup command 'init local repo' to succeed, but got exit ${initResult.exitCode}:\n${initResult.output}"
     }
-    check(readConfig()?.currentLoadoutName == "default") {
+    check(readLocalLoadoutState()?.activeLoadoutName == "default") {
         buildString {
-            append("Expected local init to activate default loadout, but config was ")
-            append(readWorkspaceFile(Constants.CONFIG_FILE))
+            append("Expected local init to activate default loadout, but local state was ")
+            append(readWorkspaceFile(Constants.LOCAL_LOADOUT_STATE_FILE))
             append("\nCommand output:\n")
             append(initResult.output)
             append("\nDefault loadout:\n")
@@ -160,4 +164,8 @@ fun E2eScenario.givenRepoInitializedInLocalMode() {
             appendGeneratedFileStatuses(this@givenRepoInitializedInLocalMode)
         }
     }
+}
+
+fun E2eScenario.givenGitRepositoryExists() {
+    initializeGitRepository()
 }

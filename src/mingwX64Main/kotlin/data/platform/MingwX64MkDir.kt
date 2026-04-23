@@ -8,3 +8,5 @@ internal actual fun platformMkdir(path: String): Int {
     // MinGW's mkdir only takes one parameter (no permission bits on Windows)
     return mkdir(path)
 }
+
+internal actual fun platformMakeExecutable(path: String): Int = 0

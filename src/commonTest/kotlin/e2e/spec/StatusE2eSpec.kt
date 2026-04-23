@@ -2,13 +2,13 @@
 
 package e2e.spec
 
-import domain.entity.LoadoutConfig
+import domain.entity.LocalLoadoutState
 import e2e.support.E2eBehaviorSuite
 import e2e.support.ScenarioSeed
 import e2e.support.action
+import e2e.support.andThen
 import e2e.support.firstFragmentPath
 import e2e.support.givenConfigPointsAtDeletedLoadout
-import e2e.support.givenCurrentLoadoutFragmentsHaveChangedSinceLastComposition
 import e2e.support.givenCurrentLoadoutIsSet
 import e2e.support.shouldContainInOutput
 import e2e.support.shouldContainInStdout
@@ -38,6 +38,14 @@ class StatusE2eSpec : E2eBehaviorSuite({
             val currentLoadoutIsSet: ScenarioSeed = {
                 givenCurrentLoadoutIsSet(name = "alpha")
             }
+            val currentLoadoutHasDescription: ScenarioSeed =
+                currentLoadoutIsSet.andThen {
+                    seedLoadout(name = "alpha", description = "Primary loadout", fragments = listOf(firstFragmentPath))
+                }
+            val currentLoadoutFragmentsChanged: ScenarioSeed =
+                currentLoadoutIsSet.andThen {
+                    seedFragment(firstFragmentPath, "## Alpha Fragment\n\nUpdated guidance")
+                }
 
             action("loadout is run without a subcommand") {
                 val execution by memoizedAction(seed = currentLoadoutIsSet)
@@ -58,11 +66,7 @@ class StatusE2eSpec : E2eBehaviorSuite({
 
             given("the current loadout has a description") {
                 action("loadout is run without a subcommand") {
-                    val execution by memoizedAction(
-                        seed = {
-                            givenCurrentLoadoutIsSet(name = "alpha", description = "Primary loadout")
-                        }
-                    )
+                    val execution by memoizedAction(seed = currentLoadoutHasDescription)
 
                     then("it outputs the current loadout description") {
                         execution.result.shouldContainInStdout("Description: Primary loadout")
@@ -81,7 +85,12 @@ class StatusE2eSpec : E2eBehaviorSuite({
             given("composing the current loadout fails") {
                 val brokenCurrentLoadout: ScenarioSeed = {
                     seedLoadout(name = "broken", fragments = listOf(firstFragmentPath))
-                    writeConfig(LoadoutConfig(currentLoadoutName = "broken", compositionHash = null))
+                    writeLocalLoadoutState(
+                        LocalLoadoutState(
+                            activeLoadoutName = "broken",
+                            lastComposedContentHash = null,
+                        )
+                    )
                 }
 
                 action("loadout is run without a subcommand") {
@@ -99,11 +108,7 @@ class StatusE2eSpec : E2eBehaviorSuite({
 
             given("the current loadout fragments have changed since the last composition") {
                 action("loadout is run without a subcommand") {
-                    val execution by memoizedAction(
-                        seed = {
-                            givenCurrentLoadoutFragmentsHaveChangedSinceLastComposition(name = "alpha")
-                        }
-                    )
+                    val execution by memoizedAction(seed = currentLoadoutFragmentsChanged)
 
                     then("it outputs the synchronization warning on stderr") {
                         execution.result.shouldHaveStaleWarning()

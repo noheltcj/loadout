@@ -5,6 +5,7 @@ package e2e.spec
 import e2e.support.E2eBehaviorSuite
 import e2e.support.ScenarioSeed
 import e2e.support.action
+import e2e.support.andThen
 import e2e.support.firstFragmentContent
 import e2e.support.firstFragmentPath
 import e2e.support.givenCurrentLoadoutFragmentsHaveChangedSinceLastComposition
@@ -14,11 +15,12 @@ import e2e.support.givenSourceLoadoutExists
 import e2e.support.givenTwoValidLoadoutsExist
 import e2e.support.secondFragmentContent
 import e2e.support.secondFragmentPath
-import e2e.support.shouldHaveCurrentLoadoutName
+import e2e.support.shouldHaveActiveLoadoutName
 import e2e.support.shouldHaveExitCode
 import e2e.support.shouldHaveGeneratedBody
 import e2e.support.shouldHaveGeneratedFiles
 import e2e.support.shouldHaveLoadoutFragments
+import e2e.support.shouldHaveRepositoryDefaultLoadoutName
 import e2e.support.shouldHaveStaleWarning
 import e2e.support.shouldNotHaveStaleWarning
 import e2e.support.thirdFragmentContent
@@ -31,10 +33,15 @@ class WorkflowE2eSpec : E2eBehaviorSuite({
             val initializedSharedRepo: ScenarioSeed = {
                 givenRepoInitializedInSharedMode()
             }
+            val initializedSharedRepoWithProjectFragment: ScenarioSeed =
+                initializedSharedRepo.andThen {
+                    seedFragment(secondFragmentPath, secondFragmentContent)
+                }
 
             then("it starts with the default loadout created and active") {
                 val scenario by memoizedScenario(seed = initializedSharedRepo)
-                scenario.shouldHaveCurrentLoadoutName("default")
+                scenario.shouldHaveActiveLoadoutName("default")
+                scenario.shouldHaveRepositoryDefaultLoadoutName("default")
             }
 
             action("loadout create is run for the first project-specific loadout with one or more fragments") {
@@ -43,10 +50,7 @@ class WorkflowE2eSpec : E2eBehaviorSuite({
                     "project",
                     "--fragment",
                     secondFragmentPath,
-                    seed = {
-                        givenRepoInitializedInSharedMode()
-                        seedFragment(secondFragmentPath, secondFragmentContent)
-                    }
+                    seed = initializedSharedRepoWithProjectFragment
                 )
 
                 then("it creates the requested loadout definition") {
@@ -55,17 +59,16 @@ class WorkflowE2eSpec : E2eBehaviorSuite({
             }
 
             given("that new loadout has been created") {
-                val projectLoadoutExists: ScenarioSeed = {
-                    givenRepoInitializedInSharedMode()
-                    seedFragment(secondFragmentPath, secondFragmentContent)
-                    runCommand("create", "project", "--fragment", secondFragmentPath)
-                }
+                val projectLoadoutExists: ScenarioSeed =
+                    initializedSharedRepoWithProjectFragment.andThen {
+                        runCommand("create", "project", "--fragment", secondFragmentPath)
+                    }
 
                 action("loadout use is run for that new loadout") {
                     val execution by memoizedAction("use", "project", seed = projectLoadoutExists)
 
                     then("it switches the workspace to the new loadout cleanly") {
-                        execution.scenario.shouldHaveCurrentLoadoutName("project")
+                        execution.scenario.shouldHaveActiveLoadoutName("project")
                     }
 
                     then("it writes CLAUDE.md, AGENTS.md, and GEMINI.md for that new loadout") {
@@ -95,7 +98,7 @@ class WorkflowE2eSpec : E2eBehaviorSuite({
                 }
 
                 then("it records the new current loadout") {
-                    execution.scenario.shouldHaveCurrentLoadoutName("beta")
+                    execution.scenario.shouldHaveActiveLoadoutName("beta")
                 }
             }
         }
@@ -131,13 +134,12 @@ class WorkflowE2eSpec : E2eBehaviorSuite({
         }
 
         given("the current loadout fragments have changed since the last composition") {
+            val staleCurrentLoadout: ScenarioSeed = {
+                givenCurrentLoadoutFragmentsHaveChangedSinceLastComposition(name = "alpha")
+            }
+
             action("a read-only command such as loadout list is run") {
-                val execution by memoizedAction(
-                    "list",
-                    seed = {
-                        givenCurrentLoadoutFragmentsHaveChangedSinceLastComposition(name = "alpha")
-                    }
-                )
+                val execution by memoizedAction("list", seed = staleCurrentLoadout)
 
                 then("it warns that the current loadout is not synchronized") {
                     execution.result.shouldHaveStaleWarning()
@@ -145,12 +147,7 @@ class WorkflowE2eSpec : E2eBehaviorSuite({
             }
 
             action("loadout sync is run") {
-                val execution by memoizedAction(
-                    "sync",
-                    seed = {
-                        givenCurrentLoadoutFragmentsHaveChangedSinceLastComposition(name = "alpha")
-                    }
-                )
+                val execution by memoizedAction("sync", seed = staleCurrentLoadout)
 
                 then("the next command exits with result 0") {
                     execution.scenario.runCommand("list").shouldHaveExitCode(0)
@@ -163,6 +160,14 @@ class WorkflowE2eSpec : E2eBehaviorSuite({
         }
 
         given("the source loadout exists") {
+            val sourceLoadoutExists: ScenarioSeed = {
+                givenSourceLoadoutExists()
+            }
+            val sourceLoadoutExistsWithSecondFragment: ScenarioSeed =
+                sourceLoadoutExists.andThen {
+                    seedFragment(secondFragmentPath, secondFragmentContent)
+                }
+
             action("loadout create is run with --clone and extra fragments") {
                 val execution by memoizedAction(
                     "create",
@@ -171,10 +176,7 @@ class WorkflowE2eSpec : E2eBehaviorSuite({
                     "source",
                     "--fragment",
                     secondFragmentPath,
-                    seed = {
-                        givenSourceLoadoutExists()
-                        seedFragment(secondFragmentPath, secondFragmentContent)
-                    }
+                    seed = sourceLoadoutExistsWithSecondFragment
                 )
 
                 then("it preserves the source fragments") {
@@ -194,21 +196,20 @@ class WorkflowE2eSpec : E2eBehaviorSuite({
             }
 
             given("the cloned loadout has been created with those extra fragments") {
-                val customizedCloneExists: ScenarioSeed = {
-                    givenSourceLoadoutExists()
-                    seedFragment(secondFragmentPath, secondFragmentContent)
-                    seedFragment(thirdFragmentPath, thirdFragmentContent)
-                    runCommand(
-                        "create",
-                        "clone",
-                        "--clone",
-                        "source",
-                        "--fragment",
-                        secondFragmentPath,
-                        "--fragment",
-                        thirdFragmentPath
-                    )
-                }
+                val customizedCloneExists: ScenarioSeed =
+                    sourceLoadoutExistsWithSecondFragment.andThen {
+                        seedFragment(thirdFragmentPath, thirdFragmentContent)
+                        runCommand(
+                            "create",
+                            "clone",
+                            "--clone",
+                            "source",
+                            "--fragment",
+                            secondFragmentPath,
+                            "--fragment",
+                            thirdFragmentPath
+                        )
+                    }
 
                 action("loadout use is run for the cloned loadout") {
                     val execution by memoizedAction("use", "clone", seed = customizedCloneExists)

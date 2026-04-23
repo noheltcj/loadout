@@ -2,6 +2,8 @@ import dev.detekt.gradle.Detekt
 import org.gradle.api.tasks.TaskProvider
 import org.jetbrains.kotlin.gradle.plugin.KotlinSourceSet
 import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeTarget
+import org.jetbrains.kotlin.gradle.targets.native.tasks.KotlinNativeTest
+import java.util.Locale
 
 plugins {
     id("dev.detekt") version "2.0.0-alpha.2"
@@ -169,4 +171,76 @@ tasks.withType<Detekt>().configureEach {
         sarif.required = false
         sarif.outputLocation = layout.buildDirectory.file("reports/detekt/$name.sarif")
     }
+}
+
+data class HostBinarySpec(
+    val targetName: String,
+    val targetTaskSuffix: String,
+    val executableExtension: String,
+    val helperScriptFileName: String,
+)
+
+private val POSIX_HELPER_SCRIPT_NAME = "loadout-e2e-helper.sh"
+private val WINDOWS_HELPER_SCRIPT_NAME = "loadout-e2e-helper.cmd"
+private val LOADOUT_BIN_ENVIRONMENT_VARIABLE = "LOADOUT_BIN"
+private val LOADOUT_E2E_BINARY_PATH_ENVIRONMENT_VARIABLE = "LOADOUT_E2E_BINARY_PATH"
+private val LOADOUT_E2E_HELPER_PATH_ENVIRONMENT_VARIABLE = "LOADOUT_E2E_HELPER_PATH"
+
+fun currentHostBinarySpec(): HostBinarySpec {
+    val operatingSystem = System.getProperty("os.name").lowercase(Locale.US)
+    val architecture = System.getProperty("os.arch").lowercase(Locale.US)
+
+    return when {
+        operatingSystem == "mac os x" && (architecture == "aarch64" || architecture == "arm64") ->
+            HostBinarySpec(
+                targetName = "macosArm64",
+                targetTaskSuffix = "MacosArm64",
+                executableExtension = ".kexe",
+                helperScriptFileName = POSIX_HELPER_SCRIPT_NAME
+            )
+        operatingSystem == "mac os x" ->
+            HostBinarySpec(
+                targetName = "macosX64",
+                targetTaskSuffix = "MacosX64",
+                executableExtension = ".kexe",
+                helperScriptFileName = POSIX_HELPER_SCRIPT_NAME
+            )
+        operatingSystem == "linux" && (architecture == "aarch64" || architecture == "arm64") ->
+            HostBinarySpec(
+                targetName = "linuxArm64",
+                targetTaskSuffix = "LinuxArm64",
+                executableExtension = ".kexe",
+                helperScriptFileName = POSIX_HELPER_SCRIPT_NAME
+            )
+        operatingSystem == "linux" ->
+            HostBinarySpec(
+                targetName = "linuxX64",
+                targetTaskSuffix = "LinuxX64",
+                executableExtension = ".kexe",
+                helperScriptFileName = POSIX_HELPER_SCRIPT_NAME
+            )
+        operatingSystem.startsWith("windows") ->
+            HostBinarySpec(
+                targetName = "mingwX64",
+                targetTaskSuffix = "MingwX64",
+                executableExtension = ".exe",
+                helperScriptFileName = WINDOWS_HELPER_SCRIPT_NAME
+            )
+        else -> error("Unsupported host platform: $operatingSystem ($architecture)")
+    }
+}
+
+val hostBinarySpec = currentHostBinarySpec()
+val hostMainExecutable =
+    layout.buildDirectory.file(
+        "bin/${hostBinarySpec.targetName}/debugExecutable/${project.name}${hostBinarySpec.executableExtension}"
+    )
+val e2eHelperScript =
+    layout.projectDirectory.file("scripts/e2e/${hostBinarySpec.helperScriptFileName}")
+
+tasks.withType<KotlinNativeTest>().configureEach {
+    dependsOn("linkDebugExecutable${hostBinarySpec.targetTaskSuffix}")
+    environment(LOADOUT_BIN_ENVIRONMENT_VARIABLE, e2eHelperScript.asFile.absolutePath)
+    environment(LOADOUT_E2E_BINARY_PATH_ENVIRONMENT_VARIABLE, hostMainExecutable.get().asFile.absolutePath)
+    environment(LOADOUT_E2E_HELPER_PATH_ENVIRONMENT_VARIABLE, e2eHelperScript.asFile.absolutePath)
 }

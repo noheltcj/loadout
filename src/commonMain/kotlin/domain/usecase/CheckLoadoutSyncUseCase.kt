@@ -2,32 +2,35 @@ package domain.usecase
 
 import domain.entity.error.LoadoutError
 import domain.entity.packaging.Result
-import domain.repository.ConfigRepository
 import domain.repository.LoadoutRepository
+import domain.repository.LocalLoadoutStateRepository
 import domain.service.LoadoutCompositionService
 
 class CheckLoadoutSyncUseCase(
-    private val configRepository: ConfigRepository,
+    private val localLoadoutStateRepository: LocalLoadoutStateRepository,
     private val loadoutRepository: LoadoutRepository,
     private val compositionService: LoadoutCompositionService,
 ) {
     operator fun invoke(): Result<Boolean, LoadoutError> =
-        configRepository
-            .loadConfig()
-            .flatMap { config ->
+        localLoadoutStateRepository
+            .loadLocalState()
+            .flatMap { localLoadoutState ->
                 when {
-                    config.currentLoadoutName == null -> Result.Success(true)
-                    config.compositionHash == null -> Result.Success(false)
+                    localLoadoutState.activeLoadoutName == null -> Result.Success(true)
+                    localLoadoutState.lastComposedContentHash == null -> Result.Success(false)
                     else -> {
                         loadoutRepository
-                            .findByName(config.currentLoadoutName)
+                            .findByName(localLoadoutState.activeLoadoutName)
                             .flatMap { loadout ->
                                 when (loadout) {
-                                    null -> Result.Error(LoadoutError.LoadoutNotFound(config.currentLoadoutName))
+                                    null -> Result.Error(
+                                        LoadoutError.LoadoutNotFound(localLoadoutState.activeLoadoutName)
+                                    )
                                     else ->
                                         compositionService(loadout)
                                             .map { composedOutput ->
-                                                composedOutput.metadata.contentHash == config.compositionHash
+                                                composedOutput.metadata.contentHash ==
+                                                    localLoadoutState.lastComposedContentHash
                                             }
                                 }
                             }

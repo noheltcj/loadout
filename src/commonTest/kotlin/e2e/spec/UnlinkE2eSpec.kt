@@ -5,6 +5,7 @@ package e2e.spec
 import e2e.support.E2eBehaviorSuite
 import e2e.support.ScenarioSeed
 import e2e.support.action
+import e2e.support.andThen
 import e2e.support.firstFragmentContent
 import e2e.support.firstFragmentPath
 import e2e.support.givenCurrentLoadoutIsSet
@@ -13,7 +14,7 @@ import e2e.support.secondFragmentContent
 import e2e.support.secondFragmentPath
 import e2e.support.shouldContainInOutput
 import e2e.support.shouldContainInStdout
-import e2e.support.shouldHaveCurrentLoadoutName
+import e2e.support.shouldHaveActiveLoadoutName
 import e2e.support.shouldHaveExitCode
 import e2e.support.shouldHaveGeneratedBody
 import e2e.support.shouldHaveLoadoutFragments
@@ -81,15 +82,13 @@ class UnlinkE2eSpec : E2eBehaviorSuite({
 
         given("the loadout named by --from is valid and not currently active") {
             val validInactiveTarget: ScenarioSeed = {
-                givenValidLoadout(
-                    name = "target",
-                    fragments =
-                    listOf(
-                        firstFragmentPath to firstFragmentContent,
-                        secondFragmentPath to secondFragmentContent
-                    )
-                )
+                givenValidLoadout(name = "target")
             }
+            val inactiveTargetContainingRequestedFragment: ScenarioSeed =
+                validInactiveTarget.andThen {
+                    seedFragment(secondFragmentPath, secondFragmentContent)
+                    seedLoadout(name = "target", fragments = listOf(firstFragmentPath, secondFragmentPath))
+                }
 
             given("the fragment is present in the target loadout") {
                 action("loadout unlink is run") {
@@ -98,8 +97,7 @@ class UnlinkE2eSpec : E2eBehaviorSuite({
                         firstFragmentPath,
                         "--from",
                         "target",
-                        seed = {
-                            validInactiveTarget()
+                        seed = inactiveTargetContainingRequestedFragment.andThen {
                             givenCurrentLoadoutIsSet(
                                 name = "current",
                                 fragments = listOf(secondFragmentPath to secondFragmentContent)
@@ -116,7 +114,7 @@ class UnlinkE2eSpec : E2eBehaviorSuite({
                     }
 
                     then("it does not change the current loadout") {
-                        execution.scenario.shouldHaveCurrentLoadoutName("current")
+                        execution.scenario.shouldHaveActiveLoadoutName("current")
                     }
                 }
 
@@ -126,7 +124,7 @@ class UnlinkE2eSpec : E2eBehaviorSuite({
                         "./$firstFragmentPath",
                         "--from",
                         "target",
-                        seed = validInactiveTarget
+                        seed = inactiveTargetContainingRequestedFragment
                     )
 
                     then("it removes the fragment using the normalized path") {
@@ -144,9 +142,7 @@ class UnlinkE2eSpec : E2eBehaviorSuite({
                         firstFragmentPath,
                         "--from",
                         "target",
-                        seed = {
-                            seedFragment(firstFragmentPath, firstFragmentContent)
-                            seedFragment(secondFragmentPath, secondFragmentContent)
+                        seed = inactiveTargetContainingRequestedFragment.andThen {
                             seedLoadout(
                                 name = "target",
                                 fragments = listOf("./$firstFragmentPath", secondFragmentPath)
@@ -162,49 +158,41 @@ class UnlinkE2eSpec : E2eBehaviorSuite({
                         execution.result.shouldHaveExitCode(0)
                     }
                 }
+            }
 
-                given("the fragment was the last fragment") {
-                    action("loadout unlink is run") {
-                        val execution by memoizedAction(
-                            "unlink",
-                            firstFragmentPath,
-                            "--from",
-                            "target",
-                            seed = {
-                                givenValidLoadout(name = "target")
-                            }
-                        )
+            action("loadout unlink is run for a fragment that is not in the target loadout") {
+                val execution by memoizedAction(
+                    "unlink",
+                    secondFragmentPath,
+                    "--from",
+                    "target",
+                    seed = validInactiveTarget
+                )
 
-                        then("it reports that the loadout is now empty") {
-                            execution.result.shouldContainInStdout("Loadout is now empty.")
-                        }
-                    }
+                then("it outputs a fragment-not-in-loadout error") {
+                    execution.result.shouldContainInOutput("is not in loadout")
+                }
+
+                then("it does not change the loadout definition") {
+                    execution.scenario.shouldHaveLoadoutFragments("target", listOf(firstFragmentPath))
+                }
+
+                then("it exits with result 1") {
+                    execution.result.shouldHaveExitCode(1)
                 }
             }
 
-            given("the fragment is not present in the target loadout") {
-                action("loadout unlink is run") {
-                    val execution by memoizedAction(
-                        "unlink",
-                        secondFragmentPath,
-                        "--from",
-                        "target",
-                        seed = {
-                            givenValidLoadout(name = "target")
-                        }
-                    )
+            action("loadout unlink is run for the only fragment in the target loadout") {
+                val execution by memoizedAction(
+                    "unlink",
+                    firstFragmentPath,
+                    "--from",
+                    "target",
+                    seed = validInactiveTarget
+                )
 
-                    then("it outputs a fragment-not-in-loadout error") {
-                        execution.result.shouldContainInOutput("is not in loadout")
-                    }
-
-                    then("it does not change the loadout definition") {
-                        execution.scenario.shouldHaveLoadoutFragments("target", listOf(firstFragmentPath))
-                    }
-
-                    then("it exits with result 1") {
-                        execution.result.shouldHaveExitCode(1)
-                    }
+                then("it reports that the loadout is now empty") {
+                    execution.result.shouldContainInStdout("Loadout is now empty.")
                 }
             }
         }

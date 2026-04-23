@@ -10,6 +10,12 @@ data class ActionExecution(
     val result: CommandResult,
 )
 
+data class CapturedActionExecution<T>(
+    val scenario: E2eScenario,
+    val result: CommandResult,
+    val captured: T,
+)
+
 open class E2eBehaviorSuite(body: E2eBehaviorSuite.() -> Unit = {}) : BehaviorSpec() {
     private val closeables = mutableListOf<AutoCloseable>()
 
@@ -42,6 +48,15 @@ open class E2eBehaviorSuite(body: E2eBehaviorSuite.() -> Unit = {}) : BehaviorSp
             createExecution(seed, execute)
         }
 
+    fun <T> memoizedCapturedExecution(
+        seed: ScenarioSeed = {},
+        capture: E2eScenario.() -> T,
+        execute: E2eScenario.(T) -> CommandResult,
+    ): Lazy<CapturedActionExecution<T>> =
+        lazy {
+            createCapturedExecution(seed, capture, execute)
+        }
+
     private fun <T : AutoCloseable> track(resource: T): T {
         closeables += resource
         return resource
@@ -52,6 +67,20 @@ open class E2eBehaviorSuite(body: E2eBehaviorSuite.() -> Unit = {}) : BehaviorSp
         return ActionExecution(
             scenario = scenario,
             result = scenario.execute()
+        )
+    }
+
+    private fun <T> createCapturedExecution(
+        seed: ScenarioSeed,
+        capture: E2eScenario.() -> T,
+        execute: E2eScenario.(T) -> CommandResult,
+    ): CapturedActionExecution<T> {
+        val scenario = track(E2eScenario.create().apply(seed))
+        val captured = scenario.capture()
+        return CapturedActionExecution(
+            scenario = scenario,
+            result = scenario.execute(captured),
+            captured = captured,
         )
     }
 }

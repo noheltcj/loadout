@@ -8,6 +8,8 @@ interface FileRepository {
 
     fun writeFile(path: String, content: String): Result<Unit, LoadoutError.FileSystemError>
 
+    fun setExecutable(path: String): Result<Unit, LoadoutError.FileSystemError>
+
     fun fileExists(path: String): Boolean
 
     fun createDirectory(path: String): Result<Unit, LoadoutError>

@@ -30,16 +30,24 @@ class SyncCommand(
     private val outputDir by option("--output", "-o")
         .help("Override output directory")
 
+    private val autoSync by option("--auto")
+        .flag(default = false)
+        .help("Resolve the repository default loadout when no current loadout is set")
+
     override fun run() {
         if (stdOutOnly && outputDir != null) {
             echoError(LoadoutError.ValidationError("flags", "Cannot specify both --std-out and --output"))
             throw ProgramResult(1)
         }
 
-        when (val currentResult = loadoutService.getCurrentLoadout()) {
+        when (val currentResult = resolveTargetLoadout()) {
             is Result.Success -> {
                 val currentLoadout = currentResult.value
                 if (currentLoadout == null) {
+                    if (autoSync) {
+                        return
+                    }
+
                     echo("No current loadout set. Use 'loadout list' to see available loadouts.", err = true)
                     throw ProgramResult(1)
                 }
@@ -80,9 +88,16 @@ class SyncCommand(
                 }
             }
             is Result.Error -> {
-                echo("Failed to get current loadout: ${currentResult.error.message}", err = true)
+                echoError(currentResult.error)
                 throw ProgramResult(1)
             }
         }
     }
+
+    private fun resolveTargetLoadout() =
+        if (autoSync) {
+            loadoutService.getAutoSyncLoadout()
+        } else {
+            loadoutService.getCurrentLoadout()
+        }
 }
