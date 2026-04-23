@@ -46,7 +46,9 @@ Thumbs.db
 ehthumbs.db
 
 # Loadout CLI - Shared Mode
-.loadout.json
 AGENTS.md
 CLAUDE.md
 GEMINI.md
+
+# Loadout local runtime state
+.loadout.local.json
