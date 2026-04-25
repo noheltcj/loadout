@@ -8,12 +8,13 @@ import domain.policy.normalizeStoredLoadout
 import domain.policy.validateMarkdownFragmentPath
 import domain.repository.EnvironmentRepository
 import domain.repository.FragmentRepository
+import domain.repository.LoadoutRepository
 
 class LinkFragmentToLoadoutUseCase(
     private val fragmentRepository: FragmentRepository,
     private val environmentRepository: EnvironmentRepository,
     private val getLoadout: GetLoadoutUseCase,
-    private val updateLoadout: UpdateLoadoutUseCase,
+    private val loadoutRepository: LoadoutRepository,
 ) {
     operator fun invoke(
         loadoutName: String,
@@ -48,7 +49,9 @@ class LinkFragmentToLoadoutUseCase(
                                 )
                             )
                         }
-                    }.flatMap(updateLoadout::invoke)
+                    }.flatMap { updatedLoadout ->
+                        loadoutRepository.save(updatedLoadout).map { updatedLoadout }
+                    }
             }
     }
 

@@ -6,11 +6,12 @@ import domain.entity.packaging.Result
 import domain.policy.normalizeFragmentPath
 import domain.policy.normalizeStoredLoadout
 import domain.repository.EnvironmentRepository
+import domain.repository.LoadoutRepository
 
 class UnlinkFragmentFromLoadoutUseCase(
     private val environmentRepository: EnvironmentRepository,
     private val getLoadout: GetLoadoutUseCase,
-    private val updateLoadout: UpdateLoadoutUseCase,
+    private val loadoutRepository: LoadoutRepository,
 ) {
     operator fun invoke(
         loadoutName: String,
@@ -29,6 +30,8 @@ class UnlinkFragmentFromLoadoutUseCase(
                     Result.Success(normalizedLoadout.removeFragment(normalizedFragmentPath, now))
                 }
             }
-            .flatMap(updateLoadout::invoke)
+            .flatMap { updatedLoadout ->
+                loadoutRepository.save(updatedLoadout).map { updatedLoadout }
+            }
     }
 }

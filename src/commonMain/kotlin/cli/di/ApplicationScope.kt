@@ -24,7 +24,6 @@ import domain.usecase.ReadCurrentLoadoutStatusUseCase
 import domain.usecase.RemoveLoadoutUseCase
 import domain.usecase.SyncLoadoutUseCase
 import domain.usecase.UnlinkFragmentFromLoadoutUseCase
-import domain.usecase.UpdateLoadoutUseCase
 import domain.usecase.UpdateRepositorySettingsUseCase
 import domain.usecase.UseLoadoutUseCase
 import domain.usecase.WriteComposedFilesUseCase
@@ -81,10 +80,6 @@ fun <T> withApplicationScope(scopedBlock: ApplicationScope.() -> T): T {
         ListLoadoutsUseCase(
             loadoutRepository = loadoutRepository
         )
-    val updateLoadout =
-        UpdateLoadoutUseCase(
-            loadoutRepository = loadoutRepository
-        )
     val createLoadout =
         CreateLoadoutUseCase(
             loadoutRepository = loadoutRepository,
@@ -96,13 +91,13 @@ fun <T> withApplicationScope(scopedBlock: ApplicationScope.() -> T): T {
             fragmentRepository = fragmentRepository,
             environmentRepository = environmentRepository,
             getLoadout = getLoadout,
-            updateLoadout = updateLoadout
+            loadoutRepository = loadoutRepository
         )
     val unlinkFragmentFromLoadout =
         UnlinkFragmentFromLoadoutUseCase(
             environmentRepository = environmentRepository,
             getLoadout = getLoadout,
-            updateLoadout = updateLoadout
+            loadoutRepository = loadoutRepository
         )
     val removeLoadout =
         RemoveLoadoutUseCase(
