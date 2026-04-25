@@ -11,7 +11,11 @@ data class CompositionMetadata(
     val contentHash: String,
 ) {
     companion object {
-        fun from(content: String, fragmentPaths: List<String>, currentTimeMillis: Long): CompositionMetadata =
+        fun from(
+            content: String,
+            fragmentPaths: List<String>,
+            currentTimeMillis: Long,
+        ): CompositionMetadata =
             CompositionMetadata(
                 generatedAt = currentTimeMillis,
                 fragmentPaths = fragmentPaths,

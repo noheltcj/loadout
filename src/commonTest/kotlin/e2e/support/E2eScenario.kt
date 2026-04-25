@@ -97,12 +97,18 @@ class E2eScenario private constructor(
             .requireSuccess("git config user.email")
     }
 
-    fun commitAllFiles(message: String, workingDirectory: String = workspaceRoot) {
+    fun commitAllFiles(
+        message: String,
+        workingDirectory: String = workspaceRoot,
+    ) {
         runGit("add", "-A", workingDirectory = workingDirectory).requireSuccess("git add -A")
         runGit("commit", "-m", message, workingDirectory = workingDirectory).requireSuccess("git commit")
     }
 
-    fun readGitLocalConfig(key: String, workingDirectory: String = workspaceRoot): String? {
+    fun readGitLocalConfig(
+        key: String,
+        workingDirectory: String = workspaceRoot,
+    ): String? {
         val result = runGit("config", "--local", "--get", key, workingDirectory = workingDirectory)
         return if (result.exitCode == 0) {
             result.stdout.trim().ifBlank { null }
@@ -140,7 +146,10 @@ class E2eScenario private constructor(
 
     fun homePath(relativePath: String): String = if (relativePath.isBlank()) homeRoot else "$homeRoot/$relativePath"
 
-    fun writeWorkspaceFile(relativePath: String, content: String) {
+    fun writeWorkspaceFile(
+        relativePath: String,
+        content: String,
+    ) {
         writeFile(relativePath, content)
     }
 
@@ -231,18 +240,26 @@ class E2eScenario private constructor(
         return loadout
     }
 
-    fun seedFragment(relativePath: String, content: String) {
+    fun seedFragment(
+        relativePath: String,
+        content: String,
+    ) {
         writeWorkspaceFile(relativePath, content)
     }
 
     fun readGeneratedFile(fileName: String): String? = readWorkspaceFile(fileName)
 
-    fun readGeneratedFileFromDirectory(directory: String, fileName: String): String? = readFile("$directory/$fileName")
+    fun readGeneratedFileFromDirectory(
+        directory: String,
+        fileName: String,
+    ): String? = readFile("$directory/$fileName")
 
     fun readGeneratedBody(fileName: String): String? = readGeneratedFile(fileName)?.stripGeneratedMetadata()
 
-    fun readGeneratedBodyFromDirectory(directory: String, fileName: String): String? =
-        readGeneratedFileFromDirectory(directory, fileName)?.stripGeneratedMetadata()
+    fun readGeneratedBodyFromDirectory(
+        directory: String,
+        fileName: String,
+    ): String? = readGeneratedFileFromDirectory(directory, fileName)?.stripGeneratedMetadata()
 
     fun createCustomOutputDirectory(name: String = "custom-output"): String {
         val absolutePath = workspacePath(name)
@@ -258,7 +275,10 @@ class E2eScenario private constructor(
         deleteRecursively(xdgConfigRoot)
     }
 
-    private fun writeFile(path: String, content: String) {
+    private fun writeFile(
+        path: String,
+        content: String,
+    ) {
         withScope {
             createDirectories(path.substringBeforeLast("/", missingDelimiterValue = ""))
             fileRepository.writeFile(path, content).unwrap("write file '$path'")

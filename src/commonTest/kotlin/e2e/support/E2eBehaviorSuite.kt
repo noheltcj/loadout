@@ -36,14 +36,20 @@ open class E2eBehaviorSuite(body: E2eBehaviorSuite.() -> Unit = {}) : BehaviorSp
             track(E2eScenario.create().apply(seed))
         }
 
-    fun memoizedAction(vararg args: String, seed: ScenarioSeed = {}): Lazy<ActionExecution> =
+    fun memoizedAction(
+        vararg args: String,
+        seed: ScenarioSeed = {},
+    ): Lazy<ActionExecution> =
         lazy {
             createExecution(seed) {
                 runCommand(*args)
             }
         }
 
-    fun memoizedExecution(seed: ScenarioSeed = {}, execute: E2eScenario.() -> CommandResult): Lazy<ActionExecution> =
+    fun memoizedExecution(
+        seed: ScenarioSeed = {},
+        execute: E2eScenario.() -> CommandResult,
+    ): Lazy<ActionExecution> =
         lazy {
             createExecution(seed, execute)
         }
@@ -62,7 +68,10 @@ open class E2eBehaviorSuite(body: E2eBehaviorSuite.() -> Unit = {}) : BehaviorSp
         return resource
     }
 
-    private fun createExecution(seed: ScenarioSeed, execute: E2eScenario.() -> CommandResult): ActionExecution {
+    private fun createExecution(
+        seed: ScenarioSeed,
+        execute: E2eScenario.() -> CommandResult,
+    ): ActionExecution {
         val scenario = track(E2eScenario.create().apply(seed))
         return ActionExecution(
             scenario = scenario,

@@ -8,7 +8,7 @@ Names should be explicit and optimized for clarity at the call site.
 - Prefer names that read clearly where they are used, not only where they are defined
 - Favor strong domain names like `fragmentPath`, `loadoutName`, and `outputPaths` over generic placeholders
 - Repository interfaces end in `Repository`
-- Cross-object orchestration logic ends in `Service` or `UseCase`
+- Domain logic ends in `UseCase`
 - Argument carriers introduced for commands or workflows end in `Input`
 - Keep canonical domain types free of presentation-oriented naming
 

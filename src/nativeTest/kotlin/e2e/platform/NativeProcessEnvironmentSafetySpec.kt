@@ -226,7 +226,10 @@ private class FakeNativeProcessOperations(
 
     override fun readEnvironmentVariable(key: String): String? = environment[key]
 
-    override fun setEnvironmentVariable(key: String, value: String): Int {
+    override fun setEnvironmentVariable(
+        key: String,
+        value: String,
+    ): Int {
         if (key in failingSetKeys) {
             return -1
         }

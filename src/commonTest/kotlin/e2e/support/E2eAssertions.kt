@@ -113,14 +113,20 @@ fun E2eScenario.shouldContainLocalModeGitignorePatternsExactlyOnce() {
         .forEach(gitignore::shouldContainExactlyOnce)
 }
 
-private fun E2eScenario.readGeneratedMarkdownFile(fileName: String, directory: String?): String? =
+private fun E2eScenario.readGeneratedMarkdownFile(
+    fileName: String,
+    directory: String?,
+): String? =
     if (directory == null) {
         readGeneratedFile(fileName)
     } else {
         readGeneratedFileFromDirectory(directory, fileName)
     }
 
-private fun E2eScenario.forEachGeneratedMarkdownFile(directory: String?, assertion: (String?) -> Unit) {
+private fun E2eScenario.forEachGeneratedMarkdownFile(
+    directory: String?,
+    assertion: (String?) -> Unit,
+) {
     Constants.generatedMarkdownFiles.forEach { fileName ->
         assertion(readGeneratedMarkdownFile(fileName, directory))
     }
@@ -138,7 +144,10 @@ fun E2eScenario.shouldNotHaveGeneratedFiles(directory: String? = null) {
     }
 }
 
-fun E2eScenario.shouldHaveGeneratedBody(expected: String, fileName: String = Constants.CLAUDE_MD) {
+fun E2eScenario.shouldHaveGeneratedBody(
+    expected: String,
+    fileName: String = Constants.CLAUDE_MD,
+) {
     readGeneratedBody(fileName) shouldBe expected
 }
 
@@ -168,7 +177,11 @@ fun E2eScenario.shouldHaveRepositoryDefaultLoadoutName(expected: String?) {
     readRepositorySettings()?.defaultLoadoutName shouldBe expected
 }
 
-fun E2eScenario.shouldHaveGitLocalConfig(key: String, expected: String?, workingDirectory: String? = null) {
+fun E2eScenario.shouldHaveGitLocalConfig(
+    key: String,
+    expected: String?,
+    workingDirectory: String? = null,
+) {
     readGitLocalConfig(key, workingDirectory = workingDirectory ?: workspaceRoot) shouldBe expected
 }
 
@@ -180,10 +193,16 @@ fun E2eScenario.shouldHaveUnchangedLastComposedContentHash(previousHash: String?
     readLocalLoadoutState()?.lastComposedContentHash shouldBe previousHash
 }
 
-fun E2eScenario.shouldHaveLoadoutFragments(loadoutName: String, expected: List<String>) {
+fun E2eScenario.shouldHaveLoadoutFragments(
+    loadoutName: String,
+    expected: List<String>,
+) {
     readLoadout(loadoutName)?.fragments.shouldNotBeNull().shouldContainExactly(expected)
 }
 
-fun E2eScenario.shouldContainLoadoutFragmentsInOrder(loadoutName: String, expected: List<String>) {
+fun E2eScenario.shouldContainLoadoutFragmentsInOrder(
+    loadoutName: String,
+    expected: List<String>,
+) {
     readLoadout(loadoutName)?.fragments.shouldNotBeNull().shouldContainInOrder(expected)
 }

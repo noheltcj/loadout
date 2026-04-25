@@ -35,7 +35,10 @@ class EnvironmentOverlayBuilder {
         entries[this] = EnvironmentMutation.Set(value)
     }
 
-    fun set(key: String, value: String) {
+    fun set(
+        key: String,
+        value: String,
+    ) {
         key setTo value
     }
 

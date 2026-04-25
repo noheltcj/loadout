@@ -33,7 +33,10 @@ class FileBasedLocalLoadoutStateRepository(
         }
     }
 
-    override fun saveLocalState(localState: LocalLoadoutState, localStatePath: String?): Result<Unit, LoadoutError> {
+    override fun saveLocalState(
+        localState: LocalLoadoutState,
+        localStatePath: String?,
+    ): Result<Unit, LoadoutError> {
         val path = localStatePath ?: Constants.LOCAL_LOADOUT_STATE_FILE
 
         return serializer
