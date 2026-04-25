@@ -26,4 +26,13 @@ sealed class Result<out T, out E> {
             is Success -> transform(value)
             is Error -> this
         }
+
+    inline fun <R> fold(
+        onSuccess: (T) -> R,
+        onError: (E) -> R,
+    ): R =
+        when (this) {
+            is Success -> onSuccess(value)
+            is Error -> onError(error)
+        }
 }

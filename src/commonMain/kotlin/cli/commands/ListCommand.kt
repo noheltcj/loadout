@@ -8,11 +8,10 @@ import com.github.ajalt.clikt.parameters.options.flag
 import com.github.ajalt.clikt.parameters.options.help
 import com.github.ajalt.clikt.parameters.options.option
 import domain.entity.Loadout
-import domain.entity.packaging.Result
-import domain.service.LoadoutService
+import domain.usecase.ListLoadoutsUseCase
 
 class ListCommand(
-    private val loadoutService: LoadoutService,
+    private val listLoadouts: ListLoadoutsUseCase,
 ) : CliktCommand(
     name = "list",
 ) {
@@ -25,22 +24,20 @@ class ListCommand(
     // TODO: Inherit global --config option from main CLI
 
     override fun run() {
-        when (val result = loadoutService.getAllLoadouts()) {
-            is Result.Success -> {
-                val loadouts = result.value
-
+        listLoadouts().fold(
+            onSuccess = { loadouts ->
                 if (loadouts.isEmpty()) {
                     echo("No loadouts found. Create one with 'loadout create <name>'")
                     return
                 }
 
                 outputTable(loadouts)
-            }
-            is Result.Error -> {
-                echoError(result.error, verbose)
+            },
+            onError = { error ->
+                echoError(error, verbose)
                 throw ProgramResult(1)
-            }
-        }
+            },
+        )
     }
 
     private fun outputTable(loadouts: List<Loadout>) {

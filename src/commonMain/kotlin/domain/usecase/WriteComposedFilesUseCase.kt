@@ -22,9 +22,9 @@ class WriteComposedFilesUseCase(
         composedOutput: ComposedOutput,
         outputPaths: List<String>,
     ): Result<WriteComposedFilesResult, LoadoutError> =
-        localLoadoutStateRepository.loadLocalState().flatMap { localLoadoutState ->
+        localLoadoutStateRepository.loadLocalState().flatMap { state ->
             val currentHash = composedOutput.metadata.contentHash
-            val storedHash = localLoadoutState.lastComposedContentHash
+            val storedHash = state.lastComposedContentHash
 
             val allFilesExist = outputPaths.all { fileRepository.fileExists(it) }
 

@@ -8,14 +8,11 @@ import com.github.ajalt.clikt.parameters.arguments.argument
 import com.github.ajalt.clikt.parameters.options.help
 import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.options.required
-import domain.entity.error.LoadoutError
-import domain.entity.packaging.Result
-import domain.repository.FileRepository
-import domain.service.LoadoutService
+import domain.usecase.LinkFragmentToLoadoutInput
+import domain.usecase.LinkFragmentToLoadoutUseCase
 
 class LinkCommand(
-    private val loadoutService: LoadoutService,
-    private val fileRepository: FileRepository,
+    private val linkFragmentToLoadout: LinkFragmentToLoadoutUseCase,
 ) : CliktCommand(
     name = "link",
 ) {
@@ -31,21 +28,14 @@ class LinkCommand(
         .help("Insert the fragment after this existing fragment")
 
     override fun run() {
-        if (!fileRepository.fileExists(fragmentPath)) {
-            echoError(LoadoutError.FragmentNotFound(fragmentPath))
-            throw ProgramResult(1)
-        }
-
-        when (
-            val result =
-                loadoutService.addFragmentToLoadout(
-                    loadoutName = loadoutName,
-                    fragmentPath = fragmentPath,
-                    afterFragment = afterFragment,
-                )
-        ) {
-            is Result.Success -> {
-                val updatedLoadout = result.value
+        linkFragmentToLoadout(
+            LinkFragmentToLoadoutInput(
+                loadoutName = loadoutName,
+                fragmentPath = fragmentPath,
+                afterFragment = afterFragment,
+            )
+        ).fold(
+            onSuccess = { updatedLoadout ->
                 val normalizedInput = fragmentPath.removePrefix("./")
                 echo("Linked fragment '$normalizedInput' to loadout '$loadoutName'")
                 echo("Loadout now has ${updatedLoadout.fragments.size} fragments:")
@@ -53,11 +43,11 @@ class LinkCommand(
                     val marker = if (fragment == normalizedInput) " ← NEW" else ""
                     echo("  ${index + 1}. $fragment$marker")
                 }
-            }
-            is Result.Error -> {
-                echoError(result.error)
+            },
+            onError = { error ->
+                echoError(error)
                 throw ProgramResult(1)
-            }
-        }
+            },
+        )
     }
 }

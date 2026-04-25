@@ -482,6 +482,12 @@ class CreateE2eSpec : E2eBehaviorSuite({
                     execution.result.shouldHaveExitCode(1)
                 }
             }
+
+            // TODO: Add test case for when the source loadout references a fragment that no longer exists
+            // This should read something like:
+            // given("the source loadout references a fragment that no longer exists") {
+            //     action("loadout create is run with --clone") { ... }
+            // }
         }
     }
 })

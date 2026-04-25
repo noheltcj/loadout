@@ -5,12 +5,10 @@ import com.github.ajalt.clikt.core.Context
 import com.github.ajalt.clikt.core.ProgramResult
 import com.github.ajalt.clikt.parameters.arguments.argument
 import com.github.ajalt.clikt.parameters.arguments.multiple
-import domain.repository.FileRepository
-import domain.service.LoadoutService
+import domain.usecase.LinkFragmentToLoadoutUseCase
 
 class AddCommand(
-    private val loadoutService: LoadoutService,
-    private val fileRepository: FileRepository,
+    private val linkFragmentToLoadout: LinkFragmentToLoadoutUseCase,
 ) : CliktCommand(
     name = "add",
 ) {
@@ -32,7 +30,7 @@ class AddCommand(
 
     private fun redirectHelp(): String {
         val help =
-            LinkCommand(loadoutService, fileRepository).getFormattedHelp()
+            LinkCommand(linkFragmentToLoadout).getFormattedHelp()
                 ?: "Usage: loadout link <fragment-path> --to <loadout> [--after <fragment>]"
 
         val usagePrefix = "Usage: link"

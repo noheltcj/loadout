@@ -8,11 +8,11 @@ import com.github.ajalt.clikt.parameters.arguments.argument
 import com.github.ajalt.clikt.parameters.options.help
 import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.options.required
-import domain.entity.packaging.Result
-import domain.service.LoadoutService
+import domain.usecase.UnlinkFragmentFromLoadoutInput
+import domain.usecase.UnlinkFragmentFromLoadoutUseCase
 
 class UnlinkCommand(
-    private val loadoutService: LoadoutService,
+    private val unlinkFragmentFromLoadout: UnlinkFragmentFromLoadoutUseCase,
 ) : CliktCommand(
     name = "unlink",
 ) {
@@ -26,15 +26,13 @@ class UnlinkCommand(
         .help("Name of the loadout to unlink the fragment from")
 
     override fun run() {
-        when (
-            val result =
-                loadoutService.removeFragmentFromLoadout(
-                    loadoutName = loadoutName,
-                    fragmentPath = fragmentPath
-                )
-        ) {
-            is Result.Success -> {
-                val updatedLoadout = result.value
+        unlinkFragmentFromLoadout(
+            UnlinkFragmentFromLoadoutInput(
+                loadoutName = loadoutName,
+                fragmentPath = fragmentPath
+            )
+        ).fold(
+            onSuccess = { updatedLoadout ->
                 val normalizedInput = fragmentPath.removePrefix("./")
                 echo("Unlinked fragment '$normalizedInput' from loadout '$loadoutName'")
 
@@ -46,11 +44,11 @@ class UnlinkCommand(
                         echo("  ${index + 1}. $fragment")
                     }
                 }
-            }
-            is Result.Error -> {
-                echoError(result.error)
+            },
+            onError = { error ->
+                echoError(error)
                 throw ProgramResult(1)
-            }
-        }
+            },
+        )
     }
 }

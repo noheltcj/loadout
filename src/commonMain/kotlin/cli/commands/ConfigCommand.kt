@@ -6,11 +6,12 @@ import com.github.ajalt.clikt.core.Context
 import com.github.ajalt.clikt.core.ProgramResult
 import com.github.ajalt.clikt.parameters.options.help
 import com.github.ajalt.clikt.parameters.options.option
-import domain.entity.packaging.Result
-import domain.service.LoadoutService
+import domain.usecase.GetRepositorySettingsUseCase
+import domain.usecase.UpdateRepositorySettingsUseCase
 
 class ConfigCommand(
-    private val loadoutService: LoadoutService,
+    private val getRepositorySettings: GetRepositorySettingsUseCase,
+    private val updateRepositorySettings: UpdateRepositorySettingsUseCase,
 ) : CliktCommand(
     name = "config",
 ) {
@@ -21,25 +22,24 @@ class ConfigCommand(
 
     override fun run() {
         val result =
-            defaultLoadoutName?.let { loadoutName ->
-                loadoutService
-                    .setRepositoryDefaultLoadoutName(loadoutName)
-                    .map { settings -> settings.defaultLoadoutName }
-            } ?: loadoutService.getRepositoryDefaultLoadoutName()
+            if (defaultLoadoutName != null) {
+                updateRepositorySettings(defaultLoadoutName).map { it.defaultLoadoutName }
+            } else {
+                getRepositorySettings().map { it.defaultLoadoutName }
+            }
 
-        when (result) {
-            is Result.Success -> {
-                val configuredLoadoutName = result.value
+        result.fold(
+            onSuccess = { configuredLoadoutName ->
                 if (configuredLoadoutName == null) {
                     echo("No repository default loadout set.")
                 } else {
                     echo("Default loadout: $configuredLoadoutName")
                 }
-            }
-            is Result.Error -> {
-                echoError(result.error)
+            },
+            onError = { error ->
+                echoError(error)
                 throw ProgramResult(1)
-            }
-        }
+            },
+        )
     }
 }

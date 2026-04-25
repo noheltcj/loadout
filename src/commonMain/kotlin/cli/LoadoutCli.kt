@@ -7,14 +7,13 @@ import com.github.ajalt.clikt.parameters.options.flag
 import com.github.ajalt.clikt.parameters.options.help
 import com.github.ajalt.clikt.parameters.options.option
 import domain.entity.error.LoadoutError
-import domain.entity.packaging.Result
-import domain.service.LoadoutCompositionService
-import domain.service.LoadoutService
 import domain.usecase.CheckLoadoutSyncUseCase
+import domain.usecase.CurrentLoadoutStatus
+import domain.usecase.LoadoutSyncState
+import domain.usecase.ReadCurrentLoadoutStatusUseCase
 
 class LoadoutCli(
-    private val loadoutService: LoadoutService,
-    private val composeLoadout: LoadoutCompositionService,
+    private val readCurrentLoadoutStatus: ReadCurrentLoadoutStatusUseCase,
     private val checkLoadoutSync: CheckLoadoutSyncUseCase,
 ) : CliktCommand(name = "loadout") {
     override val invokeWithoutSubcommand: Boolean = true
@@ -32,57 +31,62 @@ class LoadoutCli(
         currentContext.callOnClose { warnIfNotSynchronized() }
 
         if (currentContext.invokedSubcommand == null) {
-            when (val result = loadoutService.getCurrentLoadout()) {
-                is Result.Success -> {
-                    val currentLoadout = result.value
-                    if (currentLoadout != null) {
-                        echo("Current loadout: ${currentLoadout.name}")
-                        if (currentLoadout.description.isNotBlank()) {
-                            echo("Description: ${currentLoadout.description}")
-                        }
-                        echo("Fragments: ${currentLoadout.fragments.size}")
-
-                        if (verbose) {
-                            currentLoadout.fragments.forEachIndexed { index, fragment ->
-                                echo("  ${index + 1}. $fragment")
-                            }
+            readCurrentLoadoutStatus().fold(
+                onSuccess = { status ->
+                    when (status) {
+                        CurrentLoadoutStatus.NoCurrentLoadout -> {
+                            echo("No current loadout set. Use 'loadout list' to see available loadouts.")
+                            return
                         }
 
-                        when (val composeResult = composeLoadout(currentLoadout)) {
-                            is Result.Success -> {
-                                echo("\nComposed output: ${composeResult.value.content.length} characters")
+                        is CurrentLoadoutStatus.Active -> {
+                            val currentLoadout = status.loadout
+                            echo("Current loadout: ${currentLoadout.name}")
+                            if (currentLoadout.description.isNotBlank()) {
+                                echo("Description: ${currentLoadout.description}")
                             }
-                            is Result.Error -> {
-                                echoError(composeResult.error, verbose)
-                                throw ProgramResult(1)
+                            echo("Fragments: ${currentLoadout.fragments.size}")
+
+                            if (verbose) {
+                                currentLoadout.fragments.forEachIndexed { index, fragment ->
+                                    echo("  ${index + 1}. $fragment")
+                                }
                             }
+
+                            echo("\nComposed output: ${status.composedOutput.content.length} characters")
                         }
-                    } else {
-                        echo("No current loadout set. Use 'loadout list' to see available loadouts.")
-                        return
                     }
-                }
-                is Result.Error -> {
-                    echoError(result.error, verbose)
+                },
+                onError = { error ->
+                    echoError(error, verbose)
                     throw ProgramResult(1)
-                }
-            }
+                },
+            )
         }
     }
 
     private fun warnIfNotSynchronized() {
-        when (val syncResult = checkLoadoutSync()) {
-            is Result.Success -> {
-                if (!syncResult.value) {
-                    echo("\nWarning: Current loadout fragments have changed since the last composition.", err = true)
-                    echo("To synchronize, run 'loadout sync' and restart your agent.", err = true)
+        checkLoadoutSync().fold(
+            onSuccess = { syncState ->
+                when (syncState) {
+                    LoadoutSyncState.OutOfSync -> {
+                        echo(
+                            "\nWarning: Current loadout fragments have changed since the last composition.",
+                            err = true
+                        )
+                        echo("To synchronize, run 'loadout sync' and restart your agent.", err = true)
+                    }
+
+                    LoadoutSyncState.NoCurrentLoadout,
+                    LoadoutSyncState.Synchronized,
+                    -> Unit
                 }
-            }
-            is Result.Error -> {
-                when (syncResult.error) {
-                    is LoadoutError.FragmentNotFound -> echoError(syncResult.error, verbose)
-                    is LoadoutError.FragmentNotInLoadout -> echoError(syncResult.error, verbose)
-                    is LoadoutError.FragmentAlreadyInLoadout -> echoError(syncResult.error, verbose)
+            },
+            onError = { error ->
+                when (error) {
+                    is LoadoutError.FragmentNotFound -> echoError(error, verbose)
+                    is LoadoutError.FragmentNotInLoadout -> echoError(error, verbose)
+                    is LoadoutError.FragmentAlreadyInLoadout -> echoError(error, verbose)
                     is LoadoutError.LoadoutNotFound -> return
                     is LoadoutError.ConfigurationError,
                     is LoadoutError.FileSystemError,
@@ -91,11 +95,11 @@ class LoadoutCli(
                     is LoadoutError.SerializationError,
                     is LoadoutError.ValidationError,
                     -> {
-                        echoError(syncResult.error, verbose)
+                        echoError(error, verbose)
                         throw ProgramResult(1)
                     }
                 }
-            }
-        }
+            },
+        )
     }
 }
