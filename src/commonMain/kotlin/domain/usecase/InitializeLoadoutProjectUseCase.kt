@@ -6,11 +6,6 @@ import domain.entity.error.LoadoutError
 import domain.entity.packaging.Result
 import domain.repository.FileRepository
 
-enum class LoadoutInitializationMode {
-    Shared,
-    Local,
-}
-
 sealed interface InitializeLoadoutProjectInput {
     val gitignorePath: String
     val gitignorePatterns: List<String>

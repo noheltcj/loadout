@@ -16,7 +16,6 @@ import domain.usecase.GitHookDefinition
 import domain.usecase.GitignoreConfigurationResult
 import domain.usecase.InitializeLoadoutProjectInput
 import domain.usecase.InitializeLoadoutProjectUseCase
-import domain.usecase.LoadoutInitializationMode
 import domain.usecase.StarterFragmentCreationResult
 
 class InitCommand(
@@ -34,12 +33,6 @@ class InitCommand(
         .help("Mode: 'shared' (recommended) for team collaboration, 'local' for local-only configuration")
 
     override fun run() {
-        val initializationMode =
-            when (mode) {
-                InitMode.SHARED -> LoadoutInitializationMode.Shared
-                InitMode.LOCAL -> LoadoutInitializationMode.Local
-            }
-
         val input = when (mode) {
             InitMode.SHARED -> InitializeLoadoutProjectInput.Shared(
                 gitignorePath = GITIGNORE_PATH,
@@ -138,34 +131,34 @@ class InitCommand(
     }
 
     private fun postCheckoutHookScript(): String =
-        """
+        $$"""
         #!/bin/sh
-        if [ "${'$'}3" = "0" ]; then
+        if [ "$3" = "0" ]; then
           exit 0
         fi
 
-        if [ -n "${'$'}LOADOUT_BIN" ]; then
-            helper_path="${'$'}LOADOUT_BIN"
+        if [ -n "$LOADOUT_BIN" ]; then
+            helper_path="$LOADOUT_BIN"
         else
             helper_path="loadout"
-            if ! command -v "${'$'}helper_path" >/dev/null 2>&1; then
+            if ! command -v "$helper_path" >/dev/null 2>&1; then
                 # GUI client fallbacks (common absolute install paths)
                 # Currently a bit brittle, but no current maintainers use git GUI clients
                 for p in \
                     "/opt/homebrew/bin/loadout" \
                     "/usr/local/bin/loadout" \
-                    "${'$'}HOME/.local/bin/loadout"
+                    "$HOME/.local/bin/loadout"
                 do
-                    if [ -x "${'$'}p" ]; then
-                        helper_path="${'$'}p"
+                    if [ -x "$p" ]; then
+                        helper_path="$p"
                         break
                     fi
                 done
             fi
         fi
 
-        if command -v "${'$'}helper_path" >/dev/null 2>&1; then
-            "${'$'}helper_path" sync --auto >/dev/null || exit 0
+        if command -v "$helper_path" >/dev/null 2>&1; then
+            "$helper_path" sync --auto >/dev/null || exit 0
         else
             echo "[Loadout] CLI not found. Skipping auto-sync." >&2
             exit 0
@@ -173,31 +166,31 @@ class InitCommand(
         """.trimIndent() + "\n"
 
     private fun postMergeHookScript(): String =
-        """
+        $$"""
         #!/bin/sh
 
-        if [ -n "${'$'}LOADOUT_BIN" ]; then
-            helper_path="${'$'}LOADOUT_BIN"
+        if [ -n "$LOADOUT_BIN" ]; then
+            helper_path="$LOADOUT_BIN"
         else
             helper_path="loadout"
-            if ! command -v "${'$'}helper_path" >/dev/null 2>&1; then
+            if ! command -v "$helper_path" >/dev/null 2>&1; then
                 # GUI client fallbacks (common absolute install paths)
                 # Currently a bit brittle, but no current maintainers use git GUI clients
                 for p in \
                     "/opt/homebrew/bin/loadout" \
                     "/usr/local/bin/loadout" \
-                    "${'$'}HOME/.local/bin/loadout"
+                    "$HOME/.local/bin/loadout"
                 do
-                    if [ -x "${'$'}p" ]; then
-                        helper_path="${'$'}p"
+                    if [ -x "$p" ]; then
+                        helper_path="$p"
                         break
                     fi
                 done
             fi
         fi
 
-        if command -v "${'$'}helper_path" >/dev/null 2>&1; then
-            "${'$'}helper_path" sync --auto >/dev/null || exit 0
+        if command -v "$helper_path" >/dev/null 2>&1; then
+            "$helper_path" sync --auto >/dev/null || exit 0
         else
             echo "[Loadout] CLI not found. Skipping auto-sync." >&2
             exit 0
