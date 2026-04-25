@@ -18,10 +18,7 @@ sealed interface CurrentLoadoutSelection {
     ) : CurrentLoadoutSelection
 }
 
-inline fun <T> CurrentLoadoutSelection.fold(
-    onNone: () -> T,
-    onSelected: (Loadout) -> T,
-): T =
+inline fun <T> CurrentLoadoutSelection.fold(onNone: () -> T, onSelected: (Loadout) -> T): T =
     when (this) {
         CurrentLoadoutSelection.None -> onNone()
         is CurrentLoadoutSelection.Selected -> onSelected(loadout)

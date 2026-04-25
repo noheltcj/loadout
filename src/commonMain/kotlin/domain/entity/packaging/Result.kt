@@ -27,10 +27,7 @@ sealed class Result<out T, out E> {
             is Error -> this
         }
 
-    inline fun <R> fold(
-        onSuccess: (T) -> R,
-        onError: (E) -> R,
-    ): R =
+    inline fun <R> fold(onSuccess: (T) -> R, onError: (E) -> R): R =
         when (this) {
             is Success -> onSuccess(value)
             is Error -> onError(error)

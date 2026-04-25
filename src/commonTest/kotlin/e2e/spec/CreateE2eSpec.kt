@@ -483,11 +483,34 @@ class CreateE2eSpec : E2eBehaviorSuite({
                 }
             }
 
-            // TODO: Add test case for when the source loadout references a fragment that no longer exists
-            // This should read something like:
-            // given("the source loadout references a fragment that no longer exists") {
-            //     action("loadout create is run with --clone") { ... }
-            // }
+            given("the source loadout references a fragment that no longer exists") {
+                val workspaceWithMissingSourceFragment: ScenarioSeed =
+                    workspaceWithExistingNonEmptyLoadout.andThen {
+                        deleteWorkspaceFile(firstFragmentPath)
+                    }
+
+                action("loadout create is run with --clone") {
+                    val execution by memoizedAction(
+                        "create",
+                        "copy",
+                        "--clone",
+                        "source",
+                        seed = workspaceWithMissingSourceFragment
+                    )
+
+                    then("it outputs a fragment-not-found error") {
+                        execution.result.shouldContainInOutput("Fragment not found: $firstFragmentPath")
+                    }
+
+                    then("it does not create the cloned loadout") {
+                        execution.scenario.readLoadout("copy").shouldBeNull()
+                    }
+
+                    then("it exits with result 1") {
+                        execution.result.shouldHaveExitCode(1)
+                    }
+                }
+            }
         }
     }
 })

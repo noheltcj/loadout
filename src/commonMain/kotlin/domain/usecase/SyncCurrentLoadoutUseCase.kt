@@ -58,7 +58,7 @@ class SyncCurrentLoadoutUseCase(
                                         composedOutput = composedOutput,
                                         writeResult = writeResult,
                                     )
-                            }
+                                }
                         }
                     }
                 },
