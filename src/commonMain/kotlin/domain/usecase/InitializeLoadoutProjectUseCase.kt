@@ -94,43 +94,25 @@ class InitializeLoadoutProjectUseCase(
         input: InitializeLoadoutProjectInput,
     ): Result<GitignoreConfigurationResult, LoadoutError> {
         val existingContent =
-            when (val result = fileRepository.readFile(input.gitignorePath)) {
-                is Result.Success -> result.value
-                is Result.Error -> ""
-            }
+            fileRepository.readFile(input.gitignorePath).fold(
+                onSuccess = { content -> content },
+                onError = { "" },
+            )
 
-        val newPatterns =
-            input.gitignorePatterns.filter { pattern ->
-                pattern.isBlank() || !existingContent.contains(pattern.trim())
-            }
+        val missingPatterns = input.gitignorePatterns.missingFrom(existingContent)
 
-        if (newPatterns.all { it.isBlank() || existingContent.contains(it.trim()) }) {
+        if (missingPatterns.none { it.isNotBlank() }) {
             return Result.Success(GitignoreConfigurationResult.AlreadyConfigured)
         }
 
-        val updatedContent =
-            buildString {
-                if (existingContent.isNotBlank()) {
-                    append(existingContent)
-                    if (!existingContent.endsWith("\n")) {
-                        append("\n")
-                    }
-                    append("\n")
-                }
-
-                val modeName = when (input) {
-                    is InitializeLoadoutProjectInput.Shared -> "Shared"
-                    is InitializeLoadoutProjectInput.Local -> "Local"
-                }
-                append("# Loadout CLI - $modeName Mode\n")
-                newPatterns.forEach { pattern ->
-                    append(pattern)
-                    append("\n")
-                }
-            }
-
         return fileRepository
-            .writeFile(input.gitignorePath, updatedContent)
+            .writeFile(
+                path = input.gitignorePath,
+                content = existingContent.withLoadoutGitignoreBlock(
+                    modeName = input.modeName,
+                    patterns = missingPatterns,
+                ),
+            )
             .map { GitignoreConfigurationResult.Updated }
     }
 
@@ -141,16 +123,10 @@ class InitializeLoadoutProjectUseCase(
             return Result.Success(StarterFragmentCreationResult.AlreadyExists)
         }
 
-        val fragmentDirectory = input.starterFragmentPath.substringBeforeLast("/", missingDelimiterValue = "")
-        if (fragmentDirectory.isNotBlank()) {
-            when (val result = fileRepository.createDirectory(fragmentDirectory)) {
-                is Result.Success -> Unit
-                is Result.Error -> return result
+        return createParentDirectory(input.starterFragmentPath)
+            .flatMap {
+                fileRepository.writeFile(input.starterFragmentPath, input.starterFragmentContent)
             }
-        }
-
-        return fileRepository
-            .writeFile(input.starterFragmentPath, input.starterFragmentContent)
             .map { StarterFragmentCreationResult.Created }
     }
 
@@ -158,52 +134,68 @@ class InitializeLoadoutProjectUseCase(
         input: InitializeLoadoutProjectInput,
     ): Result<DefaultLoadoutInitializationResult, LoadoutError> =
         listLoadouts().flatMap { loadouts ->
-            if (loadouts.isNotEmpty()) {
-                configureRepoDefaultForExistingLoadouts(input, loadouts.map { it.name })
-                    .map { DefaultLoadoutInitializationResult.ExistingLoadoutsPresent(loadouts.size) }
-            } else {
-                createLoadout(
-                    CreateLoadoutInput.New(
-                        name = input.defaultLoadoutName,
-                        description = input.defaultLoadoutDescription,
-                        fragmentPaths = listOf(input.starterFragmentPath),
-                    )
-                ).flatMap { loadout ->
-                    composeLoadout(loadout).flatMap { composedOutput ->
-                        activateComposedLoadout(
-                            composedOutput = composedOutput,
-                            outputPaths = input.outputPaths,
-                        ).flatMap { writeResult ->
-                            when (input) {
-                                is InitializeLoadoutProjectInput.Shared ->
-                                    updateRepositorySettings(input.defaultLoadoutName).map { writeResult }
-                                is InitializeLoadoutProjectInput.Local ->
-                                    Result.Success(writeResult)
-                            }
-                        }.map { writeResult ->
-                            DefaultLoadoutInitializationResult.CreatedAndActivated(
-                                composedOutput = composedOutput,
-                                writeResult = writeResult,
-                            )
-                        }
-                    }
-                }
+            loadouts
+                .takeIf { it.isNotEmpty() }
+                ?.let { existingLoadouts -> initializeExistingLoadouts(input, existingLoadouts.map { it.name }) }
+                ?: createAndActivateDefaultLoadout(input)
+        }
+
+    private fun createParentDirectory(path: String): Result<Unit, LoadoutError> =
+        path.parentDirectory()
+            ?.let { directory -> fileRepository.createDirectory(directory) }
+            ?: Result.Success(Unit)
+
+    private fun initializeExistingLoadouts(
+        input: InitializeLoadoutProjectInput,
+        loadoutNames: List<String>,
+    ): Result<DefaultLoadoutInitializationResult, LoadoutError> =
+        applyRepositoryDefaultConfiguration(input.repositoryDefaultConfiguration(loadoutNames))
+            .map { DefaultLoadoutInitializationResult.ExistingLoadoutsPresent(loadoutNames.size) }
+
+    private fun createAndActivateDefaultLoadout(
+        input: InitializeLoadoutProjectInput,
+    ): Result<DefaultLoadoutInitializationResult, LoadoutError> =
+        createLoadout(
+            CreateLoadoutInput.New(
+                name = input.defaultLoadoutName,
+                description = input.defaultLoadoutDescription,
+                fragmentPaths = listOf(input.starterFragmentPath),
+            )
+        ).flatMap { loadout ->
+            composeLoadout(loadout).flatMap { composedOutput ->
+                activateDefaultLoadout(input, composedOutput)
             }
         }
 
-    private fun configureRepoDefaultForExistingLoadouts(
+    private fun activateDefaultLoadout(
         input: InitializeLoadoutProjectInput,
-        loadoutNames: List<String>,
+        composedOutput: ComposedOutput,
+    ): Result<DefaultLoadoutInitializationResult, LoadoutError> =
+        activateComposedLoadout(
+            composedOutput = composedOutput,
+            outputPaths = input.outputPaths,
+        ).flatMap { writeResult ->
+            applyRepositoryDefaultConfiguration(input.defaultLoadoutRepositoryConfiguration())
+                .map { writeResult }
+        }.map { writeResult ->
+            DefaultLoadoutInitializationResult.CreatedAndActivated(
+                composedOutput = composedOutput,
+                writeResult = writeResult,
+            )
+        }
+
+    private fun applyRepositoryDefaultConfiguration(
+        configuration: RepositoryDefaultConfiguration,
     ): Result<Unit, LoadoutError> =
-        when (input) {
-            is InitializeLoadoutProjectInput.Shared ->
-                when (loadoutNames.size) {
-                    0 -> Result.Success(Unit)
-                    1 -> updateRepositorySettings(loadoutNames.single()).map { Unit }
-                    else -> updateRepositorySettings(null).map { Unit }
-                }
-            is InitializeLoadoutProjectInput.Local ->
+        when (configuration) {
+            RepositoryDefaultConfiguration.Unchanged ->
                 Result.Success(Unit)
+
+            is RepositoryDefaultConfiguration.UseLoadout ->
+                updateRepositorySettings(configuration.loadoutName).map { Unit }
+
+            RepositoryDefaultConfiguration.Clear ->
+                updateRepositorySettings(null).map { Unit }
         }
 
     private fun configureGitHooksIfNeeded(
@@ -214,8 +206,78 @@ class InitializeLoadoutProjectUseCase(
                 configureGitHooks(
                     hooksDirectoryPath = input.hooksDirectoryPath,
                     hooks = input.hooks
-                ).map { it as ConfigureGitHooksResult? }
+                ).map<ConfigureGitHooksResult?> { it }
             is InitializeLoadoutProjectInput.Local ->
                 Result.Success(null)
         }
 }
+
+private sealed interface RepositoryDefaultConfiguration {
+    data object Unchanged : RepositoryDefaultConfiguration
+
+    data class UseLoadout(
+        val loadoutName: String,
+    ) : RepositoryDefaultConfiguration
+
+    data object Clear : RepositoryDefaultConfiguration
+}
+
+private val InitializeLoadoutProjectInput.modeName: String
+    get() =
+        when (this) {
+            is InitializeLoadoutProjectInput.Shared -> "Shared"
+            is InitializeLoadoutProjectInput.Local -> "Local"
+        }
+
+private fun InitializeLoadoutProjectInput.repositoryDefaultConfiguration(
+    loadoutNames: List<String>,
+): RepositoryDefaultConfiguration =
+    when (this) {
+        is InitializeLoadoutProjectInput.Shared ->
+            when (loadoutNames.size) {
+                0 -> RepositoryDefaultConfiguration.Unchanged
+                1 -> RepositoryDefaultConfiguration.UseLoadout(loadoutNames.single())
+                else -> RepositoryDefaultConfiguration.Clear
+            }
+
+        is InitializeLoadoutProjectInput.Local ->
+            RepositoryDefaultConfiguration.Unchanged
+    }
+
+private fun InitializeLoadoutProjectInput.defaultLoadoutRepositoryConfiguration(): RepositoryDefaultConfiguration =
+    when (this) {
+        is InitializeLoadoutProjectInput.Shared ->
+            RepositoryDefaultConfiguration.UseLoadout(defaultLoadoutName)
+
+        is InitializeLoadoutProjectInput.Local ->
+            RepositoryDefaultConfiguration.Unchanged
+    }
+
+private fun List<String>.missingFrom(content: String): List<String> =
+    filter { pattern -> pattern.isBlank() || !content.contains(pattern.trim()) }
+
+private fun String.withLoadoutGitignoreBlock(
+    modeName: String,
+    patterns: List<String>,
+): String =
+    buildString {
+        appendGitignorePrefix(this@withLoadoutGitignoreBlock)
+        append("# Loadout CLI - $modeName Mode\n")
+        append(patterns.joinToString(separator = "\n", postfix = "\n"))
+    }
+
+private fun StringBuilder.appendGitignorePrefix(existingContent: String) {
+    if (existingContent.isBlank()) {
+        return
+    }
+
+    append(existingContent)
+    if (!existingContent.endsWith("\n")) {
+        append("\n")
+    }
+    append("\n")
+}
+
+private fun String.parentDirectory(): String? =
+    substringBeforeLast("/", missingDelimiterValue = "")
+        .ifBlank { null }

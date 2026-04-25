@@ -45,7 +45,6 @@ class ConfigureGitHooksUseCase(
         val initialResult: Result<Unit, LoadoutError> = Result.Success(Unit)
 
         return fold(initialResult) { result, hook ->
-            /** Effectively short-circuits further writes when a write failure occurs. */
             result.flatMap {
                 fileRepository.writeFile(hook.path, hook.content)
                     .flatMap { fileRepository.setExecutable(hook.path) }
