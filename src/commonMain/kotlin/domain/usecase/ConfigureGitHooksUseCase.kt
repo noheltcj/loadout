@@ -25,47 +25,42 @@ class ConfigureGitHooksUseCase(
         val gitConfigPath = resolveGitConfigPath() ?: return Result.Success(ConfigureGitHooksResult.GitNotInitialized)
 
         return readConfiguredHooksPath(gitConfigPath).flatMap { configuredHooksPath ->
-            if (configuredHooksPath != null && configuredHooksPath != hooksDirectoryPath) {
-                Result.Success(ConfigureGitHooksResult.AlreadyManagedByExternalTool)
-            } else {
-                setupHooks(hooksDirectoryPath, hooks)
+            configuredHooksPath
+                ?.takeUnless { it == hooksDirectoryPath }
+                ?.let { Result.Success(ConfigureGitHooksResult.AlreadyManagedByExternalTool) }
+                ?: setupHooks(hooksDirectoryPath, hooks)
                     .flatMap { updateConfiguredHooksPath(gitConfigPath, hooksDirectoryPath) }
                     .map { ConfigureGitHooksResult.Configured }
-            }
         }
     }
 
     private fun setupHooks(
         hooksDirectoryPath: String,
         hooks: List<GitHookDefinition>,
-    ): Result<Unit, LoadoutError> {
-        return fileRepository.createDirectory(hooksDirectoryPath)
-            .flatMap {
-                hooks.forEach { hook ->
-                    fileRepository.writeFile(hook.path, hook.content)
-                        .flatMap { fileRepository.setExecutable(hook.path) }
-                        .mapError { return@flatMap Result.Error(it) }
-                }
-                Result.Success(Unit)
+    ): Result<Unit, LoadoutError> =
+        fileRepository.createDirectory(hooksDirectoryPath)
+            .flatMap { hooks.installAll() }
+
+    private fun List<GitHookDefinition>.installAll(): Result<Unit, LoadoutError> {
+        val initialResult: Result<Unit, LoadoutError> = Result.Success(Unit)
+
+        return fold(initialResult) { result, hook ->
+            /** Effectively short-circuits further writes when a write failure occurs. */
+            result.flatMap {
+                fileRepository.writeFile(hook.path, hook.content)
+                    .flatMap { fileRepository.setExecutable(hook.path) }
             }
+        }
     }
 
     private fun resolveGitConfigPath(): String? =
         when {
             fileRepository.fileExists(".git/config") -> ".git/config"
-            fileRepository.fileExists(".git") -> {
-                when (val gitFileResult = fileRepository.readFile(".git")) {
-                    is Result.Success -> {
-                        val gitDirectoryPath = gitFileResult.value.removePrefix("gitdir:").trim()
-                        if (gitDirectoryPath.isBlank()) {
-                            null
-                        } else {
-                            "$gitDirectoryPath/config"
-                        }
-                    }
-                    is Result.Error -> null
-                }
-            }
+            fileRepository.fileExists(".git") ->
+                fileRepository.readFile(".git").fold(
+                    onSuccess = { gitFileContent -> gitFileContent.gitDirectoryConfigPath() },
+                    onError = { null },
+                )
             else -> null
         }
 
@@ -83,87 +78,165 @@ class ConfigureGitHooksUseCase(
             .map { content -> content.withConfiguredHooksPath(hooksPath) }
             .flatMap { updatedContent -> fileRepository.writeFile(gitConfigPath, updatedContent) }
 
-    private fun parseConfiguredHooksPath(configContent: String): String? {
-        var inCoreSection = false
-
-        configContent.lineSequence().forEach { rawLine ->
-            val line = rawLine.trim()
-
-            if (line.startsWith("[") && line.endsWith("]")) {
-                inCoreSection = line.equals("[core]", ignoreCase = true)
-                return@forEach
+    private fun parseConfiguredHooksPath(configContent: String): String? =
+        configContent
+            .lineSequence()
+            .fold(GitConfigHooksPathParseState()) { state, rawLine ->
+                state.next(rawLine)
             }
-
-            if (inCoreSection && line.startsWith("hooksPath", ignoreCase = true)) {
-                return line.substringAfter('=').trim().ifBlank { null }
-            }
-        }
-
-        return null
-    }
+            .hooksPath
+            ?.value
 
     private fun String.withConfiguredHooksPath(hooksPath: String): String {
-        val originalLines = lines()
-        val updatedLines = mutableListOf<String>()
-        var lineIndex = 0
-        var coreSectionFound = false
-        var hooksPathWritten = false
-
-        while (lineIndex < originalLines.size) {
-            val line = originalLines[lineIndex]
-            val trimmedLine = line.trim()
-
-            if (trimmedLine.equals("[core]", ignoreCase = true)) {
-                coreSectionFound = true
-                updatedLines += line
-                lineIndex += 1
-
-                while (lineIndex < originalLines.size) {
-                    val sectionLine = originalLines[lineIndex]
-                    val trimmedSectionLine = sectionLine.trim()
-
-                    if (trimmedSectionLine.startsWith("[") && trimmedSectionLine.endsWith("]")) {
-                        break
-                    }
-
-                    if (trimmedSectionLine.startsWith("hooksPath", ignoreCase = true)) {
-                        if (!hooksPathWritten) {
-                            updatedLines += "\thooksPath = $hooksPath"
-                            hooksPathWritten = true
-                        }
-                    } else {
-                        updatedLines += sectionLine
-                    }
-
-                    lineIndex += 1
+        val rewriteState =
+            lines()
+                .fold(GitConfigRewriteState()) { state, line ->
+                    state.append(line, hooksPath)
                 }
+                .finish(hooksPath)
 
-                if (!hooksPathWritten) {
-                    updatedLines += "\thooksPath = $hooksPath"
-                    hooksPathWritten = true
-                }
+        return rewriteState.lines
+            .joinToString(separator = "\n")
+            .withTrailingNewline()
+    }
+}
 
-                continue
-            }
+private fun String.gitDirectoryConfigPath(): String? =
+    removePrefix("gitdir:")
+        .trim()
+        .ifBlank { null }
+        ?.let { gitDirectoryPath -> "$gitDirectoryPath/config" }
 
-            updatedLines += line
-            lineIndex += 1
+private fun String.isSectionHeader(): Boolean = startsWith("[") && endsWith("]")
+
+private fun String.isCoreSectionHeader(): Boolean = equals("[core]", ignoreCase = true)
+
+private fun String.isHooksPathSetting(): Boolean =
+    contains("=") && substringBefore("=").trim().equals("hooksPath", ignoreCase = true)
+
+private fun String.gitConfigValue(): String? =
+    substringAfter("=")
+        .trim()
+        .ifBlank { null }
+
+private fun String.withTrailingNewline(): String =
+    if (endsWith("\n")) {
+        this
+    } else {
+        "$this\n"
+    }
+
+private fun hooksPathLine(hooksPath: String): String = "\thooksPath = $hooksPath"
+
+private data class ParsedGitHooksPath(
+    val value: String?,
+)
+
+private data class GitConfigHooksPathParseState(
+    val inCoreSection: Boolean = false,
+    val hooksPath: ParsedGitHooksPath? = null,
+) {
+    fun next(rawLine: String): GitConfigHooksPathParseState {
+        if (hooksPath != null) {
+            return this
         }
 
-        if (!coreSectionFound) {
-            if (updatedLines.isNotEmpty() && updatedLines.last().isNotBlank()) {
-                updatedLines += ""
-            }
-            updatedLines += "[core]"
-            updatedLines += "\thooksPath = $hooksPath"
+        val line = rawLine.trim()
+
+        return when {
+            line.isSectionHeader() ->
+                copy(inCoreSection = line.isCoreSectionHeader())
+
+            inCoreSection && line.isHooksPathSetting() ->
+                copy(hooksPath = ParsedGitHooksPath(line.gitConfigValue()))
+
+            else ->
+                this
+        }
+    }
+}
+
+private data class GitConfigRewriteState(
+    val lines: List<String> = emptyList(),
+    val inCoreSection: Boolean = false,
+    val coreSectionFound: Boolean = false,
+    val hooksPathWritten: Boolean = false,
+) {
+    fun append(
+        rawLine: String,
+        hooksPath: String,
+    ): GitConfigRewriteState {
+        val line = rawLine.trim()
+
+        return when {
+            line.isSectionHeader() ->
+                startSection(rawLine, hooksPath)
+
+            inCoreSection && line.isHooksPathSetting() ->
+                writeHooksPathIfNeeded(hooksPath)
+
+            else ->
+                copy(lines = lines + rawLine)
+        }
+    }
+
+    fun finish(hooksPath: String): GitConfigRewriteState =
+        when {
+            inCoreSection && !hooksPathWritten ->
+                writeHooksPath(hooksPath)
+
+            !coreSectionFound ->
+                appendCoreSection(hooksPath)
+
+            else ->
+                this
         }
 
-        return updatedLines.joinToString(separator = "\n").let { content ->
-            if (content.endsWith("\n")) {
-                content
+    private fun startSection(
+        rawLine: String,
+        hooksPath: String,
+    ): GitConfigRewriteState {
+        val stateWithClosedCoreSection =
+            if (inCoreSection && !hooksPathWritten) {
+                writeHooksPath(hooksPath)
             } else {
-                "$content\n"
+                this
             }
+        val enteringCoreSection = rawLine.trim().isCoreSectionHeader()
+
+        return stateWithClosedCoreSection.copy(
+            lines = stateWithClosedCoreSection.lines + rawLine,
+            inCoreSection = enteringCoreSection,
+            coreSectionFound = stateWithClosedCoreSection.coreSectionFound || enteringCoreSection,
+        )
+    }
+
+    private fun writeHooksPathIfNeeded(hooksPath: String): GitConfigRewriteState =
+        if (hooksPathWritten) {
+            this
+        } else {
+            writeHooksPath(hooksPath)
         }
+
+    private fun writeHooksPath(hooksPath: String): GitConfigRewriteState =
+        copy(
+            lines = lines + hooksPathLine(hooksPath),
+            hooksPathWritten = true,
+        )
+
+    private fun appendCoreSection(hooksPath: String): GitConfigRewriteState {
+        val spacedLines =
+            if (lines.isNotEmpty() && lines.last().isNotBlank()) {
+                lines + ""
+            } else {
+                lines
+            }
+
+        return copy(
+            lines = spacedLines + "[core]" + hooksPathLine(hooksPath),
+            inCoreSection = true,
+            coreSectionFound = true,
+            hooksPathWritten = true,
+        )
     }
 }
