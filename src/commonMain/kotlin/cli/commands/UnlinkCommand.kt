@@ -8,7 +8,6 @@ import com.github.ajalt.clikt.parameters.arguments.argument
 import com.github.ajalt.clikt.parameters.options.help
 import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.options.required
-import domain.usecase.UnlinkFragmentFromLoadoutInput
 import domain.usecase.UnlinkFragmentFromLoadoutUseCase
 
 class UnlinkCommand(
@@ -27,10 +26,8 @@ class UnlinkCommand(
 
     override fun run() {
         unlinkFragmentFromLoadout(
-            UnlinkFragmentFromLoadoutInput(
-                loadoutName = loadoutName,
-                fragmentPath = fragmentPath
-            )
+            loadoutName = loadoutName,
+            fragmentPath = fragmentPath
         ).fold(
             onSuccess = { updatedLoadout ->
                 val normalizedInput = fragmentPath.removePrefix("./")

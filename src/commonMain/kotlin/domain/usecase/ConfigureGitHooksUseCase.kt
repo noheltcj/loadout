@@ -4,11 +4,6 @@ import domain.entity.error.LoadoutError
 import domain.entity.packaging.Result
 import domain.repository.FileRepository
 
-data class ConfigureGitHooksInput(
-    val hooksDirectoryPath: String,
-    val hooks: List<GitHookDefinition>,
-)
-
 data class GitHookDefinition(
     val path: String,
     val content: String,
@@ -23,38 +18,36 @@ sealed interface ConfigureGitHooksResult {
 class ConfigureGitHooksUseCase(
     private val fileRepository: FileRepository,
 ) {
-    operator fun invoke(input: ConfigureGitHooksInput): Result<ConfigureGitHooksResult, LoadoutError> {
+    operator fun invoke(
+        hooksDirectoryPath: String,
+        hooks: List<GitHookDefinition>,
+    ): Result<ConfigureGitHooksResult, LoadoutError> {
         val gitConfigPath = resolveGitConfigPath() ?: return Result.Success(ConfigureGitHooksResult.GitNotInitialized)
 
         return readConfiguredHooksPath(gitConfigPath).flatMap { configuredHooksPath ->
-            if (configuredHooksPath != null && configuredHooksPath != input.hooksDirectoryPath) {
+            if (configuredHooksPath != null && configuredHooksPath != hooksDirectoryPath) {
                 Result.Success(ConfigureGitHooksResult.AlreadyManagedByExternalTool)
             } else {
-                setupHooks(input).flatMap {
-                    updateConfiguredHooksPath(gitConfigPath, input.hooksDirectoryPath)
-                }.map { ConfigureGitHooksResult.Configured }
+                setupHooks(hooksDirectoryPath, hooks)
+                    .flatMap { updateConfiguredHooksPath(gitConfigPath, hooksDirectoryPath) }
+                    .map { ConfigureGitHooksResult.Configured }
             }
         }
     }
 
-    private fun setupHooks(input: ConfigureGitHooksInput): Result<Unit, LoadoutError> {
-        when (val result = fileRepository.createDirectory(input.hooksDirectoryPath)) {
-            is Result.Success -> Unit
-            is Result.Error -> return result
-        }
-
-        for (hook in input.hooks) {
-            when (val result = fileRepository.writeFile(hook.path, hook.content)) {
-                is Result.Success -> {
-                    when (val execResult = fileRepository.setExecutable(hook.path)) {
-                        is Result.Success -> Unit
-                        is Result.Error -> return execResult
-                    }
+    private fun setupHooks(
+        hooksDirectoryPath: String,
+        hooks: List<GitHookDefinition>,
+    ): Result<Unit, LoadoutError> {
+        return fileRepository.createDirectory(hooksDirectoryPath)
+            .flatMap {
+                hooks.forEach { hook ->
+                    fileRepository.writeFile(hook.path, hook.content)
+                        .flatMap { fileRepository.setExecutable(hook.path) }
+                        .mapError { return@flatMap Result.Error(it) }
                 }
-                is Result.Error -> return result
+                Result.Success(Unit)
             }
-        }
-        return Result.Success(Unit)
     }
 
     private fun resolveGitConfigPath(): String? =
@@ -81,7 +74,10 @@ class ConfigureGitHooksUseCase(
             .readFile(gitConfigPath)
             .map { content -> parseConfiguredHooksPath(content) }
 
-    private fun updateConfiguredHooksPath(gitConfigPath: String, hooksPath: String): Result<Unit, LoadoutError> =
+    private fun updateConfiguredHooksPath(
+        gitConfigPath: String,
+        hooksPath: String,
+    ): Result<Unit, LoadoutError> =
         fileRepository
             .readFile(gitConfigPath)
             .map { content -> content.withConfiguredHooksPath(hooksPath) }

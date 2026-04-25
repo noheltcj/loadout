@@ -34,7 +34,7 @@ fun createLoadoutCommand(applicationScope: ApplicationScope): CliktCommand =
             defaultOutputPaths = applicationScope.defaultOutputPaths
         ),
         SyncCommand(
-            syncCurrentLoadout = applicationScope.syncCurrentLoadout,
+            syncLoadout = applicationScope.syncLoadout,
             defaultOutputPaths = applicationScope.defaultOutputPaths
         ),
         AddCommand(

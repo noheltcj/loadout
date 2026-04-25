@@ -50,7 +50,10 @@ internal interface NativeProcessOperations {
 
     fun readEnvironmentVariable(key: String): String?
 
-    fun setEnvironmentVariable(key: String, value: String): Int
+    fun setEnvironmentVariable(
+        key: String,
+        value: String,
+    ): Int
 
     fun clearEnvironmentVariable(key: String): Int
 
@@ -71,7 +74,10 @@ private object PosixNativeProcessOperations : NativeProcessOperations {
 
     override fun readEnvironmentVariable(key: String): String? = readEnvironmentVariableInternal(key)
 
-    override fun setEnvironmentVariable(key: String, value: String): Int = platformSetEnv(key, value)
+    override fun setEnvironmentVariable(
+        key: String,
+        value: String,
+    ): Int = platformSetEnv(key, value)
 
     override fun clearEnvironmentVariable(key: String): Int = platformClearEnv(key)
 
@@ -207,7 +213,10 @@ actual fun setExecutable(path: String) {
     }
 }
 
-private fun applyEnvironmentOverlay(operations: NativeProcessOperations, environment: EnvironmentOverlay) {
+private fun applyEnvironmentOverlay(
+    operations: NativeProcessOperations,
+    environment: EnvironmentOverlay,
+) {
     environment.forEachMutation { key, mutation ->
         when (mutation) {
             is EnvironmentMutation.Set -> {
@@ -353,10 +362,15 @@ internal fun buildRedirectingCommand(
         shellDialect
     )} > ${shellQuote(stdoutPath, shellDialect)} 2> ${shellQuote(stderrPath, shellDialect)}"
 
-internal fun buildShellCommand(arguments: List<String>, shellDialect: ShellDialect = currentShellDialect()): String =
-    arguments.joinToString(" ") { argument -> shellQuote(argument, shellDialect) }
+internal fun buildShellCommand(
+    arguments: List<String>,
+    shellDialect: ShellDialect = currentShellDialect(),
+): String = arguments.joinToString(" ") { argument -> shellQuote(argument, shellDialect) }
 
-internal fun shellQuote(argument: String, shellDialect: ShellDialect = currentShellDialect()): String =
+internal fun shellQuote(
+    argument: String,
+    shellDialect: ShellDialect = currentShellDialect(),
+): String =
     when (shellDialect) {
         ShellDialect.Posix -> "'${argument.replace("'", "'\"'\"'")}'"
         ShellDialect.WindowsCmd -> "\"${argument.replace("^", "^^").replace("%", "%%").replace("\"", "\"\"")}\""

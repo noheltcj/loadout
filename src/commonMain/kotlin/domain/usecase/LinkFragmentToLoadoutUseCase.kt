@@ -9,28 +9,26 @@ import domain.policy.validateMarkdownFragmentPath
 import domain.repository.EnvironmentRepository
 import domain.repository.FragmentRepository
 
-data class LinkFragmentToLoadoutInput(
-    val loadoutName: String,
-    val fragmentPath: String,
-    val afterFragment: String? = null,
-)
-
 class LinkFragmentToLoadoutUseCase(
     private val fragmentRepository: FragmentRepository,
     private val environmentRepository: EnvironmentRepository,
     private val getLoadout: GetLoadoutUseCase,
     private val updateLoadout: UpdateLoadoutUseCase,
 ) {
-    operator fun invoke(input: LinkFragmentToLoadoutInput): Result<Loadout, LoadoutError> {
+    operator fun invoke(
+        loadoutName: String,
+        fragmentPath: String,
+        afterFragment: String? = null,
+    ): Result<Loadout, LoadoutError> {
         val now = environmentRepository.currentTimeMillis()
 
-        return validateMarkdownFragmentPath(input.fragmentPath)
+        return validateMarkdownFragmentPath(fragmentPath)
             .flatMap { normalizedFragmentPath ->
                 ensureFragmentExists(normalizedFragmentPath)
-                    .map { normalizedFragmentPath to input.afterFragment?.let(::normalizeFragmentPath) }
+                    .map { normalizedFragmentPath to afterFragment?.let(::normalizeFragmentPath) }
             }
             .flatMap { (normalizedFragmentPath, normalizedAfterFragment) ->
-                getLoadout(input.loadoutName)
+                getLoadout(loadoutName)
                     .flatMap { loadout ->
                         val normalizedLoadout = normalizeStoredLoadout(loadout)
 
@@ -38,7 +36,7 @@ class LinkFragmentToLoadoutUseCase(
                             Result.Error(
                                 LoadoutError.FragmentAlreadyInLoadout(
                                     normalizedFragmentPath,
-                                    input.loadoutName,
+                                    loadoutName,
                                 )
                             )
                         } else {

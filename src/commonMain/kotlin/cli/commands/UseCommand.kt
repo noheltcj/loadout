@@ -10,7 +10,6 @@ import com.github.ajalt.clikt.parameters.options.flag
 import com.github.ajalt.clikt.parameters.options.help
 import com.github.ajalt.clikt.parameters.options.option
 import domain.usecase.LoadoutOutputTarget
-import domain.usecase.UseLoadoutInput
 import domain.usecase.UseLoadoutResult
 import domain.usecase.UseLoadoutUseCase
 
@@ -41,7 +40,7 @@ class UseCommand(
                 LoadoutOutputTarget.FileSystem(outputDir?.let(::outputPaths) ?: defaultOutputPaths)
             }
 
-        useLoadout(UseLoadoutInput(loadoutName = loadoutName, outputTarget = outputTarget)).fold(
+        useLoadout(loadoutName = loadoutName, outputTarget = outputTarget).fold(
             onSuccess = { useResult ->
                 when (useResult) {
                     is UseLoadoutResult.PrintedToStandardOutput -> echo(useResult.composedOutput.content)

@@ -22,7 +22,7 @@ import domain.usecase.LinkFragmentToLoadoutUseCase
 import domain.usecase.ListLoadoutsUseCase
 import domain.usecase.ReadCurrentLoadoutStatusUseCase
 import domain.usecase.RemoveLoadoutUseCase
-import domain.usecase.SyncCurrentLoadoutUseCase
+import domain.usecase.SyncLoadoutUseCase
 import domain.usecase.UnlinkFragmentFromLoadoutUseCase
 import domain.usecase.UpdateLoadoutUseCase
 import domain.usecase.UpdateRepositorySettingsUseCase
@@ -121,8 +121,8 @@ fun <T> withApplicationScope(scopedBlock: ApplicationScope.() -> T): T {
             getCurrentLoadout = getCurrentLoadout,
             getLoadout = getLoadout
         )
-    val syncCurrentLoadout =
-        SyncCurrentLoadoutUseCase(
+    val syncLoadout =
+        SyncLoadoutUseCase(
             getTargetLoadoutForSync = getTargetLoadoutForSync,
             composeLoadout = composeLoadout,
             activateComposedLoadout = activateComposedLoadout
@@ -172,7 +172,7 @@ fun <T> withApplicationScope(scopedBlock: ApplicationScope.() -> T): T {
             unlinkFragmentFromLoadout = unlinkFragmentFromLoadout,
             removeLoadout = removeLoadout,
             useLoadout = useLoadout,
-            syncCurrentLoadout = syncCurrentLoadout,
+            syncLoadout = syncLoadout,
             initializeLoadoutProject = initializeLoadoutProject,
             readCurrentLoadoutStatus = readCurrentLoadoutStatus,
             checkLoadoutSync = checkLoadoutSync,
@@ -193,7 +193,7 @@ data class ApplicationScope(
     val unlinkFragmentFromLoadout: UnlinkFragmentFromLoadoutUseCase,
     val removeLoadout: RemoveLoadoutUseCase,
     val useLoadout: UseLoadoutUseCase,
-    val syncCurrentLoadout: SyncCurrentLoadoutUseCase,
+    val syncLoadout: SyncLoadoutUseCase,
     val initializeLoadoutProject: InitializeLoadoutProjectUseCase,
     val readCurrentLoadoutStatus: ReadCurrentLoadoutStatusUseCase,
     val checkLoadoutSync: CheckLoadoutSyncUseCase,

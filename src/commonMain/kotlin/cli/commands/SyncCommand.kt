@@ -11,12 +11,12 @@ import com.github.ajalt.clikt.parameters.options.help
 import com.github.ajalt.clikt.parameters.options.option
 import domain.entity.error.LoadoutError
 import domain.usecase.LoadoutOutputTarget
-import domain.usecase.SyncCurrentLoadoutInput
-import domain.usecase.SyncCurrentLoadoutResult
-import domain.usecase.SyncCurrentLoadoutUseCase
+import domain.usecase.SyncLoadoutInput
+import domain.usecase.SyncLoadoutResult
+import domain.usecase.SyncLoadoutUseCase
 
 class SyncCommand(
-    private val syncCurrentLoadout: SyncCurrentLoadoutUseCase,
+    private val syncLoadout: SyncLoadoutUseCase,
     private val defaultOutputPaths: List<String>,
 ) : CliktCommand(
     name = "sync",
@@ -47,17 +47,17 @@ class SyncCommand(
                 LoadoutOutputTarget.FileSystem(outputDir?.let(::outputPaths) ?: defaultOutputPaths)
             }
 
-        val result = syncCurrentLoadout(
-            SyncCurrentLoadoutInput(
+        val result = syncLoadout(
+            SyncLoadoutInput(
                 outputTarget = outputTarget,
-                autoSync = autoSync
+                shouldFallbackToDefault = autoSync
             )
         )
 
         result.fold(
             onSuccess = { syncResult ->
                 when (syncResult) {
-                    SyncCurrentLoadoutResult.NoCurrentLoadout -> {
+                    SyncLoadoutResult.NoCurrentLoadout -> {
                         if (autoSync) {
                             return
                         }
@@ -65,11 +65,11 @@ class SyncCommand(
                         throw ProgramResult(1)
                     }
 
-                    is SyncCurrentLoadoutResult.PrintedToStandardOutput -> {
+                    is SyncLoadoutResult.PrintedToStandardOutput -> {
                         echo(syncResult.composedOutput.content)
                     }
 
-                    is SyncCurrentLoadoutResult.Activated ->
+                    is SyncLoadoutResult.Activated ->
                         echoComposedFilesWriteResult(
                             result = syncResult.writeResult,
                             loadoutName = syncResult.loadout.name,

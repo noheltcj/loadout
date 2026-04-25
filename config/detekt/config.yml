@@ -10,6 +10,7 @@ ktlint:
     active: false
   FunctionSignature:
     functionBodyExpressionWrapping: multiline
+    forceMultilineWhenParameterCountGreaterOrEqualThan: 2
   TrailingCommaOnCallSite:
     active: false
   BlankLineBetweenWhenConditions:

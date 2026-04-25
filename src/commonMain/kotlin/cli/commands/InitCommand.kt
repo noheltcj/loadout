@@ -40,9 +40,8 @@ class InitCommand(
                 InitMode.LOCAL -> LoadoutInitializationMode.Local
             }
 
-        val result = initializeLoadoutProject(
-            InitializeLoadoutProjectInput(
-                mode = initializationMode,
+        val input = when (mode) {
+            InitMode.SHARED -> InitializeLoadoutProjectInput.Shared(
                 gitignorePath = GITIGNORE_PATH,
                 gitignorePatterns = mode.gitignorePatterns,
                 starterFragmentPath = ARCHITECT_FRAGMENT_PATH,
@@ -56,7 +55,19 @@ class InitCommand(
                     GitHookDefinition(POST_MERGE_HOOK_PATH, postMergeHookScript())
                 )
             )
-        )
+
+            InitMode.LOCAL -> InitializeLoadoutProjectInput.Local(
+                gitignorePath = GITIGNORE_PATH,
+                gitignorePatterns = mode.gitignorePatterns,
+                starterFragmentPath = ARCHITECT_FRAGMENT_PATH,
+                starterFragmentContent = ARCHITECT_FRAGMENT_CONTENT,
+                defaultLoadoutName = DEFAULT_LOADOUT_NAME,
+                defaultLoadoutDescription = DEFAULT_LOADOUT_DESCRIPTION,
+                outputPaths = defaultOutputPaths
+            )
+        }
+
+        val result = initializeLoadoutProject(input)
 
         result.fold(
             onSuccess = { initResult ->

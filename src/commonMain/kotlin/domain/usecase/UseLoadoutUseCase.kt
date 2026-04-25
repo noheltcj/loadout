@@ -6,11 +6,6 @@ import domain.entity.WriteComposedFilesResult
 import domain.entity.error.LoadoutError
 import domain.entity.packaging.Result
 
-data class UseLoadoutInput(
-    val loadoutName: String,
-    val outputTarget: LoadoutOutputTarget,
-)
-
 sealed interface UseLoadoutResult {
     val loadout: Loadout
     val composedOutput: ComposedOutput
@@ -32,20 +27,21 @@ class UseLoadoutUseCase(
     private val composeLoadout: ComposeLoadoutUseCase,
     private val activateComposedLoadout: ActivateComposedLoadoutUseCase,
 ) {
-    operator fun invoke(input: UseLoadoutInput): Result<UseLoadoutResult, LoadoutError> =
-        getLoadout(input.loadoutName)
+    operator fun invoke(
+        loadoutName: String,
+        outputTarget: LoadoutOutputTarget,
+    ): Result<UseLoadoutResult, LoadoutError> =
+        getLoadout(loadoutName)
             .flatMap { loadout ->
                 composeLoadout(loadout).flatMap { composedOutput ->
-                    when (val outputTarget = input.outputTarget) {
+                    when (outputTarget) {
                         LoadoutOutputTarget.StandardOutput ->
                             Result.Success(UseLoadoutResult.PrintedToStandardOutput(loadout, composedOutput))
 
                         is LoadoutOutputTarget.FileSystem ->
                             activateComposedLoadout(
-                                ActivateComposedLoadoutInput(
-                                    composedOutput = composedOutput,
-                                    outputPaths = outputTarget.outputPaths,
-                                )
+                                composedOutput = composedOutput,
+                                outputPaths = outputTarget.outputPaths,
                             ).map { writeResult ->
                                 UseLoadoutResult.Activated(
                                     loadout = loadout,

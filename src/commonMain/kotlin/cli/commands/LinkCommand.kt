@@ -8,7 +8,6 @@ import com.github.ajalt.clikt.parameters.arguments.argument
 import com.github.ajalt.clikt.parameters.options.help
 import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.options.required
-import domain.usecase.LinkFragmentToLoadoutInput
 import domain.usecase.LinkFragmentToLoadoutUseCase
 
 class LinkCommand(
@@ -29,11 +28,9 @@ class LinkCommand(
 
     override fun run() {
         linkFragmentToLoadout(
-            LinkFragmentToLoadoutInput(
-                loadoutName = loadoutName,
-                fragmentPath = fragmentPath,
-                afterFragment = afterFragment,
-            )
+            loadoutName = loadoutName,
+            fragmentPath = fragmentPath,
+            afterFragment = afterFragment,
         ).fold(
             onSuccess = { updatedLoadout ->
                 val normalizedInput = fragmentPath.removePrefix("./")

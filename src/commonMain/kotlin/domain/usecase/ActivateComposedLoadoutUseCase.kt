@@ -7,18 +7,16 @@ import domain.entity.error.LoadoutError
 import domain.entity.packaging.Result
 import domain.repository.LocalLoadoutStateRepository
 
-data class ActivateComposedLoadoutInput(
-    val composedOutput: ComposedOutput,
-    val outputPaths: List<String>,
-)
-
 class ActivateComposedLoadoutUseCase(
     private val writeComposedFiles: WriteComposedFilesUseCase,
     private val localLoadoutStateRepository: LocalLoadoutStateRepository,
 ) {
-    operator fun invoke(input: ActivateComposedLoadoutInput): Result<WriteComposedFilesResult, LoadoutError> =
-        writeComposedFiles(input.composedOutput, input.outputPaths)
-            .map { input.composedOutput to it }
+    operator fun invoke(
+        composedOutput: ComposedOutput,
+        outputPaths: List<String>,
+    ): Result<WriteComposedFilesResult, LoadoutError> =
+        writeComposedFiles(composedOutput, outputPaths)
+            .map { composedOutput to it }
             .flatMap { (composedOutput, writeResult) ->
                 when (writeResult) {
                     WriteComposedFilesResult.Overwritten -> {

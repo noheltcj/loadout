@@ -11,18 +11,37 @@ enum class LoadoutInitializationMode {
     Local,
 }
 
-data class InitializeLoadoutProjectInput(
-    val mode: LoadoutInitializationMode,
-    val gitignorePath: String,
-    val gitignorePatterns: List<String>,
-    val starterFragmentPath: String,
-    val starterFragmentContent: String,
-    val defaultLoadoutName: String,
-    val defaultLoadoutDescription: String,
-    val outputPaths: List<String>,
-    val hooksDirectoryPath: String? = null,
-    val hooks: List<GitHookDefinition> = emptyList(),
-)
+sealed interface InitializeLoadoutProjectInput {
+    val gitignorePath: String
+    val gitignorePatterns: List<String>
+    val starterFragmentPath: String
+    val starterFragmentContent: String
+    val defaultLoadoutName: String
+    val defaultLoadoutDescription: String
+    val outputPaths: List<String>
+
+    data class Shared(
+        override val gitignorePath: String,
+        override val gitignorePatterns: List<String>,
+        override val starterFragmentPath: String,
+        override val starterFragmentContent: String,
+        override val defaultLoadoutName: String,
+        override val defaultLoadoutDescription: String,
+        override val outputPaths: List<String>,
+        val hooksDirectoryPath: String,
+        val hooks: List<GitHookDefinition>,
+    ) : InitializeLoadoutProjectInput
+
+    data class Local(
+        override val gitignorePath: String,
+        override val gitignorePatterns: List<String>,
+        override val starterFragmentPath: String,
+        override val starterFragmentContent: String,
+        override val defaultLoadoutName: String,
+        override val defaultLoadoutDescription: String,
+        override val outputPaths: List<String>,
+    ) : InitializeLoadoutProjectInput
+}
 
 sealed interface GitignoreConfigurationResult {
     data object Updated : GitignoreConfigurationResult
@@ -104,7 +123,11 @@ class InitializeLoadoutProjectUseCase(
                     append("\n")
                 }
 
-                append("# Loadout CLI - ${input.mode.name} Mode\n")
+                val modeName = when (input) {
+                    is InitializeLoadoutProjectInput.Shared -> "Shared"
+                    is InitializeLoadoutProjectInput.Local -> "Local"
+                }
+                append("# Loadout CLI - $modeName Mode\n")
                 newPatterns.forEach { pattern ->
                     append(pattern)
                     append("\n")
@@ -141,7 +164,7 @@ class InitializeLoadoutProjectUseCase(
     ): Result<DefaultLoadoutInitializationResult, LoadoutError> =
         listLoadouts().flatMap { loadouts ->
             if (loadouts.isNotEmpty()) {
-                configureRepoDefaultForExistingLoadouts(input.mode, loadouts.map { it.name })
+                configureRepoDefaultForExistingLoadouts(input, loadouts.map { it.name })
                     .map { DefaultLoadoutInitializationResult.ExistingLoadoutsPresent(loadouts.size) }
             } else {
                 createLoadout(
@@ -153,15 +176,14 @@ class InitializeLoadoutProjectUseCase(
                 ).flatMap { loadout ->
                     composeLoadout(loadout).flatMap { composedOutput ->
                         activateComposedLoadout(
-                            ActivateComposedLoadoutInput(
-                                composedOutput = composedOutput,
-                                outputPaths = input.outputPaths,
-                            )
+                            composedOutput = composedOutput,
+                            outputPaths = input.outputPaths,
                         ).flatMap { writeResult ->
-                            if (input.mode == LoadoutInitializationMode.Shared) {
-                                updateRepositorySettings(input.defaultLoadoutName).map { writeResult }
-                            } else {
-                                Result.Success(writeResult)
+                            when (input) {
+                                is InitializeLoadoutProjectInput.Shared ->
+                                    updateRepositorySettings(input.defaultLoadoutName).map { writeResult }
+                                is InitializeLoadoutProjectInput.Local ->
+                                    Result.Success(writeResult)
                             }
                         }.map { writeResult ->
                             DefaultLoadoutInitializationResult.CreatedAndActivated(
@@ -175,32 +197,30 @@ class InitializeLoadoutProjectUseCase(
         }
 
     private fun configureRepoDefaultForExistingLoadouts(
-        mode: LoadoutInitializationMode,
+        input: InitializeLoadoutProjectInput,
         loadoutNames: List<String>,
-    ): Result<Unit, LoadoutError> {
-        if (mode != LoadoutInitializationMode.Shared) {
-            return Result.Success(Unit)
+    ): Result<Unit, LoadoutError> =
+        when (input) {
+            is InitializeLoadoutProjectInput.Shared ->
+                when (loadoutNames.size) {
+                    0 -> Result.Success(Unit)
+                    1 -> updateRepositorySettings(loadoutNames.single()).map { Unit }
+                    else -> updateRepositorySettings(null).map { Unit }
+                }
+            is InitializeLoadoutProjectInput.Local ->
+                Result.Success(Unit)
         }
-
-        return when (loadoutNames.size) {
-            0 -> Result.Success(Unit)
-            1 -> updateRepositorySettings(loadoutNames.single()).map { Unit }
-            else -> updateRepositorySettings(null).map { Unit }
-        }
-    }
 
     private fun configureGitHooksIfNeeded(
         input: InitializeLoadoutProjectInput,
-    ): Result<ConfigureGitHooksResult?, LoadoutError> {
-        if (input.mode != LoadoutInitializationMode.Shared || input.hooksDirectoryPath == null) {
-            return Result.Success(null)
+    ): Result<ConfigureGitHooksResult?, LoadoutError> =
+        when (input) {
+            is InitializeLoadoutProjectInput.Shared ->
+                configureGitHooks(
+                    hooksDirectoryPath = input.hooksDirectoryPath,
+                    hooks = input.hooks
+                ).map { it as ConfigureGitHooksResult? }
+            is InitializeLoadoutProjectInput.Local ->
+                Result.Success(null)
         }
-
-        return configureGitHooks(
-            ConfigureGitHooksInput(
-                hooksDirectoryPath = input.hooksDirectoryPath,
-                hooks = input.hooks
-            )
-        ).map { it }
-    }
 }
