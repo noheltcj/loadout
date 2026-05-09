@@ -133,6 +133,9 @@ class InitCommand(
     private fun postCheckoutHookScript(): String =
         $$"""
         #!/bin/sh
+        # Loadout Auto-Sync Hook (post-checkout)
+        # Triggered on branch changes or worktree creation
+
         if [ "$3" = "0" ]; then
           exit 0
         fi
@@ -142,12 +145,13 @@ class InitCommand(
         else
             helper_path="loadout"
             if ! command -v "$helper_path" >/dev/null 2>&1; then
-                # GUI client fallbacks (common absolute install paths)
-                # Currently a bit brittle, but no current maintainers use git GUI clients
+                # Common installation paths for various environments
                 for p in \
                     "/opt/homebrew/bin/loadout" \
                     "/usr/local/bin/loadout" \
-                    "$HOME/.local/bin/loadout"
+                    "$HOME/.local/bin/loadout" \
+                    "$HOME/bin/loadout" \
+                    "/usr/bin/loadout"
                 do
                     if [ -x "$p" ]; then
                         helper_path="$p"
@@ -158,28 +162,35 @@ class InitCommand(
         fi
 
         if command -v "$helper_path" >/dev/null 2>&1; then
-            "$helper_path" sync --auto >/dev/null || exit 0
+            # Run sync. If it fails, report to stderr but don't block the git operation.
+            if ! "$helper_path" sync --auto >/dev/null; then
+                echo "[Loadout] Auto-sync failed. Run 'loadout sync' manually to see errors." >&2
+            fi
         else
-            echo "[Loadout] CLI not found. Skipping auto-sync." >&2
-            exit 0
+            echo "[Loadout] CLI not found in PATH or common locations. Skipping auto-sync." >&2
+            echo "[Loadout] To fix, ensure 'loadout' is in your PATH or set LOADOUT_BIN." >&2
         fi
+        exit 0
         """.trimIndent() + "\n"
 
     private fun postMergeHookScript(): String =
         $$"""
         #!/bin/sh
+        # Loadout Auto-Sync Hook (post-merge)
+        # Triggered after successful git pull or merge
 
         if [ -n "$LOADOUT_BIN" ]; then
             helper_path="$LOADOUT_BIN"
         else
             helper_path="loadout"
             if ! command -v "$helper_path" >/dev/null 2>&1; then
-                # GUI client fallbacks (common absolute install paths)
-                # Currently a bit brittle, but no current maintainers use git GUI clients
+                # Common installation paths for various environments
                 for p in \
                     "/opt/homebrew/bin/loadout" \
                     "/usr/local/bin/loadout" \
-                    "$HOME/.local/bin/loadout"
+                    "$HOME/.local/bin/loadout" \
+                    "$HOME/bin/loadout" \
+                    "/usr/bin/loadout"
                 do
                     if [ -x "$p" ]; then
                         helper_path="$p"
@@ -190,11 +201,15 @@ class InitCommand(
         fi
 
         if command -v "$helper_path" >/dev/null 2>&1; then
-            "$helper_path" sync --auto >/dev/null || exit 0
+            # Run sync. If it fails, report to stderr but don't block the git operation.
+            if ! "$helper_path" sync --auto >/dev/null; then
+                echo "[Loadout] Auto-sync failed. Run 'loadout sync' manually to see errors." >&2
+            fi
         else
-            echo "[Loadout] CLI not found. Skipping auto-sync." >&2
-            exit 0
+            echo "[Loadout] CLI not found in PATH or common locations. Skipping auto-sync." >&2
+            echo "[Loadout] To fix, ensure 'loadout' is in your PATH or set LOADOUT_BIN." >&2
         fi
+        exit 0
         """.trimIndent() + "\n"
 
     companion object {
