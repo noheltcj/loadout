@@ -1,3 +1,6 @@
 {
-    "defaultLoadoutName": "default"
+    "defaultLoadoutName": "default",
+    "trustedFragmentSourceHosts": [
+        "raw.githubusercontent.com"
+    ]
 }

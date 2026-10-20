@@ -15,7 +15,7 @@ class AddCommand(
     override val hiddenFromHelp: Boolean = true
     override val treatUnknownOptionsAsArgs: Boolean = true
 
-    override fun help(context: Context): String = "Legacy redirect to loadout link"
+    override fun help(context: Context): String = "Legacy redirect to loadout fragment link"
 
     @Suppress("unused")
     private val legacyArguments by argument()
@@ -31,11 +31,11 @@ class AddCommand(
     private fun redirectHelp(): String {
         val help =
             LinkCommand(linkFragmentToLoadout).getFormattedHelp()
-                ?: "Usage: loadout link <fragment-path> --to <loadout> [--after <fragment>]"
+                ?: "Usage: loadout fragment link <fragment-path> --to <loadout> [--after <fragment>]"
 
         val usagePrefix = "Usage: link"
         return if (help.startsWith(usagePrefix)) {
-            help.replaceFirst(usagePrefix, "Usage: loadout link")
+            help.replaceFirst(usagePrefix, "Usage: loadout fragment link")
         } else {
             help
         }

@@ -10,13 +10,14 @@ import com.github.ajalt.clikt.parameters.options.default
 import com.github.ajalt.clikt.parameters.options.help
 import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.types.enum
+import domain.entity.error.LoadoutError
 import domain.usecase.ConfigureGitHooksResult
 import domain.usecase.DefaultLoadoutInitializationResult
 import domain.usecase.GitHookDefinition
 import domain.usecase.GitignoreConfigurationResult
 import domain.usecase.InitializeLoadoutProjectInput
 import domain.usecase.InitializeLoadoutProjectUseCase
-import domain.usecase.StarterFragmentCreationResult
+import domain.usecase.RepositoryDefaultLoadoutOutcome
 
 class InitCommand(
     private val initializeLoadoutProject: InitializeLoadoutProjectUseCase,
@@ -25,7 +26,7 @@ class InitCommand(
     name = COMMAND_NAME,
 ) {
     override fun help(context: Context): String =
-        "Initialize Loadout in a project by setting up .gitignore, fragments, and default loadout"
+        "Initialize Loadout in a project by setting up .gitignore, hooks, and an empty default loadout"
 
     private val mode by option("--mode", "-m")
         .enum<InitMode>(ignoreCase = true)
@@ -36,9 +37,7 @@ class InitCommand(
         val input = when (mode) {
             InitMode.SHARED -> InitializeLoadoutProjectInput.Shared(
                 gitignorePath = GITIGNORE_PATH,
-                gitignorePatterns = mode.gitignorePatterns,
-                starterFragmentPath = ARCHITECT_FRAGMENT_PATH,
-                starterFragmentContent = ARCHITECT_FRAGMENT_CONTENT,
+                fixedGitignorePatterns = mode.fixedGitignorePatterns,
                 defaultLoadoutName = DEFAULT_LOADOUT_NAME,
                 defaultLoadoutDescription = DEFAULT_LOADOUT_DESCRIPTION,
                 outputPaths = defaultOutputPaths,
@@ -51,9 +50,7 @@ class InitCommand(
 
             InitMode.LOCAL -> InitializeLoadoutProjectInput.Local(
                 gitignorePath = GITIGNORE_PATH,
-                gitignorePatterns = mode.gitignorePatterns,
-                starterFragmentPath = ARCHITECT_FRAGMENT_PATH,
-                starterFragmentContent = ARCHITECT_FRAGMENT_CONTENT,
+                fixedGitignorePatterns = mode.fixedGitignorePatterns,
                 defaultLoadoutName = DEFAULT_LOADOUT_NAME,
                 defaultLoadoutDescription = DEFAULT_LOADOUT_DESCRIPTION,
                 outputPaths = defaultOutputPaths
@@ -70,14 +67,6 @@ class InitCommand(
 
                     GitignoreConfigurationResult.Updated ->
                         echo("  Added Loadout patterns to .gitignore (${mode.displayName} mode)")
-                }
-
-                when (initResult.starterFragmentCreation) {
-                    StarterFragmentCreationResult.AlreadyExists ->
-                        echo("  Starter fragment already exists at $ARCHITECT_FRAGMENT_PATH")
-
-                    StarterFragmentCreationResult.Created ->
-                        echo("  Created starter fragment at $ARCHITECT_FRAGMENT_PATH")
                 }
 
                 when (initResult.gitHooksConfiguration) {
@@ -97,21 +86,11 @@ class InitCommand(
                 }
 
                 when (val defaultLoadoutInitialization = initResult.defaultLoadoutInitialization) {
-                    is DefaultLoadoutInitializationResult.ExistingLoadoutsPresent -> {
-                        if (initResult.starterFragmentCreation is StarterFragmentCreationResult.Created) {
-                            echo("")
-                            echo("Existing loadouts found. Link the new fragment with:")
-                            echo("  loadout link $ARCHITECT_FRAGMENT_PATH --to <loadout-name>")
-                        }
-
-                        if (mode == InitMode.SHARED && defaultLoadoutInitialization.count > 1) {
-                            echo("Set the repository default loadout with:")
-                            echo("  loadout config --default-loadout <name>")
-                        }
-                    }
+                    is DefaultLoadoutInitializationResult.ExistingLoadoutsPresent ->
+                        echoRepositoryDefaultOutcome(defaultLoadoutInitialization.repositoryDefault)
 
                     is DefaultLoadoutInitializationResult.CreatedAndActivated -> {
-                        echo("  Created '$DEFAULT_LOADOUT_NAME' loadout with starter fragment")
+                        echo("  Created empty '$DEFAULT_LOADOUT_NAME' loadout")
                         echoComposedFilesWriteResult(
                             result = defaultLoadoutInitialization.writeResult,
                             loadoutName = DEFAULT_LOADOUT_NAME,
@@ -123,11 +102,39 @@ class InitCommand(
                     }
                 }
             },
-            onError = { error ->
-                echoError(error)
-                throw ProgramResult(1)
-            },
+            onError = ::fail,
         )
+    }
+
+    private fun echoRepositoryDefaultOutcome(outcome: RepositoryDefaultLoadoutOutcome) {
+        if (mode != InitMode.SHARED) {
+            return
+        }
+
+        when (outcome) {
+            is RepositoryDefaultLoadoutOutcome.Preserved ->
+                echo("  Kept the repository default loadout '${outcome.loadoutName}'")
+
+            is RepositoryDefaultLoadoutOutcome.Selected ->
+                echo("  Set the repository default loadout to '${outcome.loadoutName}'")
+
+            RepositoryDefaultLoadoutOutcome.ClearedStaleSelection -> {
+                echo("  Cleared the repository default loadout because it no longer exists")
+                echoRepositoryDefaultGuidance()
+            }
+
+            RepositoryDefaultLoadoutOutcome.Unset -> echoRepositoryDefaultGuidance()
+        }
+    }
+
+    private fun echoRepositoryDefaultGuidance() {
+        echo("Set the repository default loadout with:")
+        echo("  loadout config --default-loadout <name>")
+    }
+
+    private fun fail(error: LoadoutError) {
+        echoError(error)
+        throw ProgramResult(1)
     }
 
     private fun postCheckoutHookScript(): String =
@@ -218,41 +225,8 @@ class InitCommand(
         private const val HOOKS_DIRECTORY_PATH = ".githooks"
         private const val POST_CHECKOUT_HOOK_PATH = "$HOOKS_DIRECTORY_PATH/post-checkout"
         private const val POST_MERGE_HOOK_PATH = "$HOOKS_DIRECTORY_PATH/post-merge"
-        private const val ARCHITECT_FRAGMENT_FILENAME = "loadout-architect.md"
-        private const val ARCHITECT_FRAGMENT_PATH = "${Constants.FRAGMENTS_DIR}/$ARCHITECT_FRAGMENT_FILENAME"
         private const val DEFAULT_LOADOUT_NAME = "default"
         private const val DEFAULT_LOADOUT_DESCRIPTION = "Default loadout"
-
-        private val ARCHITECT_FRAGMENT_CONTENT =
-            """
-            |## Loadout Architect
-            |
-            |You are working in a project that uses Loadout CLI to manage composable system prompts.
-            |
-            |### Managing Loadouts
-            |
-            |Use these commands to manage your loadouts:
-            |- `loadout` - Display current loadout status
-            |- `loadout list` - List all available loadouts
-            |- `loadout use <name>` - Switch to a different loadout
-            |- `loadout create <name> --desc "Description"` - Create a new loadout
-            |- `loadout remove <name>` - Remove a loadout
-            |- `loadout link <fragment-path> --to <loadout>` - Link a fragment into a loadout
-            |- `loadout unlink <fragment-path> --from <loadout>` - Unlink a fragment from a loadout
-            |- `loadout sync` - Re-compose and synchronize after fragment changes
-            |
-            |### Fragment Guidelines
-            |
-            |Fragments are modular markdown files that compose into the final CLAUDE.md, AGENTS.md, and GEMINI.md:
-            |- Keep fragments focused on a single concern (coding style, project structure, etc.)
-            |- Use clear, concise language that AI agents can follow
-            |- Store fragments in `fragments/`
-            |
-            |### Loadout Guidelines
-            |
-            |- Create task-specific loadouts (e.g., "engineering", "code-review", "documentation")
-            |- Run `loadout sync` after modifying any fragment content
-            """.trimMargin()
     }
 }
 
@@ -270,24 +244,23 @@ enum class InitMode(
     ),
     ;
 
-    val gitignorePatterns: List<String>
-        get() =
-            when (this) {
-                SHARED ->
-                    listOf(GITIGNORE_HEADER, Constants.LOCAL_LOADOUT_STATE_FILE) + Constants.generatedMarkdownFiles
-                LOCAL ->
-                    listOf(GITIGNORE_HEADER, Constants.LOCAL_LOADOUT_STATE_FILE) +
-                        Constants.generatedMarkdownFiles +
-                        listOf(
-                            "",
-                            REPOSITORY_SETTINGS_HEADER,
-                            Constants.REPOSITORY_SETTINGS_FILE,
-                            "",
-                            LOCAL_ONLY_GITIGNORE_HEADER,
-                            "${Constants.LOADOUTS_DIR}/",
-                            "${Constants.FRAGMENTS_DIR}/",
-                        )
-            }
+    val fixedGitignorePatterns: List<String>
+        get() = when (this) {
+            SHARED ->
+                listOf(GITIGNORE_HEADER, Constants.LOCAL_LOADOUT_STATE_FILE) +
+                    Constants.generatedMarkdownFiles
+            LOCAL ->
+                listOf(GITIGNORE_HEADER, Constants.LOCAL_LOADOUT_STATE_FILE) +
+                    Constants.generatedMarkdownFiles +
+                    listOf(
+                        "",
+                        REPOSITORY_SETTINGS_HEADER,
+                        Constants.REPOSITORY_SETTINGS_FILE,
+                        "",
+                        LOCAL_ONLY_GITIGNORE_HEADER,
+                        "${Constants.LOADOUTS_DIR}/",
+                    )
+        }
 
     companion object {
         private const val GITIGNORE_HEADER = "# Loadout local runtime state"

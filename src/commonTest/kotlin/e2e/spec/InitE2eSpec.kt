@@ -3,15 +3,15 @@
 package e2e.spec
 
 import cli.Constants
+import domain.entity.RepositorySettings
 import e2e.support.E2eBehaviorSuite
 import e2e.support.ScenarioSeed
 import e2e.support.action
 import e2e.support.andThen
-import e2e.support.architectFragmentPath
-import e2e.support.existingStarterFragmentContent
 import e2e.support.givenExistingLoadoutsAlreadyExistBeforeInit
+import e2e.support.givenFragmentsHomeIsConfigured
 import e2e.support.givenGitRepositoryExists
-import e2e.support.givenStarterFragmentAlreadyExists
+import e2e.support.givenRepositoryDefaultLoadoutIsSet
 import e2e.support.givenTwoValidLoadoutsExist
 import e2e.support.hooksDirectoryPath
 import e2e.support.postCheckoutHookPath
@@ -38,6 +38,7 @@ import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
+import io.kotest.matchers.string.shouldNotContain
 
 private data class HookFileContentsCapture(
     val postCheckoutHookContent: String,
@@ -46,7 +47,7 @@ private data class HookFileContentsCapture(
 
 class InitE2eSpec : E2eBehaviorSuite({
     context("loadout init spec") {
-        given("an isolated workspace") {
+        given("the workspace has no loadouts and no repository settings") {
             action("loadout init is run in shared mode") {
                 val execution by memoizedAction("init")
 
@@ -61,19 +62,18 @@ class InitE2eSpec : E2eBehaviorSuite({
                     execution.scenario.shouldNotIgnoreRepoManagedLoadoutFiles()
                 }
 
-                then("it creates fragments/loadout-architect.md") {
-                    execution.scenario.readWorkspaceFile(architectFragmentPath).shouldNotBeNull()
-                }
-
-                then("the starter fragment content documents link, unlink, and remove") {
-                    val starterFragment = execution.scenario.readWorkspaceFile(architectFragmentPath).shouldNotBeNull()
-                    starterFragment.shouldContain("`loadout remove <name>`")
-                    starterFragment.shouldContain("`loadout link <fragment-path> --to <loadout>`")
-                    starterFragment.shouldContain("`loadout unlink <fragment-path> --from <loadout>`")
+                then("it does not generate an initial fragment") {
+                    execution.scenario
+                        .readWorkspaceFile("${RepositorySettings.DEFAULT_FRAGMENTS_HOME}/loadout-architect.md")
+                        .shouldBeNull()
                 }
 
                 then("it creates the default loadout") {
                     execution.scenario.readLoadout("default").shouldNotBeNull()
+                }
+
+                then("the default loadout starts without fragments") {
+                    execution.scenario.readLoadout("default")?.fragments shouldBe emptyList()
                 }
 
                 then("it activates the default loadout") {
@@ -174,7 +174,7 @@ class InitE2eSpec : E2eBehaviorSuite({
 
                         # Loadout local-only definitions
                         ${Constants.LOADOUTS_DIR}/
-                        ${Constants.FRAGMENTS_DIR}/
+                        ${RepositorySettings.DEFAULT_FRAGMENTS_HOME}/
                         """.trimIndent()
                     )
                 }
@@ -197,28 +197,6 @@ class InitE2eSpec : E2eBehaviorSuite({
                 }
             }
 
-            given("the starter fragment already exists before init") {
-                val starterFragmentAlreadyExistsBeforeInit: ScenarioSeed = {
-                    givenStarterFragmentAlreadyExists()
-                }
-
-                action("loadout init is run in shared mode") {
-                    val execution by memoizedAction(
-                        "init",
-                        seed = starterFragmentAlreadyExistsBeforeInit
-                    )
-
-                    then("it reports that the starter fragment already exists") {
-                        execution.result.shouldContainInStdout("Starter fragment already exists")
-                    }
-
-                    then("it does not overwrite the existing fragment content") {
-                        execution.scenario.readWorkspaceFile(architectFragmentPath) shouldBe
-                            existingStarterFragmentContent
-                    }
-                }
-            }
-
             given("existing loadouts already exist before init") {
                 val existingLoadoutsAlreadyExistBeforeInit: ScenarioSeed = {
                     givenExistingLoadoutsAlreadyExistBeforeInit()
@@ -234,12 +212,72 @@ class InitE2eSpec : E2eBehaviorSuite({
                         execution.scenario.readLoadout("default").shouldBeNull()
                         execution.scenario.listLoadoutNames().shouldContainExactly(listOf("existing"))
                     }
-                    then("it prints guidance for adding the starter fragment to an existing loadout") {
-                        execution.result.stdout.shouldContain(
-                            "Existing loadouts found. Link the new fragment with:"
-                        )
-                        execution.result.stdout.shouldContain(
-                            "loadout link fragments/loadout-architect.md --to <loadout-name>"
+
+                    then("it adopts the only existing loadout as the repository default") {
+                        execution.scenario.shouldHaveRepositoryDefaultLoadoutName("existing")
+                    }
+                }
+            }
+
+            given("two loadouts exist and one is already the repository default") {
+                val repositoryDefaultAlreadySelected: ScenarioSeed = {
+                    givenTwoValidLoadoutsExist()
+                    givenRepositoryDefaultLoadoutIsSet("beta")
+                }
+
+                action("loadout init is run in shared mode") {
+                    val execution by memoizedAction("init", seed = repositoryDefaultAlreadySelected)
+
+                    then("it preserves the configured repository default loadout") {
+                        execution.scenario.shouldHaveRepositoryDefaultLoadoutName("beta")
+                    }
+
+                    then("it reports that the existing selection was kept") {
+                        execution.result.shouldContainInStdout("Kept the repository default loadout 'beta'")
+                    }
+
+                    then("it does not print guidance for choosing a default loadout") {
+                        execution.result.stdout.shouldNotContain("loadout config --default-loadout <name>")
+                    }
+                }
+            }
+
+            given("two loadouts exist and the configured default names a deleted loadout") {
+                val repositoryDefaultIsStale: ScenarioSeed = {
+                    givenTwoValidLoadoutsExist()
+                    givenRepositoryDefaultLoadoutIsSet("beta")
+                    deleteWorkspaceFile("${Constants.LOADOUTS_DIR}/beta.json")
+                    seedLoadout(name = "gamma", description = "Gamma loadout")
+                }
+
+                action("loadout init is run in shared mode") {
+                    val execution by memoizedAction("init", seed = repositoryDefaultIsStale)
+
+                    then("it clears the dangling repository default loadout") {
+                        execution.scenario.shouldHaveRepositoryDefaultLoadoutName(null)
+                    }
+
+                    then("it prints guidance for choosing a default loadout") {
+                        execution.result.shouldContainInStdout("loadout config --default-loadout <name>")
+                    }
+                }
+            }
+
+            given("repository settings use a custom fragments home") {
+                val customFragmentsHome: ScenarioSeed = {
+                    givenFragmentsHomeIsConfigured("guidance/library")
+                }
+
+                action("loadout init is run in local mode") {
+                    val execution by memoizedAction("init", "--mode", "local", seed = customFragmentsHome)
+
+                    then("it git-ignores the configured fragments home") {
+                        execution.scenario.shouldHaveGitignoreEntries("guidance/library/")
+                    }
+
+                    then("it does not git-ignore the default fragments directory") {
+                        execution.scenario.shouldNotHaveGitignoreEntries(
+                            "${RepositorySettings.DEFAULT_FRAGMENTS_HOME}/"
                         )
                     }
                 }

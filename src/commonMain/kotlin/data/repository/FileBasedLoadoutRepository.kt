@@ -5,20 +5,22 @@ import data.serialization.JsonSerializer
 import domain.entity.Loadout
 import domain.entity.error.LoadoutError
 import domain.entity.packaging.Result
-import domain.repository.FileRepository
+import domain.repository.FileMutationRepository
+import domain.repository.FileQueryRepository
 import domain.repository.LoadoutRepository
 
 class FileBasedLoadoutRepository(
-    private val fileRepository: FileRepository,
+    private val fileQueryRepository: FileQueryRepository,
+    private val fileMutationRepository: FileMutationRepository,
     private val serializer: JsonSerializer,
     private val loadoutsDirectory: String = Constants.LOADOUTS_DIR,
 ) : LoadoutRepository {
     init {
-        fileRepository.createDirectory(loadoutsDirectory)
+        fileMutationRepository.createDirectory(loadoutsDirectory)
     }
 
     override fun findAll(): Result<List<Loadout>, LoadoutError> {
-        return fileRepository
+        return fileQueryRepository
             .listFiles(loadoutsDirectory, "json")
             .flatMap { files ->
                 val loadouts = mutableListOf<Loadout>()
@@ -34,7 +36,7 @@ class FileBasedLoadoutRepository(
 
     override fun findByName(name: String): Result<Loadout?, LoadoutError> {
         val filePath = getLoadoutFilePath(name)
-        return if (!fileRepository.fileExists(filePath)) {
+        return if (!fileQueryRepository.fileExists(filePath)) {
             Result.Success(null)
         } else {
             loadLoadoutFromFile(filePath).map { it }
@@ -51,25 +53,25 @@ class FileBasedLoadoutRepository(
                     serializationException,
                 ) as LoadoutError
             }.flatMap { json ->
-                fileRepository.writeFile(filePath, json)
+                fileMutationRepository.writeFile(filePath, json)
             }
     }
 
     override fun delete(name: String): Result<Unit, LoadoutError> {
         val filePath = getLoadoutFilePath(name)
-        return if (!fileRepository.fileExists(filePath)) {
+        return if (!fileQueryRepository.fileExists(filePath)) {
             Result.Error(LoadoutError.LoadoutNotFound(name))
         } else {
-            fileRepository.deleteFile(filePath)
+            fileMutationRepository.deleteFile(filePath)
         }
     }
 
-    override fun exists(name: String): Boolean = fileRepository.fileExists(getLoadoutFilePath(name))
+    override fun exists(name: String): Boolean = fileQueryRepository.fileExists(getLoadoutFilePath(name))
 
     private fun getLoadoutFilePath(name: String): String = "$loadoutsDirectory/$name.json"
 
     private fun loadLoadoutFromFile(filePath: String): Result<Loadout, LoadoutError> =
-        fileRepository
+        fileQueryRepository
             .readFile(filePath)
             .flatMap { content ->
                 serializer

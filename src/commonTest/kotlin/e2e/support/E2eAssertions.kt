@@ -1,6 +1,8 @@
 package e2e.support
 
 import cli.Constants
+import domain.entity.Loadout
+import domain.entity.RepositorySettings
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.collections.shouldContainInOrder
 import io.kotest.matchers.nulls.shouldBeNull
@@ -22,7 +24,7 @@ private val localOnlyGitignorePatterns =
     listOf(
         LOCAL_ONLY_DEFINITIONS_GITIGNORE_HEADER,
         "${Constants.LOADOUTS_DIR}/",
-        "${Constants.FRAGMENTS_DIR}/",
+        "${RepositorySettings.DEFAULT_FRAGMENTS_HOME}/",
     )
 
 fun CommandResult.shouldHaveExitCode(expected: Int) {
@@ -89,7 +91,7 @@ fun E2eScenario.shouldContainRepositorySettingsGitignorePatterns() {
 fun E2eScenario.shouldNotIgnoreRepoManagedLoadoutFiles() {
     shouldNotHaveGitignoreEntries(
         "${Constants.LOADOUTS_DIR}/",
-        "${Constants.FRAGMENTS_DIR}/",
+        "${RepositorySettings.DEFAULT_FRAGMENTS_HOME}/",
         Constants.REPOSITORY_SETTINGS_FILE,
     )
 }
@@ -152,6 +154,10 @@ fun E2eScenario.shouldHaveGeneratedBody(
 }
 
 fun E2eScenario.requireWorkspaceFile(path: String): String = readWorkspaceFile(path).shouldNotBeNull()
+
+fun E2eScenario.requireRepositorySettings(): RepositorySettings = readRepositorySettings().shouldNotBeNull()
+
+fun E2eScenario.requireLoadout(name: String): Loadout = readLoadout(name).shouldNotBeNull()
 
 fun E2eScenario.requireLocalLoadoutState() = readLocalLoadoutState().shouldNotBeNull()
 

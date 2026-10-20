@@ -89,8 +89,13 @@ class LoadoutCli(
                     is LoadoutError.FragmentAlreadyInLoadout -> echoError(error, verbose)
                     is LoadoutError.LoadoutNotFound -> return
                     is LoadoutError.ConfigurationError,
+                    is LoadoutError.RepairableRepositorySettingsError,
                     is LoadoutError.FileSystemError,
                     is LoadoutError.InvalidFragment,
+                    is LoadoutError.InvalidFragmentSource,
+                    is LoadoutError.UntrustedFragmentSourceHost,
+                    is LoadoutError.FragmentCopyTooLarge,
+                    is LoadoutError.FragmentDestinationAlreadyExists,
                     is LoadoutError.LoadoutAlreadyExists,
                     is LoadoutError.SerializationError,
                     is LoadoutError.ValidationError,

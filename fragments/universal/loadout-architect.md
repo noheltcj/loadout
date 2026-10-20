@@ -10,8 +10,9 @@ Use these commands to manage repo loadouts:
 - `loadout use <name>` activates a loadout
 - `loadout create <name> --desc "Description"` creates a loadout
 - `loadout remove <name>` removes a loadout
-- `loadout link <fragment-path> --to <loadout>` links a fragment into a loadout
-- `loadout unlink <fragment-path> --from <loadout>` unlinks a fragment from a loadout
+- `loadout fragment copy <source> [destination]` copies a local or trusted remote fragment into the configured home
+- `loadout fragment link <fragment-path> --to <loadout>` links a fragment into a loadout
+- `loadout fragment unlink <fragment-path> --from <loadout>` unlinks a fragment from a loadout
 - `loadout sync` recomposes generated markdown after fragment changes
 
 ### Canonical Fragment Taxonomy

@@ -2,7 +2,9 @@ package cli
 
 import cli.commands.AddCommand
 import cli.commands.ConfigCommand
+import cli.commands.CopyFragmentCommand
 import cli.commands.CreateCommand
+import cli.commands.FragmentCommand
 import cli.commands.InitCommand
 import cli.commands.LinkCommand
 import cli.commands.ListCommand
@@ -23,6 +25,11 @@ fun createLoadoutCommand(applicationScope: ApplicationScope): CliktCommand =
             initializeLoadoutProject = applicationScope.initializeLoadoutProject,
             defaultOutputPaths = applicationScope.defaultOutputPaths
         ),
+        FragmentCommand().subcommands(
+            CopyFragmentCommand(copyFragment = applicationScope.copyFragment),
+            LinkCommand(linkFragmentToLoadout = applicationScope.linkFragmentToLoadout),
+            UnlinkCommand(unlinkFragmentFromLoadout = applicationScope.unlinkFragmentFromLoadout),
+        ),
         ListCommand(
             listLoadouts = applicationScope.listLoadouts
         ),
@@ -40,17 +47,11 @@ fun createLoadoutCommand(applicationScope: ApplicationScope): CliktCommand =
         AddCommand(
             linkFragmentToLoadout = applicationScope.linkFragmentToLoadout
         ),
-        LinkCommand(
-            linkFragmentToLoadout = applicationScope.linkFragmentToLoadout
-        ),
-        UnlinkCommand(
-            unlinkFragmentFromLoadout = applicationScope.unlinkFragmentFromLoadout
-        ),
         RemoveCommand(
             removeLoadout = applicationScope.removeLoadout
         ),
         ConfigCommand(
-            getRepositorySettings = applicationScope.getRepositorySettings,
+            getRepositorySettings = applicationScope.getRepairableRepositorySettings,
             updateRepositorySettings = applicationScope.updateRepositorySettings
         )
     )

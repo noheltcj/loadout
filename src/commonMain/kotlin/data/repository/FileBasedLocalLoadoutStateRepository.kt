@@ -5,17 +5,19 @@ import data.serialization.JsonSerializer
 import domain.entity.LocalLoadoutState
 import domain.entity.error.LoadoutError
 import domain.entity.packaging.Result
-import domain.repository.FileRepository
+import domain.repository.FileMutationRepository
+import domain.repository.FileQueryRepository
 import domain.repository.LocalLoadoutStateRepository
 
 class FileBasedLocalLoadoutStateRepository(
-    private val fileRepository: FileRepository,
+    private val fileQueryRepository: FileQueryRepository,
+    private val fileMutationRepository: FileMutationRepository,
     private val serializer: JsonSerializer,
 ) : LocalLoadoutStateRepository {
     override fun loadLocalState(localStatePath: String?): Result<LocalLoadoutState, LoadoutError> {
         val path = localStatePath ?: Constants.LOCAL_LOADOUT_STATE_FILE
 
-        return if (!fileRepository.fileExists(path)) {
+        return if (!fileQueryRepository.fileExists(path)) {
             Result.Success(
                 LocalLoadoutState(
                     activeLoadoutName = null,
@@ -23,7 +25,7 @@ class FileBasedLocalLoadoutStateRepository(
                 )
             )
         } else {
-            fileRepository
+            fileQueryRepository
                 .readFile(path)
                 .flatMap { content ->
                     serializer
@@ -43,7 +45,7 @@ class FileBasedLocalLoadoutStateRepository(
             .serialize(localState, LocalLoadoutState.serializer())
             .mapError { LoadoutError.ConfigurationError("Failed to serialize local state: ${it.message}", it) }
             .flatMap { json ->
-                fileRepository
+                fileMutationRepository
                     .writeFile(path, json)
                     .mapError {
                         LoadoutError.ConfigurationError(
