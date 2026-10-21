@@ -13,11 +13,12 @@ const val hooksDirectoryPath = ".githooks"
 const val postCheckoutHookPath = ".githooks/post-checkout"
 const val postMergeHookPath = ".githooks/post-merge"
 
+const val localSourcePath = "source.md"
+const val localSourceContent = "## Local guidance\n\nKeep domain boundaries explicit.\n"
+
 const val firstFragmentContent = "## Alpha Fragment\n\nAlpha guidance"
 const val secondFragmentContent = "## Beta Fragment\n\nBeta guidance"
 const val thirdFragmentContent = "## Gamma Fragment\n\nGamma guidance"
-
-const val existingStarterFragmentContent = "## Existing Architect\n\nKeep this content."
 
 const val staleWarningLine = "Warning: Current loadout fragments have changed since the last composition."
 const val staleResolutionLine = "To synchronize, run 'loadout sync' and restart your agent."
@@ -29,10 +30,6 @@ private fun StringBuilder.appendGeneratedFileStatuses(scenario: E2eScenario) {
         append(" exists: ")
         append(scenario.readGeneratedFile(fileName) != null)
     }
-}
-
-fun E2eScenario.givenStarterFragmentAlreadyExists(content: String = existingStarterFragmentContent) {
-    seedFragment(architectFragmentPath, content)
 }
 
 fun E2eScenario.givenExistingLoadoutsAlreadyExistBeforeInit() {
@@ -168,4 +165,59 @@ fun E2eScenario.givenRepoInitializedInLocalMode() {
 
 fun E2eScenario.givenGitRepositoryExists() {
     initializeGitRepository()
+}
+
+fun E2eScenario.givenRepositoryDefaultLoadoutIsSet(name: String) {
+    requireSetupCommand("config", "--default-loadout", name)
+}
+
+fun E2eScenario.givenFragmentsHomeIsConfigured(path: String) {
+    requireSetupCommand("config", "--fragments-home", path)
+}
+
+fun E2eScenario.givenFragmentSourceHostIsTrusted(host: String) {
+    requireSetupCommand("config", "--trust-fragment-host", host)
+}
+
+fun E2eScenario.givenMaximumFragmentCopyBytesIsConfigured(bytes: Int) {
+    requireSetupCommand("config", "--maximum-fragment-bytes", bytes.toString())
+}
+
+fun E2eScenario.givenDirectoryExistsOutsideWorkspace(relativePath: String): String {
+    val absolutePath = homePath(relativePath)
+    val result = runExternalCommand("mkdir", "-p", absolutePath)
+    check(result.exitCode == 0) {
+        "Expected setup 'mkdir -p $absolutePath' to succeed, but got exit ${result.exitCode}:\n${result.output}"
+    }
+    return absolutePath
+}
+
+fun E2eScenario.givenLocalMarkdownSourceExists(
+    path: String = localSourcePath,
+    content: String = localSourceContent,
+) {
+    writeWorkspaceFile(path, content)
+}
+
+fun E2eScenario.givenSymbolicLinkExists(
+    linkPath: String,
+    targetPath: String,
+) {
+    linkPath
+        .substringBeforeLast('/', missingDelimiterValue = "")
+        .takeIf(String::isNotBlank)
+        ?.let(::createWorkspaceDirectory)
+
+    val result = runExternalCommand("ln", "-s", targetPath, workspacePath(linkPath))
+    check(result.exitCode == 0) {
+        "Expected setup 'ln -s $targetPath $linkPath' to succeed, but got exit ${result.exitCode}:\n${result.output}"
+    }
+}
+
+private fun E2eScenario.requireSetupCommand(vararg args: String) {
+    val result = runCommand(*args)
+    check(result.exitCode == 0) {
+        "Expected setup command '${args.joinToString(" ")}' to succeed, " +
+            "but got exit ${result.exitCode}:\n${result.output}"
+    }
 }

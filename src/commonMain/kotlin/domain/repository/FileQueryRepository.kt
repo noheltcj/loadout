@@ -3,24 +3,20 @@ package domain.repository
 import domain.entity.error.LoadoutError
 import domain.entity.packaging.Result
 
-interface FileRepository {
+interface FileQueryRepository {
     fun readFile(path: String): Result<String, LoadoutError>
 
-    fun writeFile(
+    fun readFileBytes(
         path: String,
-        content: String,
-    ): Result<Unit, LoadoutError.FileSystemError>
-
-    fun setExecutable(path: String): Result<Unit, LoadoutError.FileSystemError>
+        byteLimit: Int,
+    ): Result<ByteArray, LoadoutError>
 
     fun fileExists(path: String): Boolean
 
-    fun createDirectory(path: String): Result<Unit, LoadoutError>
+    fun isRegularFile(path: String): Boolean
 
     fun listFiles(
         directory: String,
         extension: String? = null,
     ): Result<List<String>, LoadoutError>
-
-    fun deleteFile(path: String): Result<Unit, LoadoutError>
 }

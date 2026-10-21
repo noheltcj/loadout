@@ -20,6 +20,7 @@ version = "0.4.0"
 val kotestVersion = "6.0.0"
 val cliktVersion = "5.0.3"
 val detektVersion = "2.0.0-alpha.2"
+val ktorVersion = "3.2.3"
 val detektTaskNamePattern = Regex("""detekt.+(Main|Test)SourceSet$""")
 
 repositories {
@@ -41,6 +42,7 @@ kotlin {
                 implementation("com.github.ajalt.clikt:clikt:$cliktVersion")
                 implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.1")
                 implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.1")
+                implementation("io.ktor:ktor-client-core:$ktorVersion")
             }
         }
 
@@ -48,6 +50,7 @@ kotlin {
             dependencies {
                 implementation("io.kotest:kotest-framework-engine:$kotestVersion")
                 implementation("io.kotest:kotest-assertions-core:$kotestVersion")
+                implementation("io.ktor:ktor-client-mock:$ktorVersion")
             }
         }
 
@@ -59,13 +62,28 @@ kotlin {
             dependsOn(commonTest)
         }
 
-        val linuxX64Main by extending(nativeMain)
-        val linuxArm64Main by extending(nativeMain)
+        // Ktor's CIO engine has no TLS support on Kotlin/Native.
+        val appleMain by registering {
+            dependsOn(nativeMain.get())
+            dependencies {
+                implementation("io.ktor:ktor-client-darwin:$ktorVersion")
+            }
+        }
 
-        val macosX64Main by extending(nativeMain)
-        val macosArm64Main by extending(nativeMain)
+        val curlMain by registering {
+            dependsOn(nativeMain.get())
+            dependencies {
+                implementation("io.ktor:ktor-client-curl:$ktorVersion")
+            }
+        }
 
-        val mingwX64Main by extending(nativeMain)
+        val linuxX64Main by extending(curlMain)
+        val linuxArm64Main by extending(curlMain)
+
+        val macosX64Main by extending(appleMain)
+        val macosArm64Main by extending(appleMain)
+
+        val mingwX64Main by extending(curlMain)
 
         val linuxX64Test by extending(nativeTest)
         val linuxArm64Test by extending(nativeTest)

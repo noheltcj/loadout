@@ -21,14 +21,15 @@ import e2e.support.shouldHaveLoadoutFragments
 import e2e.support.shouldHaveStaleWarning
 
 class UnlinkE2eSpec : E2eBehaviorSuite({
-    context("loadout unlink spec") {
+    context("loadout fragment unlink spec") {
         given("the requested fragment path exists in the workspace") {
             val requestedFragmentExists: ScenarioSeed = {
                 seedFragment(firstFragmentPath, firstFragmentContent)
             }
 
-            action("loadout unlink is run without --from") {
+            action("loadout fragment unlink is run without --from") {
                 val execution by memoizedAction(
+                    "fragment",
                     "unlink",
                     firstFragmentPath,
                     seed = requestedFragmentExists
@@ -43,8 +44,9 @@ class UnlinkE2eSpec : E2eBehaviorSuite({
                 }
             }
 
-            action("loadout unlink is run with --from referencing a missing loadout") {
+            action("loadout fragment unlink is run with --from referencing a missing loadout") {
                 val execution by memoizedAction(
+                    "fragment",
                     "unlink",
                     firstFragmentPath,
                     "--from",
@@ -61,8 +63,9 @@ class UnlinkE2eSpec : E2eBehaviorSuite({
                 }
             }
 
-            action("loadout unlink is run with an empty --from value") {
+            action("loadout fragment unlink is run with an empty --from value") {
                 val execution by memoizedAction(
+                    "fragment",
                     "unlink",
                     firstFragmentPath,
                     "--from",
@@ -91,8 +94,9 @@ class UnlinkE2eSpec : E2eBehaviorSuite({
                 }
 
             given("the fragment is present in the target loadout") {
-                action("loadout unlink is run") {
+                action("loadout fragment unlink is run") {
                     val execution by memoizedAction(
+                        "fragment",
                         "unlink",
                         firstFragmentPath,
                         "--from",
@@ -118,8 +122,9 @@ class UnlinkE2eSpec : E2eBehaviorSuite({
                     }
                 }
 
-                action("loadout unlink is run with a ./ prefixed path matching a stored fragment") {
+                action("loadout fragment unlink is run with a ./ prefixed path matching a stored fragment") {
                     val execution by memoizedAction(
+                        "fragment",
                         "unlink",
                         "./$firstFragmentPath",
                         "--from",
@@ -136,8 +141,9 @@ class UnlinkE2eSpec : E2eBehaviorSuite({
                     }
                 }
 
-                action("loadout unlink is run against a legacy stored path with a ./ prefix") {
+                action("loadout fragment unlink is run against a legacy stored path with a ./ prefix") {
                     val execution by memoizedAction(
+                        "fragment",
                         "unlink",
                         firstFragmentPath,
                         "--from",
@@ -160,8 +166,9 @@ class UnlinkE2eSpec : E2eBehaviorSuite({
                 }
             }
 
-            action("loadout unlink is run for a fragment that is not in the target loadout") {
+            action("loadout fragment unlink is run for a fragment that is not in the target loadout") {
                 val execution by memoizedAction(
+                    "fragment",
                     "unlink",
                     secondFragmentPath,
                     "--from",
@@ -182,8 +189,9 @@ class UnlinkE2eSpec : E2eBehaviorSuite({
                 }
             }
 
-            action("loadout unlink is run for the only fragment in the target loadout") {
+            action("loadout fragment unlink is run for the only fragment in the target loadout") {
                 val execution by memoizedAction(
+                    "fragment",
                     "unlink",
                     firstFragmentPath,
                     "--from",
@@ -198,8 +206,9 @@ class UnlinkE2eSpec : E2eBehaviorSuite({
         }
 
         given("the loadout named by --from is the current loadout") {
-            action("loadout unlink is run") {
+            action("loadout fragment unlink is run") {
                 val execution by memoizedAction(
+                    "fragment",
                     "unlink",
                     secondFragmentPath,
                     "--from",

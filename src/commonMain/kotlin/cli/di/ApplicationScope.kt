@@ -1,20 +1,26 @@
 package cli.di
 
 import cli.outputPaths
+import data.filesystem.CanonicalPathResolver
 import data.repository.FileBasedFragmentRepository
 import data.repository.FileBasedLoadoutRepository
 import data.repository.FileBasedLocalLoadoutStateRepository
 import data.repository.FileBasedRepositorySettingsRepository
+import data.repository.FileSystemFragmentDestinationRepository
+import data.repository.KtorRemoteFragmentSourceRepository
 import data.serialization.JsonSerializer
 import domain.repository.EnvironmentRepository
-import domain.repository.FileRepository
+import domain.repository.FileMutationRepository
+import domain.repository.FileQueryRepository
 import domain.usecase.ActivateComposedLoadoutUseCase
 import domain.usecase.CheckLoadoutSyncUseCase
 import domain.usecase.ComposeLoadoutUseCase
 import domain.usecase.ConfigureGitHooksUseCase
+import domain.usecase.CopyFragmentUseCase
 import domain.usecase.CreateLoadoutUseCase
 import domain.usecase.GetCurrentLoadoutUseCase
 import domain.usecase.GetLoadoutUseCase
+import domain.usecase.GetRepairableRepositorySettingsUseCase
 import domain.usecase.GetRepositorySettingsUseCase
 import domain.usecase.GetTargetLoadoutForSyncUseCase
 import domain.usecase.InitializeLoadoutProjectUseCase
@@ -29,27 +35,38 @@ import domain.usecase.UseLoadoutUseCase
 import domain.usecase.WriteComposedFilesUseCase
 
 fun <T> withApplicationScope(scopedBlock: ApplicationScope.() -> T): T {
-    val fileRepository = provideFileRepository()
+    val fileRepositories = provideFileRepositories()
+    val fileQueryRepository = fileRepositories.query
+    val fileMutationRepository = fileRepositories.mutation
     val environmentRepository = provideEnvironmentRepository()
     val serializer = JsonSerializer()
-
-    val globalFragmentsDirectory =
-        environmentRepository
-            .getHomeDirectory()
-            ?.let { home -> "$home/.loadout/fragments" }
 
     val defaultOutputPaths = outputPaths()
 
     val localLoadoutStateRepository =
-        FileBasedLocalLoadoutStateRepository(fileRepository = fileRepository, serializer = serializer)
+        FileBasedLocalLoadoutStateRepository(
+            fileQueryRepository = fileQueryRepository,
+            fileMutationRepository = fileMutationRepository,
+            serializer = serializer,
+        )
     val repositorySettingsRepository =
-        FileBasedRepositorySettingsRepository(fileRepository = fileRepository, serializer = serializer)
-    val loadoutRepository = FileBasedLoadoutRepository(fileRepository = fileRepository, serializer = serializer)
+        FileBasedRepositorySettingsRepository(
+            fileQueryRepository = fileQueryRepository,
+            fileMutationRepository = fileMutationRepository,
+            serializer = serializer,
+        )
+    val remoteFragmentSourceRepository = provideRemoteFragmentSourceRepository()
+    val fragmentDestinationRepository = FileSystemFragmentDestinationRepository(fileRepositories.pathResolver)
+    val loadoutRepository =
+        FileBasedLoadoutRepository(
+            fileQueryRepository = fileQueryRepository,
+            fileMutationRepository = fileMutationRepository,
+            serializer = serializer,
+        )
     val fragmentRepository =
         FileBasedFragmentRepository(
-            fileRepository = fileRepository,
+            fileQueryRepository = fileQueryRepository,
             environmentRepository = environmentRepository,
-            globalFragmentsDirectory = globalFragmentsDirectory
         )
 
     val composeLoadout =
@@ -59,7 +76,8 @@ fun <T> withApplicationScope(scopedBlock: ApplicationScope.() -> T): T {
         )
     val writeComposedFiles =
         WriteComposedFilesUseCase(
-            fileRepository = fileRepository,
+            fileQueryRepository = fileQueryRepository,
+            fileMutationRepository = fileMutationRepository,
             localLoadoutStateRepository = localLoadoutStateRepository
         )
     val activateComposedLoadout =
@@ -110,9 +128,17 @@ fun <T> withApplicationScope(scopedBlock: ApplicationScope.() -> T): T {
             composeLoadout = composeLoadout,
             activateComposedLoadout = activateComposedLoadout
         )
+    val getRepositorySettings =
+        GetRepositorySettingsUseCase(
+            repositorySettingsRepository = repositorySettingsRepository
+        )
+    val getRepairableRepositorySettings =
+        GetRepairableRepositorySettingsUseCase(
+            repositorySettingsRepository = repositorySettingsRepository,
+        )
     val getTargetLoadoutForSync =
         GetTargetLoadoutForSyncUseCase(
-            repositorySettingsRepository = repositorySettingsRepository,
+            getRepositorySettings = getRepositorySettings,
             getCurrentLoadout = getCurrentLoadout,
             getLoadout = getLoadout
         )
@@ -133,54 +159,70 @@ fun <T> withApplicationScope(scopedBlock: ApplicationScope.() -> T): T {
             getCurrentLoadout = getCurrentLoadout,
             composeLoadout = composeLoadout
         )
-    val getRepositorySettings =
-        GetRepositorySettingsUseCase(
-            repositorySettingsRepository = repositorySettingsRepository
-        )
     val updateRepositorySettings =
         UpdateRepositorySettingsUseCase(
             repositorySettingsRepository = repositorySettingsRepository,
-            loadoutRepository = loadoutRepository
+            loadoutRepository = loadoutRepository,
+            getRepairableRepositorySettings = getRepairableRepositorySettings,
         )
     val configureGitHooks =
         ConfigureGitHooksUseCase(
-            fileRepository = fileRepository
+            fileQueryRepository = fileQueryRepository,
+            fileMutationRepository = fileMutationRepository,
+        )
+    val copyFragment =
+        CopyFragmentUseCase(
+            fileQueryRepository = fileQueryRepository,
+            fileMutationRepository = fileMutationRepository,
+            fragmentDestinationRepository = fragmentDestinationRepository,
+            remoteFragmentSourceRepository = remoteFragmentSourceRepository,
+            getRepositorySettings = getRepositorySettings,
         )
     val initializeLoadoutProject =
         InitializeLoadoutProjectUseCase(
-            fileRepository = fileRepository,
+            fileQueryRepository = fileQueryRepository,
+            fileMutationRepository = fileMutationRepository,
             listLoadouts = listLoadouts,
             createLoadout = createLoadout,
             composeLoadout = composeLoadout,
             activateComposedLoadout = activateComposedLoadout,
+            getRepositorySettings = getRepositorySettings,
             updateRepositorySettings = updateRepositorySettings,
             configureGitHooks = configureGitHooks
         )
 
-    return scopedBlock(
-        ApplicationScope(
-            fileRepository = fileRepository,
-            environmentRepository = environmentRepository,
-            createLoadout = createLoadout,
-            listLoadouts = listLoadouts,
-            linkFragmentToLoadout = linkFragmentToLoadout,
-            unlinkFragmentFromLoadout = unlinkFragmentFromLoadout,
-            removeLoadout = removeLoadout,
-            useLoadout = useLoadout,
-            syncLoadout = syncLoadout,
-            initializeLoadoutProject = initializeLoadoutProject,
-            readCurrentLoadoutStatus = readCurrentLoadoutStatus,
-            checkLoadoutSync = checkLoadoutSync,
-            writeComposedFiles = writeComposedFiles,
-            getRepositorySettings = getRepositorySettings,
-            updateRepositorySettings = updateRepositorySettings,
-            defaultOutputPaths = defaultOutputPaths
+    return try {
+        scopedBlock(
+            ApplicationScope(
+                fileQueryRepository = fileQueryRepository,
+                fileMutationRepository = fileMutationRepository,
+                environmentRepository = environmentRepository,
+                createLoadout = createLoadout,
+                listLoadouts = listLoadouts,
+                linkFragmentToLoadout = linkFragmentToLoadout,
+                unlinkFragmentFromLoadout = unlinkFragmentFromLoadout,
+                removeLoadout = removeLoadout,
+                useLoadout = useLoadout,
+                syncLoadout = syncLoadout,
+                initializeLoadoutProject = initializeLoadoutProject,
+                readCurrentLoadoutStatus = readCurrentLoadoutStatus,
+                checkLoadoutSync = checkLoadoutSync,
+                writeComposedFiles = writeComposedFiles,
+                getRepositorySettings = getRepositorySettings,
+                getRepairableRepositorySettings = getRepairableRepositorySettings,
+                updateRepositorySettings = updateRepositorySettings,
+                copyFragment = copyFragment,
+                defaultOutputPaths = defaultOutputPaths
+            )
         )
-    )
+    } finally {
+        remoteFragmentSourceRepository.close()
+    }
 }
 
 data class ApplicationScope(
-    val fileRepository: FileRepository,
+    val fileQueryRepository: FileQueryRepository,
+    val fileMutationRepository: FileMutationRepository,
     val environmentRepository: EnvironmentRepository,
     val createLoadout: CreateLoadoutUseCase,
     val listLoadouts: ListLoadoutsUseCase,
@@ -194,10 +236,20 @@ data class ApplicationScope(
     val checkLoadoutSync: CheckLoadoutSyncUseCase,
     val writeComposedFiles: WriteComposedFilesUseCase,
     val getRepositorySettings: GetRepositorySettingsUseCase,
+    val getRepairableRepositorySettings: GetRepairableRepositorySettingsUseCase,
     val updateRepositorySettings: UpdateRepositorySettingsUseCase,
+    val copyFragment: CopyFragmentUseCase,
     val defaultOutputPaths: List<String>,
 )
 
-expect fun provideFileRepository(): FileRepository
+data class FileRepositories(
+    val query: FileQueryRepository,
+    val mutation: FileMutationRepository,
+    val pathResolver: CanonicalPathResolver,
+)
+
+expect fun provideFileRepositories(): FileRepositories
 
 expect fun provideEnvironmentRepository(): EnvironmentRepository
+
+expect fun provideRemoteFragmentSourceRepository(): KtorRemoteFragmentSourceRepository

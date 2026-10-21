@@ -4,11 +4,13 @@ import domain.entity.ComposedOutput
 import domain.entity.WriteComposedFilesResult
 import domain.entity.error.LoadoutError
 import domain.entity.packaging.Result
-import domain.repository.FileRepository
+import domain.repository.FileMutationRepository
+import domain.repository.FileQueryRepository
 import domain.repository.LocalLoadoutStateRepository
 
 class WriteComposedFilesUseCase(
-    private val fileRepository: FileRepository,
+    private val fileQueryRepository: FileQueryRepository,
+    private val fileMutationRepository: FileMutationRepository,
     private val localLoadoutStateRepository: LocalLoadoutStateRepository,
 ) {
     /**
@@ -26,7 +28,7 @@ class WriteComposedFilesUseCase(
             val currentHash = composedOutput.metadata.contentHash
             val storedHash = state.lastComposedContentHash
 
-            val allFilesExist = outputPaths.all { fileRepository.fileExists(it) }
+            val allFilesExist = outputPaths.all { fileQueryRepository.fileExists(it) }
 
             if (currentHash == storedHash && allFilesExist) {
                 Result.Success(WriteComposedFilesResult.AlreadyUpToDate)
@@ -43,7 +45,7 @@ class WriteComposedFilesUseCase(
 
         // Write to all output paths sequentially
         for (path in outputPaths) {
-            when (val result = fileRepository.writeFile(path, content)) {
+            when (val result = fileMutationRepository.writeFile(path, content)) {
                 is Result.Error -> return result
                 is Result.Success -> { /* Continue to next file */ }
             }

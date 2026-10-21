@@ -153,10 +153,16 @@ class E2eScenario private constructor(
         writeFile(relativePath, content)
     }
 
+    fun createWorkspaceDirectory(relativePath: String) {
+        withScope {
+            createDirectories(workspacePath(relativePath))
+        }
+    }
+
     fun deleteWorkspaceFile(relativePath: String) {
         withScope {
-            if (fileRepository.fileExists(relativePath)) {
-                fileRepository.deleteFile(relativePath).unwrap("delete workspace file '$relativePath'")
+            if (fileQueryRepository.fileExists(relativePath)) {
+                fileMutationRepository.deleteFile(relativePath).unwrap("delete workspace file '$relativePath'")
             }
         }
     }
@@ -168,6 +174,8 @@ class E2eScenario private constructor(
     }
 
     fun readWorkspaceFile(relativePath: String): String? = readFile(relativePath)
+
+    fun pathExists(path: String): Boolean = withScope { fileQueryRepository.fileExists(path) }
 
     fun readLocalLoadoutState(): LocalLoadoutState? =
         readWorkspaceFile(Constants.LOCAL_LOADOUT_STATE_FILE)?.let {
@@ -211,7 +219,7 @@ class E2eScenario private constructor(
 
     fun listLoadoutNames(): List<String> =
         withScope {
-            fileRepository
+            fileQueryRepository
                 .listFiles(Constants.LOADOUTS_DIR, extension = "json")
                 .unwrap("list loadouts")
                 .map { path -> path.substringAfterLast('/').removeSuffix(".json") }
@@ -281,16 +289,16 @@ class E2eScenario private constructor(
     ) {
         withScope {
             createDirectories(path.substringBeforeLast("/", missingDelimiterValue = ""))
-            fileRepository.writeFile(path, content).unwrap("write file '$path'")
+            fileMutationRepository.writeFile(path, content).unwrap("write file '$path'")
         }
     }
 
     private fun readFile(path: String): String? =
         withScope {
-            if (!fileRepository.fileExists(path)) {
+            if (!fileQueryRepository.fileExists(path)) {
                 null
             } else {
-                fileRepository.readFile(path).unwrap("read file '$path'")
+                fileQueryRepository.readFile(path).unwrap("read file '$path'")
             }
         }
 
@@ -349,7 +357,7 @@ class E2eScenario private constructor(
                     else -> "$currentPath/$segment"
                 }
 
-            fileRepository.createDirectory(currentPath).unwrap("create directory '$currentPath'")
+            fileMutationRepository.createDirectory(currentPath).unwrap("create directory '$currentPath'")
         }
     }
 

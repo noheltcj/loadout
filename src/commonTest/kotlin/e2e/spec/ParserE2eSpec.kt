@@ -37,11 +37,25 @@ class ParserE2eSpec : E2eBehaviorSuite({
                 }
 
                 then("it outputs usage guidance for link") {
-                    execution.result.output.shouldContain("Usage: loadout link")
+                    execution.result.output.shouldContain("Usage: loadout fragment link")
                 }
 
                 then("it reports that the legacy add invocation is unsupported and points callers toward link") {
                     execution.result.shouldContainInOutput("The 'add' subcommand has been replaced by 'link'")
+                }
+            }
+        }
+
+        given("the parser receives a removed top-level fragment command") {
+            action("loadout link is run") {
+                val execution by memoizedAction("link")
+
+                then("it rejects the removed compatibility alias") {
+                    execution.result.shouldContainInOutput("no such subcommand")
+                }
+
+                then("it exits with result 1") {
+                    execution.result.shouldHaveExitCode(1)
                 }
             }
         }

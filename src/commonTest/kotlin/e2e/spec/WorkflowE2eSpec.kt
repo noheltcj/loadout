@@ -107,7 +107,7 @@ class WorkflowE2eSpec : E2eBehaviorSuite({
             val addedFragmentToCurrentLoadout: ScenarioSeed = {
                 givenCurrentLoadoutIsSet(name = "alpha")
                 seedFragment(secondFragmentPath, secondFragmentContent)
-                runCommand("link", secondFragmentPath, "--to", "alpha")
+                runCommand("fragment", "link", secondFragmentPath, "--to", "alpha")
             }
 
             then("it updates the loadout definition") {

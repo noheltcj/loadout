@@ -7,9 +7,6 @@ object Constants {
     /** Directory containing loadout definition files */
     const val LOADOUTS_DIR = ".loadouts"
 
-    /** Directory containing fragment files */
-    const val FRAGMENTS_DIR = "fragments"
-
     /** Repository-owned settings shared through version control */
     const val REPOSITORY_SETTINGS_FILE = ".loadout.json"
 

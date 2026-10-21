@@ -2,7 +2,8 @@ package domain.usecase
 
 import domain.entity.error.LoadoutError
 import domain.entity.packaging.Result
-import domain.repository.FileRepository
+import domain.repository.FileMutationRepository
+import domain.repository.FileQueryRepository
 
 data class GitHookDefinition(
     val path: String,
@@ -16,7 +17,8 @@ sealed interface ConfigureGitHooksResult {
 }
 
 class ConfigureGitHooksUseCase(
-    private val fileRepository: FileRepository,
+    private val fileQueryRepository: FileQueryRepository,
+    private val fileMutationRepository: FileMutationRepository,
 ) {
     operator fun invoke(
         hooksDirectoryPath: String,
@@ -38,7 +40,7 @@ class ConfigureGitHooksUseCase(
         hooksDirectoryPath: String,
         hooks: List<GitHookDefinition>,
     ): Result<Unit, LoadoutError> =
-        fileRepository.createDirectory(hooksDirectoryPath)
+        fileMutationRepository.createDirectory(hooksDirectoryPath)
             .flatMap { hooks.installAll() }
 
     private fun List<GitHookDefinition>.installAll(): Result<Unit, LoadoutError> {
@@ -46,17 +48,17 @@ class ConfigureGitHooksUseCase(
 
         return fold(initialResult) { result, hook ->
             result.flatMap {
-                fileRepository.writeFile(hook.path, hook.content)
-                    .flatMap { fileRepository.setExecutable(hook.path) }
+                fileMutationRepository.writeFile(hook.path, hook.content)
+                    .flatMap { fileMutationRepository.setExecutable(hook.path) }
             }
         }
     }
 
     private fun resolveGitConfigPath(): String? =
         when {
-            fileRepository.fileExists(".git/config") -> ".git/config"
-            fileRepository.fileExists(".git") ->
-                fileRepository.readFile(".git").fold(
+            fileQueryRepository.fileExists(".git/config") -> ".git/config"
+            fileQueryRepository.fileExists(".git") ->
+                fileQueryRepository.readFile(".git").fold(
                     onSuccess = { gitFileContent -> gitFileContent.gitDirectoryConfigPath() },
                     onError = { null },
                 )
@@ -64,7 +66,7 @@ class ConfigureGitHooksUseCase(
         }
 
     private fun readConfiguredHooksPath(gitConfigPath: String): Result<String?, LoadoutError> =
-        fileRepository
+        fileQueryRepository
             .readFile(gitConfigPath)
             .map { content -> parseConfiguredHooksPath(content) }
 
@@ -72,10 +74,10 @@ class ConfigureGitHooksUseCase(
         gitConfigPath: String,
         hooksPath: String,
     ): Result<Unit, LoadoutError> =
-        fileRepository
+        fileQueryRepository
             .readFile(gitConfigPath)
             .map { content -> content.withConfiguredHooksPath(hooksPath) }
-            .flatMap { updatedContent -> fileRepository.writeFile(gitConfigPath, updatedContent) }
+            .flatMap { updatedContent -> fileMutationRepository.writeFile(gitConfigPath, updatedContent) }
 
     private fun parseConfiguredHooksPath(configContent: String): String? =
         configContent

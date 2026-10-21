@@ -91,14 +91,28 @@ cd loadout
 loadout init
 
 # In shared mode (the default), that gives you:
-#   - A starter fragment at fragments/loadout-architect.md
-#   - A "default" loadout that includes it
+#   - An empty, active "default" loadout
 #   - Generated AGENTS.md, CLAUDE.md, and GEMINI.md
 #   - .githooks/ with post-checkout and post-merge scripts (committed)
 #   - git configured to use .githooks/ as the hooks path
 ```
 
-From here, the workflow is: **write fragments → compose loadouts → sync outputs.**
+To add guidance, copy fragments from a local Markdown file or a trusted raw HTTPS URL, review them, and link them
+explicitly:
+
+```bash
+# Remote hosts are denied until the repository trusts them.
+loadout config --trust-fragment-host raw.githubusercontent.com
+
+loadout fragment copy \
+  https://raw.githubusercontent.com/noheltcj/loadout/refs/heads/main/fragments/universal/uses-unambiguous-modeling.md \
+  universal/unambiguous.md
+
+loadout fragment link fragments/universal/unambiguous.md --to default
+loadout sync
+```
+
+From here, the workflow is: **copy or write fragments → compose loadouts → sync outputs.**
 
 ```bash
 # See what's active
@@ -110,9 +124,10 @@ loadout list
 # Create a new loadout
 loadout create <name> --desc "Usually the purpose of the loadout / profile"
 
-# Compose fragments
-loadout link path/to/fragment.md --to <loadout>
-loadout unlink path/to/fragment.md --from <loadout>
+# Copy and compose fragments
+loadout fragment copy <local-path-or-raw-https-url> [destination.md]
+loadout fragment link path/to/fragment.md --to <loadout>
+loadout fragment unlink path/to/fragment.md --from <loadout>
 
 # Switch to a different loadout
 loadout use <name>
@@ -129,6 +144,10 @@ loadout remove <name>
 # View or set the repository default loadout (used by auto-sync hooks)
 loadout config
 loadout config --default-loadout <name>
+loadout config --unset-default-loadout
+loadout config --fragments-home <repository-relative-directory>
+loadout config --trust-fragment-host <exact-hostname>
+loadout config --untrust-fragment-host <exact-hostname>
 ```
 
 ---
@@ -157,7 +176,18 @@ loadout init --mode local # local mode - everything stays gitignored
 Shared mode lets a team standardize on the same set of agent profiles. Local mode is for personal workflows where each developer curates their own.
 
 - `.loadout.json` stores tracked repository settings such as the default loadout for hook-driven sync.
+- Repository settings also define the fragments home, trusted remote source hosts, and the fragment copy size limit.
 - `.loadout.local.json` stores local-only runtime state such as the active loadout and last composed content hash.
+
+### Copying External Fragments Safely
+
+`loadout fragment copy` accepts local `.md` files and direct HTTPS Markdown documents. Remote copying uses an exact
+repository-owned hostname allowlist, disables redirects, rejects HTML and encoded responses, and limits documents to
+200,000 bytes. Projects may configure a lower limit with `loadout config --maximum-fragment-bytes <bytes>`.
+
+GitHub `blob/...` links are HTML pages and are rejected. Use the corresponding `raw.githubusercontent.com` URL.
+Copied content is never linked or composed automatically: review it before adding it to a loadout, because fragment
+text becomes instructions for the agents that consume the generated files.
 
 ### Auto-Sync with Git Hooks
 

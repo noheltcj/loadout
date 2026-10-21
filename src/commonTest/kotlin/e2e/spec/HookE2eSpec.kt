@@ -21,6 +21,9 @@ class HookE2eSpec : E2eBehaviorSuite({
         val initializedSharedGitRepository: ScenarioSeed = {
             givenGitRepositoryExists()
             runCommand("init")
+            writeWorkspaceFile(architectFragmentPath, "## Initial Architect\n\nInitial hook sync guidance")
+            runCommand("fragment", "link", architectFragmentPath, "--to", "default")
+            runCommand("sync")
             writeWorkspaceFile("tracked.txt", "tracked\n")
             commitAllFiles("initial commit")
         }

@@ -1,10 +1,14 @@
 package data.repository
 
+import data.filesystem.CanonicalPathResolver
+import data.platform.platformCanonicalPath
+import data.platform.platformIsSymbolicLink
 import data.platform.platformMakeExecutable
 import data.platform.platformMkdir
 import domain.entity.error.LoadoutError
 import domain.entity.packaging.Result
-import domain.repository.FileRepository
+import domain.repository.FileMutationRepository
+import domain.repository.FileQueryRepository
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.UnsafeNumber
 import kotlinx.cinterop.addressOf
@@ -17,6 +21,7 @@ import kotlinx.cinterop.usePinned
 import platform.posix.F_OK
 import platform.posix.S_IFDIR
 import platform.posix.S_IFMT
+import platform.posix.S_IFREG
 import platform.posix.access
 import platform.posix.closedir
 import platform.posix.fclose
@@ -29,7 +34,7 @@ import platform.posix.stat
 import platform.posix.unlink
 
 @OptIn(ExperimentalForeignApi::class)
-class NativeFileRepository : FileRepository {
+class NativeFileRepository : FileQueryRepository, FileMutationRepository, CanonicalPathResolver {
     override fun readFile(path: String): Result<String, LoadoutError> {
         return try {
             val file =
@@ -53,6 +58,37 @@ class NativeFileRepository : FileRepository {
                 }
 
                 Result.Success(content.toString())
+            } finally {
+                fclose(file)
+            }
+        } catch (e: Exception) {
+            Result.Error(LoadoutError.FileSystemError("Error reading file: $path", e))
+        }
+    }
+
+    override fun readFileBytes(
+        path: String,
+        byteLimit: Int,
+    ): Result<ByteArray, LoadoutError> {
+        return try {
+            val file =
+                fopen(path, "rb") ?: return Result.Error(
+                    LoadoutError.FileSystemError("Cannot open file: $path"),
+                )
+
+            try {
+                val content = ByteArray(byteLimit)
+                var contentSize = 0
+
+                while (contentSize < byteLimit) {
+                    val bytesRead = content.usePinned { pinned ->
+                        fread(pinned.addressOf(contentSize), 1u, (byteLimit - contentSize).toULong(), file).toInt()
+                    }
+                    if (bytesRead == 0) break
+                    contentSize += bytesRead
+                }
+
+                Result.Success(content.copyOf(contentSize))
             } finally {
                 fclose(file)
             }
@@ -101,6 +137,19 @@ class NativeFileRepository : FileRepository {
 
     override fun fileExists(path: String): Boolean = access(path, F_OK) == 0
 
+    override fun isRegularFile(path: String): Boolean = fileType(path) == S_IFREG.toUInt()
+
+    override fun isSymbolicLink(path: String): Boolean = platformIsSymbolicLink(path)
+
+    override fun canonicalPath(path: String): Result<String, LoadoutError> =
+        try {
+            val resolved = platformCanonicalPath(path)
+                ?: return Result.Error(LoadoutError.FileSystemError("Cannot resolve path: $path"))
+            Result.Success(resolved)
+        } catch (error: Exception) {
+            Result.Error(LoadoutError.FileSystemError("Error resolving path: $path", error))
+        }
+
     override fun createDirectory(path: String): Result<Unit, LoadoutError> =
         if (fileExists(path)) {
             Result.Success(Unit)
@@ -116,6 +165,18 @@ class NativeFileRepository : FileRepository {
                 Result.Error(LoadoutError.FileSystemError("Error creating directory: $path", e))
             }
         }
+
+    override fun createDirectories(path: String): Result<Unit, LoadoutError> {
+        var currentPath = ""
+        for (segment in path.split('/').filter(String::isNotBlank)) {
+            currentPath = if (currentPath.isEmpty()) segment else "$currentPath/$segment"
+            when (val result = createDirectory(currentPath)) {
+                is Result.Success -> Unit
+                is Result.Error -> return result
+            }
+        }
+        return Result.Success(Unit)
+    }
 
     override fun listFiles(
         directory: String,
@@ -167,17 +228,19 @@ class NativeFileRepository : FileRepository {
             Result.Error(LoadoutError.FileSystemError("Error deleting file: $path", e))
         }
 
-    private fun isDirectory(path: String): Boolean {
+    private fun isDirectory(path: String): Boolean = fileType(path) == S_IFDIR.toUInt()
+
+    private fun fileType(path: String): UInt? {
         memScoped {
             val statBuf = alloc<stat>()
             val result = stat(path, statBuf.ptr)
             if (result != 0) {
-                return false
+                return null
             }
 
             // Allowing this opt-in since this is still what we would want even across differing platform implementations.
             @OptIn(UnsafeNumber::class)
-            return (statBuf.st_mode.toUInt() and S_IFMT.toUInt()) == S_IFDIR.toUInt()
+            return statBuf.st_mode.toUInt() and S_IFMT.toUInt()
         }
     }
 }

@@ -1,6 +1,7 @@
 package e2e.platform
 
 import data.platform.platformClearEnv
+import data.platform.platformIsSymbolicLink
 import data.platform.platformMkdir
 import data.platform.platformSetEnv
 import kotlinx.cinterop.ByteVar
@@ -288,6 +289,12 @@ private fun createTemporaryDirectoryInternal(prefix: String): String {
 
 @OptIn(ExperimentalForeignApi::class)
 private fun deleteRecursivelyInternal(path: String) {
+    // Unlink before following, so cleanup never recurses into a link target outside the sandbox.
+    if (platformIsSymbolicLink(path)) {
+        check(unlink(path) == 0) { "Failed to remove symbolic link '$path'" }
+        return
+    }
+
     if (!pathExists(path)) return
 
     if (isDirectory(path)) {

@@ -11,6 +11,11 @@ sealed interface LoadoutError {
         override val cause: Throwable? = null,
     ) : LoadoutError
 
+    data class RepairableRepositorySettingsError(
+        override val message: String,
+        override val cause: Throwable? = null,
+    ) : LoadoutError
+
     data class LoadoutNotFound(val name: String) : LoadoutError {
         override val message: String = "Loadout '$name' not found"
     }
@@ -36,6 +41,28 @@ sealed interface LoadoutError {
         override val cause: Throwable? = null,
     ) : LoadoutError {
         override val message: String = "Invalid fragment: $path"
+    }
+
+    data class InvalidFragmentSource(
+        val source: String,
+        val reason: String,
+        override val cause: Throwable? = null,
+    ) : LoadoutError {
+        override val message: String = "Invalid fragment source '$source': $reason"
+    }
+
+    data class UntrustedFragmentSourceHost(val host: String) : LoadoutError {
+        override val message: String = "Fragment source host '$host' is not trusted"
+    }
+
+    data class FragmentCopyTooLarge(
+        val maximumBytes: Int,
+    ) : LoadoutError {
+        override val message: String = "Fragment exceeds the configured copy limit of $maximumBytes bytes"
+    }
+
+    data class FragmentDestinationAlreadyExists(val path: String) : LoadoutError {
+        override val message: String = "Fragment destination already exists: $path (use --force to replace it)"
     }
 
     data class FileSystemError(
