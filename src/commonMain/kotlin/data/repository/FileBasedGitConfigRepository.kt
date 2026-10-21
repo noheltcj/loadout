@@ -9,11 +9,7 @@ import domain.repository.GitConfigRepository
 
 private const val CONFIG_FILE = "config"
 
-/**
- * Reads and rewrites `core.hooksPath` in git's config file.
- *
- * Git reads config from the common directory, so every worktree of a repository shares one hooks path.
- */
+/** Git reads config from the common directory, so every worktree of a repository shares one hooks path. */
 class FileBasedGitConfigRepository(
     private val fileQueryRepository: FileQueryRepository,
     private val fileMutationRepository: FileMutationRepository,

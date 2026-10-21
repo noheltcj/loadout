@@ -22,9 +22,7 @@ private const val MAIN_WORKTREE_KEY = "main"
 private const val LINKED_WORKTREE_KEY_PREFIX = "worktrees/"
 
 /**
- * Stores Loadout's sections in git's `info/exclude` file between start and end markers.
- *
- * Lines outside the markers belong to the user and are kept as written. Sections that cannot be parsed
+ * Lines outside Loadout's sections belong to the user and are kept as written. Sections that cannot be parsed
  * unambiguously are reported instead of rewritten, so a hand edit never costs the user a line.
  */
 class FileBasedGitExcludeRepository(
@@ -283,7 +281,6 @@ private fun List<ExcludeBlock>.toSections(): GitExcludeSections {
     )
 }
 
-/** Replaces sections in place, drops sections that are no longer wanted, and appends new ones. */
 private fun List<ExcludeBlock>.withSections(sections: GitExcludeSections): List<ExcludeBlock> {
     val wantedSections = sections.toManagedSections()
     val wantedSectionsBySlot = wantedSections.associateBy(ManagedSection::slot)

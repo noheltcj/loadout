@@ -16,7 +16,7 @@ private data class CivilDate(
     val day: Long,
 )
 
-/** Formats [epochMilliseconds] as a UTC timestamp such as `20261020T174205Z`, dropping milliseconds. */
+/** For example `20261020T174205Z`, in UTC and without milliseconds. */
 fun formatBackupTimestamp(epochMilliseconds: Long): String {
     val epochSeconds = epochMilliseconds.floorDiv(MILLISECONDS_PER_SECOND)
     val secondOfDay = epochSeconds.mod(SECONDS_PER_DAY)
@@ -34,7 +34,7 @@ fun formatBackupTimestamp(epochMilliseconds: Long): String {
     }
 }
 
-/** Converts days since 1970-01-01 to a proleptic Gregorian date, following Howard Hinnant's `civil_from_days`. */
+/** Follows Howard Hinnant's `civil_from_days` for the proleptic Gregorian calendar. */
 private fun civilDate(daysSinceEpoch: Long): CivilDate {
     val daysSinceEraStart = daysSinceEpoch + DAYS_FROM_ERA_START_TO_EPOCH
     val era = daysSinceEraStart.floorDiv(DAYS_PER_ERA)

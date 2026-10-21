@@ -7,7 +7,7 @@ import domain.entity.packaging.Result
 import domain.policy.RepositorySettingsRepairWarning
 
 data class LoadoutActivation(
-    /** Invalid repository settings that this activation repaired on read, without writing the repair back. */
+    /** Repaired on read; the repair is not written back. */
     val repositorySettingsWarnings: List<RepositorySettingsRepairWarning>,
     val outputFiles: OutputFilesResolution,
     val writeResult: WriteComposedFilesResult,

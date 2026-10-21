@@ -45,7 +45,6 @@ private const val OUTSIDE_TARGET_PATH = "outside/notes.md"
 private const val OUTSIDE_TARGET_CONTENT = "## Notes kept outside the repository\n\nShared across projects.\n"
 private const val SUGGESTED_COMMAND_INDENT = "  "
 
-/** Runs the commands Loadout suggested in [output], in order, the way a user would paste them. */
 private fun E2eScenario.runSuggestedCommands(output: String): CommandResult =
     output
         .lineSequence()

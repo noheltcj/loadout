@@ -9,7 +9,7 @@ import domain.entity.packaging.Result
 interface GitExcludeRepository {
     fun loadSections(layout: GitRepositoryLayout.Worktree): Result<GitExcludeSections, LoadoutError>
 
-    /** Replaces Loadout's sections with [sections], keeps every other line, and writes only when the content changes. */
+    /** Keeps every line outside Loadout's sections and writes only when the content changes. */
     fun saveSections(
         layout: GitRepositoryLayout.Worktree,
         sections: GitExcludeSections,

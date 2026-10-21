@@ -9,7 +9,6 @@ interface FileMutationRepository {
         content: String,
     ): Result<Unit, LoadoutError.FileSystemError>
 
-    /** Copies the exact bytes of [sourcePath], following symbolic links, to [destinationPath]. */
     fun copyFile(
         sourcePath: String,
         destinationPath: String,

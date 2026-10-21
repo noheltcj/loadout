@@ -5,7 +5,6 @@ import domain.entity.error.LoadoutError
 import domain.entity.packaging.Result
 import domain.policy.OutputFilePath
 
-/** Reports what the next sync would change: the composed fragments, the set of output files, or both. */
 class CheckLoadoutSyncUseCase(
     private val getLocalLoadoutState: GetLocalLoadoutStateUseCase,
     private val getLoadout: GetLoadoutUseCase,

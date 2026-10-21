@@ -8,10 +8,7 @@ data class RepositorySettings(
     val fragmentsHome: String = DEFAULT_FRAGMENTS_HOME,
     val trustedFragmentSourceHosts: List<String> = emptyList(),
     val maximumFragmentCopyBytes: Int = DEFAULT_MAXIMUM_FRAGMENT_COPY_BYTES,
-    /**
-     * The files this repository generates by default, or null for the built-in default. Entries are checked when
-     * the list is resolved, so a hand edit or a moved fragments home never fails a command.
-     */
+    /** Null defers to the built-in default. */
     val outputFiles: List<String>? = null,
 ) {
     companion object {

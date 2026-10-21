@@ -16,7 +16,7 @@ sealed interface UserSettingsUpdateInput {
     data object UnsetOutputFiles : UserSettingsUpdateInput
 }
 
-/** Changes one user setting, replacing an unreadable file rather than failing on it. */
+/** Replaces an unreadable file rather than failing on it. */
 class UpdateUserSettingsUseCase(
     private val userSettingsRepository: UserSettingsRepository,
     private val loadoutFileLocations: LoadoutFileLocations,

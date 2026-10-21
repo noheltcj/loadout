@@ -21,11 +21,7 @@ data class BackUpOutputFileInput(
     val origin: UserContentOrigin,
 )
 
-/**
- * Copies the files Loadout is about to replace into one `<backups>/<UTC timestamp>` folder per command.
- *
- * The `.backup` suffix keeps agents that discover instruction files in subdirectories from reading backups.
- */
+/** The `.backup` suffix keeps agents that discover instruction files in subdirectories from reading backups. */
 class BackUpOutputFilesUseCase(
     private val fileQueryRepository: FileQueryRepository,
     private val fileMutationRepository: FileMutationRepository,

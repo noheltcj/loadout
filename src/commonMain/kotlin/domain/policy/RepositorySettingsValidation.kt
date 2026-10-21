@@ -6,8 +6,8 @@ import domain.entity.error.LoadoutError
 import domain.entity.packaging.Result
 
 /**
- * Accepts repository settings only when every field is valid. Output files are checked against the validated
- * fragments home and [loadoutFileLocations], so moving the fragments home over a configured output file is rejected.
+ * Output files are checked against the validated fragments home, so moving the fragments home over a configured output
+ * file is rejected.
  */
 fun validateRepositorySettings(
     settings: RepositorySettings,
@@ -54,8 +54,7 @@ sealed interface RepositorySettingsRepairWarning {
 }
 
 /**
- * Replaces or removes every invalid field. Output files are checked against the repaired fragments home, and a list
- * left with no valid entries becomes unset.
+ * Output files are checked against the repaired fragments home, and a list left with no valid entries becomes unset.
  */
 fun repairRepositorySettings(
     settings: RepositorySettings,

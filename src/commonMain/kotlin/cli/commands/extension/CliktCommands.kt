@@ -13,7 +13,6 @@ import domain.policy.UserSettingsRepairWarning
 import domain.usecase.ConfigureGitIgnoreRulesResult
 import domain.usecase.LoadoutActivation
 
-/** A hand-written file's backup, and the fragment path Loadout suggests moving it to. */
 private data class FragmentMove(
     val backupPath: String,
     val fragmentPath: String,
@@ -68,7 +67,6 @@ private fun CliktCommand.echoReleasedFiles(releasedFiles: List<String>) {
     }
 }
 
-/** Reports every backup, then one set of commands that moves the hand-written ones into fragments. */
 private fun CliktCommand.echoOutputFileBackups(
     backups: List<OutputFileBackup>,
     loadoutName: String,
@@ -170,7 +168,6 @@ private fun UserSettingsRepairWarning.describe(): String =
 private fun LoadoutError.UnreadableUserSettings.causeDetail(): String =
     cause?.message?.let { message -> " $message" }.orEmpty()
 
-/** The path with the home directory shown as `~`, the way shells abbreviate it. */
 val UserSettingsLocation.displayPath: String
     get() = pathInHome?.let { relativePath -> "~/$relativePath" } ?: path
 

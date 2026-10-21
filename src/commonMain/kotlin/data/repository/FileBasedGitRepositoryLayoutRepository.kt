@@ -14,7 +14,6 @@ private const val GIT_DIRECTORY_PREFIX = "gitdir:"
 private const val COMMON_DIRECTORY_FILE = "commondir"
 private const val LINKED_WORKTREES_DIRECTORY = "worktrees"
 
-/** Reads git's on-disk layout: a `.git` directory, or a `.git` file whose `gitdir:` line points elsewhere. */
 class FileBasedGitRepositoryLayoutRepository(
     private val fileQueryRepository: FileQueryRepository,
 ) : GitRepositoryLayoutRepository {

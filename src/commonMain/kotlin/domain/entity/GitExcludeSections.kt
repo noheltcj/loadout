@@ -1,11 +1,6 @@
 package domain.entity
 
-/**
- * The sections Loadout manages in git's `info/exclude` file. Lines outside these sections belong to the user.
- *
- * Every worktree shares the file, so each worktree lists the outputs it generates in its own section. The
- * repository section records the mode, which decides which of Loadout's own files stay out of git.
- */
+/** Every worktree shares the exclude file, so each worktree lists the outputs it generates in its own section. */
 data class GitExcludeSections(
     val repositorySection: RepositoryExcludeSection,
     val worktreeSections: Map<GitWorktree, List<String>>,

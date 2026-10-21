@@ -6,7 +6,6 @@ import domain.entity.error.LoadoutError
 sealed interface LoadoutOutputTarget {
     data object StandardOutput : LoadoutOutputTarget
 
-    /** The output files the settings resolve to. */
     data object ConfiguredOutputFiles : LoadoutOutputTarget
 }
 
@@ -30,7 +29,6 @@ inline fun <T> CurrentLoadoutSelection.fold(
 sealed interface LoadoutSyncState {
     data object NoCurrentLoadout : LoadoutSyncState
 
-    /** The worktree has no current loadout until the next write replaces its unreadable local state. */
     data class UnreadableLocalState(
         val error: LoadoutError.UnreadableLocalState,
     ) : LoadoutSyncState
@@ -50,7 +48,6 @@ sealed interface FragmentsSyncState {
 sealed interface OutputFilesSyncState {
     data object UpToDate : OutputFilesSyncState
 
-    /** The next sync writes [addedOutputFiles] and prunes [removedOutputFiles]. */
     data class ChangedSinceLastWrite(
         val addedOutputFiles: List<String>,
         val removedOutputFiles: List<String>,

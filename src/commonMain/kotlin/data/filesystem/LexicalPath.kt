@@ -4,10 +4,8 @@ import domain.policy.isAbsolutePath
 import domain.policy.normalizePathSeparators
 
 /**
- * Resolves `.` and `..` segments without consulting the filesystem.
- *
- * A leading `/` or drive letter is kept and `..` never climbs above it. A relative path keeps the leading
- * `..` segments it cannot resolve.
+ * A leading `/` or drive letter is kept and `..` never climbs above it. A relative path keeps the leading `..` segments
+ * it cannot resolve.
  */
 fun normalizePathLexically(path: String): String {
     val normalized = normalizePathSeparators(path)

@@ -25,12 +25,9 @@ class WriteComposedFilesUseCase(
     private val pruneOutputFiles: PruneOutputFilesUseCase,
 ) {
     /**
-     * Writes the composed output to every output file, records the write, and prunes the files of the last write
-     * that are no longer configured.
-     *
-     * Content Loadout must not lose is backed up first, and every backup is made before any output is written, so a
-     * failed backup leaves every output untouched. The outputs are up to date when the composition and the set of
-     * output files match the last write and every file still holds exactly what Loadout wrote.
+     * Every backup is made before any output is written, so a failed backup leaves every output untouched. The outputs
+     * are up to date when the composition and the set of output files match the last write and every file still holds
+     * exactly what Loadout wrote.
      */
     operator fun invoke(
         composedOutput: ComposedOutput,

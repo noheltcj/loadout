@@ -107,7 +107,7 @@ fun E2eScenario.givenHandWrittenAgentFileExists(
     writeWorkspaceFile(path, content)
 }
 
-/** Appends [outputFileEdit] to an output file Loadout generated, keeping its header. */
+/** Keeps the header, so the file still reads as Loadout's output that someone edited. */
 fun E2eScenario.givenOutputFileWasEdited(path: String) {
     val generatedContent = readWorkspaceFile(path)
     check(generatedContent != null) { "Expected $path to exist before editing it" }
@@ -174,7 +174,7 @@ fun E2eScenario.givenCurrentLoadoutIsAlreadySynchronized(name: String = "alpha")
     givenCurrentLoadoutIsSet(name = name)
 }
 
-/** Deletes [firstFragmentPath], which the current loadout that [givenCurrentLoadoutIsSet] seeds links. */
+/** Depends on [givenCurrentLoadoutIsSet], whose current loadout links [firstFragmentPath]. */
 fun E2eScenario.givenCurrentLoadoutFragmentWasDeleted() {
     deleteWorkspaceFile(firstFragmentPath)
 }
@@ -289,12 +289,12 @@ fun E2eScenario.givenCurrentLoadoutWasSynced() {
     requireSetupCommand("sync")
 }
 
-/** Lists [outputFiles] in the repository settings as a hand edit would, without validating them. */
+/** Writes the list as a hand edit would, bypassing validation. */
 fun E2eScenario.givenRepositorySettingsListOutputFiles(vararg outputFiles: String) {
     editRepositorySettingsByHand { settings -> settings.copy(outputFiles = outputFiles.toList()) }
 }
 
-/** Trusts [hosts] in the repository settings as a hand edit would, without validating them. */
+/** Writes the hosts as a hand edit would, bypassing validation. */
 fun E2eScenario.givenRepositorySettingsTrustFragmentHosts(vararg hosts: String) {
     editRepositorySettingsByHand { settings -> settings.copy(trustedFragmentSourceHosts = hosts.toList()) }
 }

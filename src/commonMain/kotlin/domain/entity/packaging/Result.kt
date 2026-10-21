@@ -37,7 +37,7 @@ sealed class Result<out T, out E> {
         }
 }
 
-/** Applies [transform] to each element in order and stops at the first error. */
+/** Stops at the first error, without transforming the elements after it. */
 inline fun <T, R, E> Iterable<T>.mapResults(transform: (T) -> Result<R, E>): Result<List<R>, E> {
     val initialResult: Result<List<R>, E> = Result.Success(emptyList())
 

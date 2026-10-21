@@ -113,7 +113,6 @@ class InitCommand(
                     }
                 }
 
-                // Developers who have not chosen their agent files learn that they can.
                 if (initResult.outputFiles.source == OutputFilesSource.BuiltInDefault) {
                     echo("Only use some of these agents? Run: loadout config --user --output-files CLAUDE.md")
                 }

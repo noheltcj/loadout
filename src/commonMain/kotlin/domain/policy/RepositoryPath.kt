@@ -23,7 +23,7 @@ data class OutputFilePath internal constructor(val value: String)
 
 fun normalizePathSeparators(path: String): String = path.replace('\\', '/')
 
-/** Lists the directories above a relative [path], outermost first: `a` and `a/b` for `a/b/c.md`. */
+/** Outermost first: `a`, then `a/b`, for `a/b/c.md`. */
 fun parentDirectories(path: String): List<String> =
     path.split('/').dropLast(1).runningReduce { parentDirectory, segment -> "$parentDirectory/$segment" }
 
@@ -84,8 +84,8 @@ fun validateMarkdownDestination(
 }
 
 /**
- * Accepts a repository-relative Markdown file such as `CLAUDE.md` or `.github/copilot-instructions.md`. Directories
- * may start with a dot, as agent directories like `.github` do, but the file name must start with a letter or digit.
+ * Directories may start with a dot, as agent directories like `.github` do, but the file name must start with a letter
+ * or digit.
  */
 fun validateOutputFilePath(
     path: String,

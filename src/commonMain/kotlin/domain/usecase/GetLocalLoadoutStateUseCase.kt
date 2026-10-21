@@ -11,7 +11,6 @@ sealed interface LocalLoadoutStateReading {
         override val state: LocalLoadoutState,
     ) : LocalLoadoutStateReading
 
-    /** The worktree counts as inactive until the next write replaces the unreadable state. */
     data class Unreadable(
         val error: LoadoutError.UnreadableLocalState,
     ) : LocalLoadoutStateReading {
@@ -21,8 +20,8 @@ sealed interface LocalLoadoutStateReading {
 }
 
 /**
- * Reads this worktree's local state. It is runtime state rather than a source of truth, so state that cannot be read
- * resets the worktree to inactive instead of failing the command.
+ * Local state is runtime state rather than a source of truth, so state that cannot be read resets the worktree to
+ * inactive instead of failing the command.
  */
 class GetLocalLoadoutStateUseCase(
     private val localLoadoutStateRepository: LocalLoadoutStateRepository,

@@ -1,6 +1,5 @@
 package domain.entity
 
-/** The directory that holds per-user configuration, as the platform's environment variables name it. */
 sealed interface UserConfigDirectory {
     /** [pathInHome] is [path] relative to the home directory when it lies inside it. */
     data class Determined(

@@ -23,11 +23,7 @@ private sealed interface PruneOutcome {
     ) : PruneOutcome
 }
 
-/**
- * Cleans up the files of the last write that the current write no longer produced. A file that is still Loadout's
- * unmodified output is deleted. Anything else is kept and released: Loadout stops managing and ignoring it, and
- * destroys nothing.
- */
+/** Deletes a file that is still Loadout's unmodified output, and releases anything else: kept, unmanaged, unignored. */
 class PruneOutputFilesUseCase(
     private val inspectOutputPath: InspectOutputPathUseCase,
     private val fileMutationRepository: FileMutationRepository,

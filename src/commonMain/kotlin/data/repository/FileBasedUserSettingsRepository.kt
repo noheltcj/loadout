@@ -14,7 +14,6 @@ import domain.repository.UserSettingsRepository
 
 private const val USER_SETTINGS_FILE_IN_CONFIG_DIRECTORY = "loadout/config.json"
 
-/** Keeps user settings in `loadout/config.json` under the user config directory. */
 class FileBasedUserSettingsRepository(
     private val fileQueryRepository: FileQueryRepository,
     private val fileMutationRepository: FileMutationRepository,

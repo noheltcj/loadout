@@ -47,7 +47,6 @@ sealed interface DefaultLoadoutInitializationResult {
 }
 
 data class InitializeLoadoutProjectResult(
-    /** Invalid repository settings that init repaired on read. */
     val repositorySettingsWarnings: List<RepositorySettingsRepairWarning>,
     val outputFiles: OutputFilesResolution,
     val ignoreRulesConfiguration: ConfigureGitIgnoreRulesResult,

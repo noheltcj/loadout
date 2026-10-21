@@ -5,15 +5,10 @@ import domain.entity.error.LoadoutError
 import domain.entity.packaging.Result
 import domain.entity.packaging.mapResults
 
-// The output file rules that every settings layer shares.
-
 private const val OUTPUT_FILES_FIELD = "output-files"
 private const val GIT_DIRECTORY = ".git"
 
-/**
- * The directories git and Loadout keep their own files in, which no output file may be written into. A repository's
- * fragments home is reserved too, but only that repository's settings know where it is.
- */
+/** Leaves out the fragments home, which only each repository's settings know, so callers that have it add it. */
 internal fun reservedOutputDirectories(loadoutFileLocations: LoadoutFileLocations): List<String> =
     listOf(
         GIT_DIRECTORY,
@@ -22,14 +17,10 @@ internal fun reservedOutputDirectories(loadoutFileLocations: LoadoutFileLocation
         loadoutFileLocations.backupsDirectory,
     )
 
-/**
- * Checks the shape of each entry, typing a list that a validating or repairing settings read already checked against
- * the reserved directories, case-only duplicates, and emptiness.
- */
+/** Only types each entry: the list must already have passed a validating or repairing settings read. */
 fun validateOutputFilePaths(outputFiles: List<String>): Result<List<OutputFilePath>, LoadoutError> =
     outputFiles.mapResults { outputFile -> validateOutputFilePath(outputFile, OUTPUT_FILES_FIELD) }
 
-/** Accepts an unset list, or a list whose entries are all valid with at least one left. */
 internal fun validateOutputFileList(
     outputFiles: List<String>?,
     reservedDirectories: List<String>,
@@ -47,7 +38,6 @@ internal fun validateOutputFileList(
 }
 
 internal data class OutputFilesRepair(
-    /** The valid entries in their given order, without duplicates. */
     val outputFiles: List<OutputFilePath>,
     val rejections: List<OutputFileRejection>,
 )
@@ -58,8 +48,8 @@ internal data class OutputFileRejection(
 )
 
 /**
- * Sets aside every invalid entry of a persisted list. Entries are compared case-insensitively because macOS and
- * Windows treat paths that differ only by case as one file, so removing one of them would delete the other.
+ * Entries are compared case-insensitively because macOS and Windows treat paths that differ only by case as one file,
+ * so removing one of them would delete the other.
  */
 internal fun repairOutputFileList(
     outputFiles: List<String>,

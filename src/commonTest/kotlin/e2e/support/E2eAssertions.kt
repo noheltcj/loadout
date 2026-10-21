@@ -152,7 +152,6 @@ fun E2eScenario.requireRepositorySettings(): RepositorySettings = readRepository
 
 fun E2eScenario.requireLoadout(name: String): Loadout = readLoadout(name).shouldNotBeNull()
 
-/** The current loadout's name, or null when the worktree has none. */
 val LocalLoadoutState?.activeLoadoutName: String?
     get() = (this as? LocalLoadoutState.Active)?.loadoutName
 

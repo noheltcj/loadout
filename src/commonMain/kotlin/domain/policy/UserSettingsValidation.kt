@@ -8,8 +8,8 @@ import domain.entity.error.LoadoutError
 import domain.entity.packaging.Result
 
 /**
- * Accepts user settings that are valid in every repository. Each repository's fragments home is reserved too, but it
- * differs by repository, so [repairUserSettingsForRepository] checks it when a repository resolves its output files.
+ * Each repository also reserves its own fragments home, which differs by repository, so
+ * [repairUserSettingsForRepository] checks it when a repository resolves its output files.
  */
 fun validateUserSettings(
     settings: UserSettings,
@@ -40,16 +40,13 @@ sealed interface UserSettingsRepairWarning {
     ) : UserSettingsRepairWarning
 }
 
-/** Sets aside what no repository can use. An unreadable file reads as empty settings. */
+/** An unreadable file reads as empty settings. */
 fun repairUserSettings(
     file: UserSettingsFile,
     loadoutFileLocations: LoadoutFileLocations,
 ): UserSettingsRepair = repairUserSettingsAgainst(file, reservedOutputDirectories(loadoutFileLocations))
 
-/**
- * Sets aside what the repository whose fragments home is [fragmentsHome] cannot use. A list left with no valid entries
- * becomes unset, so the repository setting applies instead.
- */
+/** A list left with no valid entries becomes unset, so the repository setting applies instead. */
 fun repairUserSettingsForRepository(
     file: UserSettingsFile,
     loadoutFileLocations: LoadoutFileLocations,

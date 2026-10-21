@@ -341,6 +341,16 @@ loadout config --default-loadout <name>
 
 If no default is configured, `--auto` is a no-op and the hooks exit cleanly.
 
+### Worktrees and Cloud Sessions
+
+Agent tools change quickly, and their worktrees or cloud sessions can start without Loadout's generated files. As a workaround, commit `AGENTS.md`, which most agents read:
+
+```bash
+git add -f AGENTS.md
+```
+
+Ignore rules don't apply to tracked files. Loadout keeps regenerating `AGENTS.md`, so commit it again when your guidance changes.
+
 ---
 
 ## Why Fragments?

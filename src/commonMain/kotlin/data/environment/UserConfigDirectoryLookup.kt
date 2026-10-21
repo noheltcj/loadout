@@ -8,19 +8,13 @@ private const val HOME = "HOME"
 private const val APPDATA = "APPDATA"
 private const val XDG_DEFAULT_CONFIG_DIRECTORY_IN_HOME = ".config"
 
-/** How a platform names the directory that holds per-user configuration. */
 enum class UserConfigDirectoryConvention {
-    /** The XDG Base Directory convention of macOS and Linux command-line tools. */
     Xdg,
 
-    /** The roaming application data directory of Windows. */
     Windows,
 }
 
-/**
- * Finds the user config directory from the environment variables [readEnvironmentVariable] returns. Under the XDG
- * convention, a relative `XDG_CONFIG_HOME` is ignored, as the specification requires, and `$HOME/.config` is used.
- */
+/** A relative `XDG_CONFIG_HOME` is ignored, as the XDG Base Directory specification requires. */
 fun lookUpUserConfigDirectory(
     convention: UserConfigDirectoryConvention,
     readEnvironmentVariable: (String) -> String?,

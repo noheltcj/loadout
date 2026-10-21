@@ -8,7 +8,6 @@ import domain.policy.UserSettingsRepair
 import domain.policy.repairUserSettings
 import domain.repository.UserSettingsRepository
 
-/** The user settings file and the settings Loadout applies from it. */
 data class LocatedUserSettings(
     val file: UserSettingsFile.Located,
     val repair: UserSettingsRepair,

@@ -49,7 +49,6 @@ class E2eScenario private constructor(
     private val gitCeilingDirectories = workspaceRoot.substringBeforeLast("/", missingDelimiterValue = workspaceRoot)
     private var userConfigDirectoryVariablesAreRemoved = false
 
-    /** Where Loadout keeps user settings under the sandboxed `XDG_CONFIG_HOME`. */
     val userSettingsPath: String = "$xdgConfigRoot/loadout/config.json"
 
     fun runCommand(
@@ -125,7 +124,7 @@ class E2eScenario private constructor(
         }
     }
 
-    /** Lists the paths `git status` reports as untracked, expanding untracked directories to their files. */
+    /** Expands untracked directories to their files. */
     fun untrackedPathsInGitStatus(workingDirectory: String = workspaceRoot): List<String> {
         val result = runGit("status", "--porcelain", "--untracked-files=all", workingDirectory = workingDirectory)
         result.requireSuccess("git status")
@@ -138,7 +137,7 @@ class E2eScenario private constructor(
 
     fun readGitExcludeFile(): String? = readWorkspaceFile(GIT_EXCLUDE_FILE_PATH)
 
-    /** Runs every later command without `HOME` and `XDG_CONFIG_HOME`, so no user config directory can be found. */
+    /** Applies to every later command in the scenario. */
     fun removeUserConfigDirectoryVariables() {
         userConfigDirectoryVariablesAreRemoved = true
     }
@@ -152,14 +151,13 @@ class E2eScenario private constructor(
             serializer.deserialize(it, UserSettings.serializer()).unwrap("deserialize user settings")
         }
 
-    /** Lists every entry in the workspace, ignoring git's own directory. */
+    /** Excludes git's own directory. */
     fun listWorkspaceEntries(): List<String> {
         val result = runExternalCommand("find", ".", "-mindepth", "1", "-not", "-path", "./.git*")
         result.requireSuccess("find workspace entries")
         return result.stdout.lineSequence().filter(String::isNotBlank).sorted().toList()
     }
 
-    /** The patterns in the exclude section of the worktree keyed [worktreeKey], or nothing when it has none. */
     fun readWorktreeExcludePatterns(worktreeKey: String): List<String> =
         readGitExcludeFile()
             .orEmpty()
@@ -169,14 +167,14 @@ class E2eScenario private constructor(
             .takeWhile { line -> !line.startsWith(EXCLUDE_SECTION_END_PREFIX) }
             .toList()
 
-    /** Lists every file under [relativeDirectory] of the sandboxed home as an absolute path. */
+    /** Returns absolute paths. */
     fun listHomeFiles(relativeDirectory: String): List<String> {
         val result = runExternalCommand("find", homePath(relativeDirectory), "-type", "f")
         result.requireSuccess("find home files")
         return result.stdout.lineSequence().filter(String::isNotBlank).sorted().toList()
     }
 
-    /** Lists every file under the backups directory as a workspace-relative path. */
+    /** Returns workspace-relative paths. */
     fun listBackupFiles(): List<String> {
         if (!pathExists(Constants.BACKUPS_DIR)) return emptyList()
 

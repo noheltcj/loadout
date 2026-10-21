@@ -1,10 +1,8 @@
 package domain.entity
 
 /**
- * How the working directory relates to git.
- *
- * Every worktree of a repository shares one common directory. Domain code treats it as an opaque location
- * that the git repositories resolve git's own files against.
+ * Every worktree of a repository shares one common directory. Domain code treats it as an opaque location that the git
+ * repositories resolve git's own files against.
  */
 sealed interface GitRepositoryLayout {
     data object NotARepository : GitRepositoryLayout
@@ -27,11 +25,10 @@ sealed interface GitRepositoryLayout {
     ) : Worktree
 }
 
-/** Identifies one of the worktrees that share a common directory. */
 sealed interface GitWorktree {
     data object Main : GitWorktree
 
-    /** A worktree added with `git worktree add`, identified by its directory name under `worktrees/`. */
+    /** [id] is the worktree's directory name under the common directory's `worktrees/`. */
     data class Linked(
         val id: String,
     ) : GitWorktree

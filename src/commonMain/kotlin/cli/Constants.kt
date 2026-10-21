@@ -13,9 +13,7 @@ object Constants {
     /** Local-only runtime state scoped to a single worktree */
     const val LOCAL_LOADOUT_STATE_FILE = ".loadout.local.json"
 
-    /** Copies of content Loadout replaced that belonged to the user; Loadout never deletes them */
     const val BACKUPS_DIR = ".loadout-backups"
 
-    /** Tracked git hooks that keep generated output in sync on checkout and merge */
     const val HOOKS_DIR = ".githooks"
 }

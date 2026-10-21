@@ -14,7 +14,7 @@ import domain.repository.GitExcludeRepository
 import domain.repository.GitRepositoryLayoutRepository
 
 sealed interface RepositoryModeSelection {
-    /** Keeps the mode the exclude file records, or shared mode when it records none. */
+    /** Falls back to shared mode when the exclude file records none. */
     data object Recorded : RepositoryModeSelection
 
     data class Requested(
@@ -134,7 +134,6 @@ class ConfigureGitIgnoreRulesUseCase(
     }
 }
 
-/** Replaces the current worktree's section and drops the sections of worktrees git no longer has. */
 private fun reconcileWorktreeSections(
     recordedSections: Map<GitWorktree, List<String>>,
     liveWorktrees: Set<GitWorktree>,

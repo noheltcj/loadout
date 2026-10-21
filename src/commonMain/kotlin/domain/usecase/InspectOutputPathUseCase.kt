@@ -11,11 +11,10 @@ import domain.repository.FileQueryRepository
 
 private const val WORKTREE_ROOT = "."
 
-/** What stands at an output path. */
 sealed interface OutputPathOccupant {
     val path: String
 
-    /** Nothing to replace: the path is free, or holds a symbolic link to nothing. */
+    /** Also covers a symbolic link to nothing. */
     data class Vacant(
         override val path: String,
     ) : OutputPathOccupant
@@ -24,24 +23,20 @@ sealed interface OutputPathOccupant {
         override val path: String,
     ) : OutputPathOccupant
 
-    /** A link to Loadout's unmodified output: the link is replaced, but there is nothing of the user's to back up. */
     data class SymbolicLinkToUnmodifiedOutput(
         override val path: String,
     ) : OutputPathOccupant
 
-    /** Content Loadout must not lose. */
     data class UserContent(
         override val path: String,
         val original: ReplacedFile,
         val origin: UserContentOrigin,
     ) : OutputPathOccupant
 
-    /** A directory or another entry that is not a file. */
     data class NotAFile(
         override val path: String,
     ) : OutputPathOccupant
 
-    /** A path inside a symbolically linked directory, which Loadout never writes through. */
     data class InsideSymbolicLink(
         override val path: String,
         val symbolicLinkPath: String,
@@ -49,16 +44,12 @@ sealed interface OutputPathOccupant {
 }
 
 enum class UserContentOrigin {
-    /** The content has no Loadout header, so Loadout never wrote it. */
     HandWritten,
 
-    /** The content is Loadout's output, edited after Loadout wrote it. */
     EditedOutput,
 }
 
 /**
- * Tells Loadout's unmodified output apart from content it must not lose.
- *
  * Content is Loadout's unmodified output when it opens with Loadout's header and, if Loadout has a record of writing
  * the path, its bytes still match that record. A symbolic link is judged by the content it points to.
  */
@@ -66,7 +57,6 @@ class InspectOutputPathUseCase(
     private val fileQueryRepository: FileQueryRepository,
     private val fileDigestRepository: FileDigestRepository,
 ) {
-    /** [recordedDigest] is the digest of the bytes Loadout last wrote to [path], or null when it has no record. */
     operator fun invoke(
         path: String,
         recordedDigest: String?,
