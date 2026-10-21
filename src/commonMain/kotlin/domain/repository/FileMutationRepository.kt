@@ -9,6 +9,12 @@ interface FileMutationRepository {
         content: String,
     ): Result<Unit, LoadoutError.FileSystemError>
 
+    /** Copies the exact bytes of [sourcePath], following symbolic links, to [destinationPath]. */
+    fun copyFile(
+        sourcePath: String,
+        destinationPath: String,
+    ): Result<Unit, LoadoutError.FileSystemError>
+
     fun setExecutable(path: String): Result<Unit, LoadoutError.FileSystemError>
 
     fun createDirectory(path: String): Result<Unit, LoadoutError>

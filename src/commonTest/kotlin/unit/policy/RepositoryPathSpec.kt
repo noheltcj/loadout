@@ -4,9 +4,11 @@ package unit.policy
 
 import domain.entity.error.LoadoutError
 import domain.entity.packaging.Result
+import domain.policy.OutputFilePath
 import domain.policy.RepositoryDirectoryPath
 import domain.policy.RepositoryMarkdownPath
 import domain.policy.validateMarkdownDestination
+import domain.policy.validateOutputFilePath
 import domain.policy.validateRepositoryDirectory
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.core.spec.style.scopes.BehaviorSpecWhenContainerScope
@@ -106,6 +108,55 @@ class RepositoryPathSpec : BehaviorSpec({
         }
     }
 
+    Given("a Markdown output file at the repository root") {
+        val outputFile = "CLAUDE.md"
+
+        When("the path is validated as an output file") {
+            val validation = validateOutputFilePath(outputFile, "output-files")
+
+            Then("it preserves the repository-relative output file") {
+                validation.acceptedPath<OutputFilePath>().value shouldBe outputFile
+            }
+        }
+    }
+
+    Given("a Markdown output file inside a hidden agent directory") {
+        val outputFile = ".github/copilot-instructions.md"
+        val field = "output-files"
+
+        When("the path is validated as an output file") {
+            val validation = validateOutputFilePath(outputFile, field)
+
+            Then("it accepts the hidden parent directory") {
+                validation.acceptedPath<OutputFilePath>().value shouldBe outputFile
+            }
+        }
+
+        Given("the path uses Windows separators") {
+            val windowsPath = outputFile.replace('/', '\\')
+
+            When("the path is validated as an output file") {
+                val validation = validateOutputFilePath(windowsPath, field)
+
+                Then("it normalizes output file separators") {
+                    validation.acceptedPath<OutputFilePath>().value shouldBe outputFile
+                }
+            }
+        }
+
+        Given("the Markdown extension uses uppercase letters") {
+            val uppercasePath = outputFile.removeSuffix(".md") + ".MD"
+
+            When("the path is validated as an output file") {
+                val validation = validateOutputFilePath(uppercasePath, field)
+
+                Then("it preserves the valid uppercase extension") {
+                    validation.acceptedPath<OutputFilePath>().value shouldBe uppercasePath
+                }
+            }
+        }
+    }
+
     mapOf(
         "a blank path" to "",
         "an absolute POSIX path" to "/outside/copied.md",
@@ -131,6 +182,27 @@ class RepositoryPathSpec : BehaviorSpec({
                 val validation = validateMarkdownDestination(unsafePath, field)
 
                 thenPathIsRejected(validation, field, "safe relative Markdown path")
+            }
+
+            When("the path is validated as an output file") {
+                val validation = validateOutputFilePath(unsafePath, field)
+
+                thenPathIsRejected(validation, field, "must be a repository-relative Markdown file")
+            }
+        }
+    }
+
+    mapOf(
+        "an output file without a Markdown extension" to ".cursor/rules/loadout.mdc",
+        "an output file whose name starts with a dot" to "docs/.hidden.md",
+    ).forEach { (description, outputFile) ->
+        Given(description) {
+            val field = "output-files"
+
+            When("the path is validated as an output file") {
+                val validation = validateOutputFilePath(outputFile, field)
+
+                thenPathIsRejected(validation, field, "must be a repository-relative Markdown file")
             }
         }
     }

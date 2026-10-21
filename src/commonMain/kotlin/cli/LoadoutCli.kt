@@ -9,7 +9,9 @@ import com.github.ajalt.clikt.parameters.options.option
 import domain.entity.error.LoadoutError
 import domain.usecase.CheckLoadoutSyncUseCase
 import domain.usecase.CurrentLoadoutStatus
+import domain.usecase.FragmentsSyncState
 import domain.usecase.LoadoutSyncState
+import domain.usecase.OutputFilesSyncState
 import domain.usecase.ReadCurrentLoadoutStatusUseCase
 
 class LoadoutCli(
@@ -69,17 +71,9 @@ class LoadoutCli(
         checkLoadoutSync().fold(
             onSuccess = { syncState ->
                 when (syncState) {
-                    LoadoutSyncState.OutOfSync -> {
-                        echo(
-                            "\nWarning: Current loadout fragments have changed since the last composition.",
-                            err = true
-                        )
-                        echo("To synchronize, run 'loadout sync' and restart your agent.", err = true)
-                    }
-
-                    LoadoutSyncState.NoCurrentLoadout,
-                    LoadoutSyncState.Synchronized,
-                    -> Unit
+                    LoadoutSyncState.NoCurrentLoadout -> Unit
+                    is LoadoutSyncState.UnreadableLocalState -> echoUnreadableLocalStateWarning(syncState)
+                    is LoadoutSyncState.Active -> echoPendingSyncWarnings(syncState)
                 }
             },
             onError = { error ->
@@ -90,6 +84,9 @@ class LoadoutCli(
                     is LoadoutError.LoadoutNotFound -> return
                     is LoadoutError.ConfigurationError,
                     is LoadoutError.RepairableRepositorySettingsError,
+                    is LoadoutError.UnreadableLocalState,
+                    is LoadoutError.UnreadableUserSettings,
+                    is LoadoutError.UserConfigDirectoryNotFound,
                     is LoadoutError.FileSystemError,
                     is LoadoutError.InvalidFragment,
                     is LoadoutError.InvalidFragmentSource,
@@ -107,4 +104,38 @@ class LoadoutCli(
             },
         )
     }
+
+    private fun echoUnreadableLocalStateWarning(syncState: LoadoutSyncState.UnreadableLocalState) {
+        echo("", err = true)
+        echo("Warning: ${syncState.error.message}, so this worktree has no current loadout.", err = true)
+        echo("Run 'loadout use <name>' to choose one.", err = true)
+        syncState.error.cause
+            ?.takeIf { verbose }
+            ?.let { cause -> echo("Cause: ${cause.message}", err = true) }
+    }
+
+    private fun echoPendingSyncWarnings(syncState: LoadoutSyncState.Active) {
+        val fragmentsChanged = syncState.fragments == FragmentsSyncState.ChangedSinceLastComposition
+        val outputFilesChange = syncState.outputFiles as? OutputFilesSyncState.ChangedSinceLastWrite
+        if (!fragmentsChanged && outputFilesChange == null) return
+
+        echo("", err = true)
+        if (fragmentsChanged) {
+            echo("Warning: Current loadout fragments have changed since the last composition.", err = true)
+        }
+        outputFilesChange?.let { change ->
+            echo("Warning: Your output files changed since the last sync (${change.describe()}).", err = true)
+        }
+        if (fragmentsChanged) {
+            echo("To synchronize, run 'loadout sync' and restart your agent.", err = true)
+        } else {
+            echo("Run 'loadout sync' to apply.", err = true)
+        }
+    }
 }
+
+private fun OutputFilesSyncState.ChangedSinceLastWrite.describe(): String =
+    listOfNotNull(
+        addedOutputFiles.takeIf { it.isNotEmpty() }?.joinToString(prefix = "adds "),
+        removedOutputFiles.takeIf { it.isNotEmpty() }?.joinToString(prefix = "removes "),
+    ).joinToString("; ")

@@ -9,6 +9,7 @@ import domain.entity.error.LoadoutError
 import domain.entity.packaging.Result
 import domain.repository.FileMutationRepository
 import domain.repository.FileQueryRepository
+import kotlinx.cinterop.CPointer
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.UnsafeNumber
 import kotlinx.cinterop.addressOf
@@ -18,6 +19,7 @@ import kotlinx.cinterop.pointed
 import kotlinx.cinterop.ptr
 import kotlinx.cinterop.toKString
 import kotlinx.cinterop.usePinned
+import platform.posix.FILE
 import platform.posix.F_OK
 import platform.posix.S_IFDIR
 import platform.posix.S_IFMT
@@ -43,21 +45,25 @@ class NativeFileRepository : FileQueryRepository, FileMutationRepository, Canoni
                 )
 
             try {
-                val content = StringBuilder()
-                val buffer = ByteArray(1024)
+                // Decoding once, after every byte is read, keeps characters that straddle two reads intact.
+                Result.Success(readAllBytes(file).decodeToString())
+            } finally {
+                fclose(file)
+            }
+        } catch (e: Exception) {
+            Result.Error(LoadoutError.FileSystemError("Error reading file: $path", e))
+        }
+    }
 
-                while (true) {
-                    buffer.usePinned { pinned ->
-                        val bytesRead = fread(pinned.addressOf(0), 1u, buffer.size.toULong(), file)
-                        if (bytesRead == 0uL) return@usePinned false
+    override fun readFileBytes(path: String): Result<ByteArray, LoadoutError> {
+        return try {
+            val file =
+                fopen(path, "rb") ?: return Result.Error(
+                    LoadoutError.FileSystemError("Cannot open file: $path"),
+                )
 
-                        val str = buffer.decodeToString(0, bytesRead.toInt())
-                        content.append(str)
-                        true
-                    } || break
-                }
-
-                Result.Success(content.toString())
+            try {
+                Result.Success(readAllBytes(file))
             } finally {
                 fclose(file)
             }
@@ -124,6 +130,35 @@ class NativeFileRepository : FileQueryRepository, FileMutationRepository, Canoni
         }
     }
 
+    override fun copyFile(
+        sourcePath: String,
+        destinationPath: String,
+    ): Result<Unit, LoadoutError.FileSystemError> {
+        return try {
+            val source =
+                fopen(sourcePath, "rb") ?: return Result.Error(
+                    LoadoutError.FileSystemError("Cannot open file: $sourcePath"),
+                )
+
+            try {
+                val destination =
+                    fopen(destinationPath, "wb") ?: return Result.Error(
+                        LoadoutError.FileSystemError("Cannot create file: $destinationPath"),
+                    )
+
+                try {
+                    copyBytes(source, destination, destinationPath)
+                } finally {
+                    fclose(destination)
+                }
+            } finally {
+                fclose(source)
+            }
+        } catch (e: Exception) {
+            Result.Error(LoadoutError.FileSystemError("Error copying file: $sourcePath", e))
+        }
+    }
+
     override fun setExecutable(path: String): Result<Unit, LoadoutError.FileSystemError> =
         try {
             if (platformMakeExecutable(path) == 0) {
@@ -167,9 +202,10 @@ class NativeFileRepository : FileQueryRepository, FileMutationRepository, Canoni
         }
 
     override fun createDirectories(path: String): Result<Unit, LoadoutError> {
+        val root = if (path.startsWith('/')) "/" else ""
         var currentPath = ""
         for (segment in path.split('/').filter(String::isNotBlank)) {
-            currentPath = if (currentPath.isEmpty()) segment else "$currentPath/$segment"
+            currentPath = if (currentPath.isEmpty()) "$root$segment" else "$currentPath/$segment"
             when (val result = createDirectory(currentPath)) {
                 is Result.Success -> Unit
                 is Result.Error -> return result
@@ -228,6 +264,40 @@ class NativeFileRepository : FileQueryRepository, FileMutationRepository, Canoni
             Result.Error(LoadoutError.FileSystemError("Error deleting file: $path", e))
         }
 
+    private fun readAllBytes(file: CPointer<FILE>): ByteArray {
+        var content = ByteArray(READ_BUFFER_BYTES)
+        var contentSize = 0
+
+        while (true) {
+            if (contentSize == content.size) content = content.copyOf(content.size * 2)
+
+            val bytesRead = content.usePinned { pinned ->
+                fread(pinned.addressOf(contentSize), 1u, (content.size - contentSize).toULong(), file).toInt()
+            }
+            if (bytesRead == 0) return content.copyOf(contentSize)
+            contentSize += bytesRead
+        }
+    }
+
+    private fun copyBytes(
+        source: CPointer<FILE>,
+        destination: CPointer<FILE>,
+        destinationPath: String,
+    ): Result<Unit, LoadoutError.FileSystemError> {
+        val buffer = ByteArray(COPY_BUFFER_BYTES)
+
+        while (true) {
+            val bytesRead =
+                buffer.usePinned { pinned -> fread(pinned.addressOf(0), 1u, buffer.size.toULong(), source) }
+            if (bytesRead == 0uL) return Result.Success(Unit)
+
+            val bytesWritten = buffer.usePinned { pinned -> fwrite(pinned.addressOf(0), 1u, bytesRead, destination) }
+            if (bytesWritten != bytesRead) {
+                return Result.Error(LoadoutError.FileSystemError("Failed to write complete file: $destinationPath"))
+            }
+        }
+    }
+
     private fun isDirectory(path: String): Boolean = fileType(path) == S_IFDIR.toUInt()
 
     private fun fileType(path: String): UInt? {
@@ -244,3 +314,6 @@ class NativeFileRepository : FileQueryRepository, FileMutationRepository, Canoni
         }
     }
 }
+
+private const val READ_BUFFER_BYTES = 8_192
+private const val COPY_BUFFER_BYTES = 8_192

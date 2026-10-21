@@ -2,30 +2,20 @@ package e2e.support
 
 import cli.Constants
 import domain.entity.Loadout
+import domain.entity.LocalLoadoutState
+import domain.entity.OutputFilesWrite
 import domain.entity.RepositorySettings
+import io.kotest.matchers.collections.shouldBeEmpty
+import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.collections.shouldContainInOrder
+import io.kotest.matchers.collections.shouldHaveSize
+import io.kotest.matchers.collections.shouldNotContainAnyOf
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldNotContain
-
-private const val GITIGNORE_PATH = ".gitignore"
-private const val LOCAL_RUNTIME_STATE_GITIGNORE_HEADER = "# Loadout local runtime state"
-private const val REPOSITORY_SETTINGS_GITIGNORE_HEADER = "# Loadout repository settings"
-private const val LOCAL_ONLY_DEFINITIONS_GITIGNORE_HEADER = "# Loadout local-only definitions"
-
-private val sharedModeGitignorePatterns =
-    listOf(LOCAL_RUNTIME_STATE_GITIGNORE_HEADER, Constants.LOCAL_LOADOUT_STATE_FILE) + Constants.generatedMarkdownFiles
-private val repositorySettingsGitignorePatterns =
-    listOf(REPOSITORY_SETTINGS_GITIGNORE_HEADER, Constants.REPOSITORY_SETTINGS_FILE)
-private val localOnlyGitignorePatterns =
-    listOf(
-        LOCAL_ONLY_DEFINITIONS_GITIGNORE_HEADER,
-        "${Constants.LOADOUTS_DIR}/",
-        "${RepositorySettings.DEFAULT_FRAGMENTS_HOME}/",
-    )
 
 fun CommandResult.shouldHaveExitCode(expected: Int) {
     exitCode shouldBe expected
@@ -62,57 +52,60 @@ fun CommandResult.shouldNotHaveStaleWarning() {
     stderr.shouldNotContain(staleResolutionLine)
 }
 
-fun E2eScenario.shouldHaveGitignoreEntries(vararg snippets: String) {
-    val gitignore = readWorkspaceFile(GITIGNORE_PATH).shouldNotBeNull()
-    snippets.forEach { snippet ->
-        gitignore.shouldContain(snippet)
-    }
+fun E2eScenario.shouldBeVisibleToGitStatus(
+    path: String,
+    workingDirectory: String = workspaceRoot,
+) {
+    untrackedPathsInGitStatus(workingDirectory) shouldContain path
 }
 
-fun E2eScenario.shouldNotHaveGitignoreEntries(vararg snippets: String) {
-    val gitignore = readWorkspaceFile(GITIGNORE_PATH).shouldNotBeNull()
-    snippets.forEach { snippet ->
-        gitignore.shouldNotContain(snippet)
-    }
+fun E2eScenario.shouldBeHiddenFromGitStatus(
+    vararg paths: String,
+    workingDirectory: String = workspaceRoot,
+) {
+    untrackedPathsInGitStatus(workingDirectory).shouldNotContainAnyOf(paths.toList())
 }
 
-fun E2eScenario.shouldContainLoadoutGitignorePatterns() {
-    shouldHaveGitignoreEntries(*sharedModeGitignorePatterns.toTypedArray())
+fun E2eScenario.shouldHideDirectoryFromGitStatus(directory: String) {
+    untrackedPathsInGitStatus().filter { path -> path.startsWith("$directory/") }.shouldBeEmpty()
 }
 
-fun E2eScenario.shouldContainLocalOnlyGitignorePatterns() {
-    shouldHaveGitignoreEntries(*localOnlyGitignorePatterns.toTypedArray())
+fun E2eScenario.shouldHaveNoUntrackedFilesInGitStatus() {
+    untrackedPathsInGitStatus().shouldBeEmpty()
 }
 
-fun E2eScenario.shouldContainRepositorySettingsGitignorePatterns() {
-    shouldHaveGitignoreEntries(*repositorySettingsGitignorePatterns.toTypedArray())
+fun E2eScenario.shouldHaveWorktreeExcludeSection(worktreeKey: String) {
+    readGitExcludeFile().shouldNotBeNull() shouldContain worktreeExcludeSectionStartMarker(worktreeKey)
 }
 
-fun E2eScenario.shouldNotIgnoreRepoManagedLoadoutFiles() {
-    shouldNotHaveGitignoreEntries(
-        "${Constants.LOADOUTS_DIR}/",
-        "${RepositorySettings.DEFAULT_FRAGMENTS_HOME}/",
-        Constants.REPOSITORY_SETTINGS_FILE,
-    )
+fun E2eScenario.shouldNotHaveWorktreeExcludeSection(worktreeKey: String) {
+    readGitExcludeFile().orEmpty() shouldNotContain worktreeExcludeSectionStartMarker(worktreeKey)
+}
+
+fun E2eScenario.shouldListOnlyInWorktreeExcludeSection(
+    worktreeKey: String,
+    vararg patterns: String,
+) {
+    readWorktreeExcludePatterns(worktreeKey).shouldContainExactly(*patterns)
+}
+
+fun E2eScenario.requireBackupPath(originalPath: String): String =
+    listBackupFiles()
+        .filter { backupPath ->
+            backupPath.removePrefix("${Constants.BACKUPS_DIR}/").substringAfter('/') == "$originalPath.backup"
+        }
+        .shouldHaveSize(1)
+        .single()
+
+fun E2eScenario.requireBackupContent(originalPath: String): String =
+    requireWorkspaceFile(requireBackupPath(originalPath))
+
+fun E2eScenario.shouldHaveNoBackups() {
+    listBackupFiles().shouldBeEmpty()
 }
 
 fun E2eScenario.shouldHaveExecutableWorkspaceFile(relativePath: String) {
     workspaceFileIsExecutable(relativePath) shouldBe true
-}
-
-fun String.shouldContainExactlyOnce(snippet: String) {
-    split(snippet).size.minus(1) shouldBe 1
-}
-
-fun E2eScenario.shouldContainSharedModeGitignorePatternsExactlyOnce() {
-    val gitignore = readWorkspaceFile(GITIGNORE_PATH).shouldNotBeNull()
-    sharedModeGitignorePatterns.forEach(gitignore::shouldContainExactlyOnce)
-}
-
-fun E2eScenario.shouldContainLocalModeGitignorePatternsExactlyOnce() {
-    val gitignore = readWorkspaceFile(GITIGNORE_PATH).shouldNotBeNull()
-    (sharedModeGitignorePatterns + repositorySettingsGitignorePatterns + localOnlyGitignorePatterns)
-        .forEach(gitignore::shouldContainExactlyOnce)
 }
 
 private fun E2eScenario.readGeneratedMarkdownFile(
@@ -129,7 +122,7 @@ private fun E2eScenario.forEachGeneratedMarkdownFile(
     directory: String?,
     assertion: (String?) -> Unit,
 ) {
-    Constants.generatedMarkdownFiles.forEach { fileName ->
+    defaultOutputFilePaths.forEach { fileName ->
         assertion(readGeneratedMarkdownFile(fileName, directory))
     }
 }
@@ -148,7 +141,7 @@ fun E2eScenario.shouldNotHaveGeneratedFiles(directory: String? = null) {
 
 fun E2eScenario.shouldHaveGeneratedBody(
     expected: String,
-    fileName: String = Constants.CLAUDE_MD,
+    fileName: String = claudeFilePath,
 ) {
     readGeneratedBody(fileName) shouldBe expected
 }
@@ -159,24 +152,21 @@ fun E2eScenario.requireRepositorySettings(): RepositorySettings = readRepository
 
 fun E2eScenario.requireLoadout(name: String): Loadout = readLoadout(name).shouldNotBeNull()
 
-fun E2eScenario.requireLocalLoadoutState() = readLocalLoadoutState().shouldNotBeNull()
+/** The current loadout's name, or null when the worktree has none. */
+val LocalLoadoutState?.activeLoadoutName: String?
+    get() = (this as? LocalLoadoutState.Active)?.loadoutName
+
+private val LocalLoadoutState?.lastWrite: OutputFilesWrite?
+    get() = (this as? LocalLoadoutState.Active)?.lastWrite
 
 fun E2eScenario.requireLastComposedContentHash(): String =
-    requireLocalLoadoutState().lastComposedContentHash.shouldNotBeNull()
+    readLocalLoadoutState().lastWrite.shouldNotBeNull().composedContentHash
 
-fun E2eScenario.requireGeneratedBody(fileName: String = Constants.CLAUDE_MD): String =
+fun E2eScenario.requireGeneratedBody(fileName: String = claudeFilePath): String =
     readGeneratedBody(fileName).shouldNotBeNull()
 
-fun E2eScenario.shouldHaveGeneratedBodyInDirectory(
-    directory: String,
-    expected: String,
-    fileName: String = Constants.CLAUDE_MD,
-) {
-    readGeneratedBodyFromDirectory(directory, fileName) shouldBe expected
-}
-
 fun E2eScenario.shouldHaveActiveLoadoutName(expected: String?) {
-    readLocalLoadoutState()?.activeLoadoutName shouldBe expected
+    readLocalLoadoutState().activeLoadoutName shouldBe expected
 }
 
 fun E2eScenario.shouldHaveRepositoryDefaultLoadoutName(expected: String?) {
@@ -191,12 +181,8 @@ fun E2eScenario.shouldHaveGitLocalConfig(
     readGitLocalConfig(key, workingDirectory = workingDirectory ?: workspaceRoot) shouldBe expected
 }
 
-fun E2eScenario.shouldHaveLastComposedContentHash() {
-    readLocalLoadoutState()?.lastComposedContentHash.shouldNotBeNull()
-}
-
-fun E2eScenario.shouldHaveUnchangedLastComposedContentHash(previousHash: String?) {
-    readLocalLoadoutState()?.lastComposedContentHash shouldBe previousHash
+fun E2eScenario.shouldHaveUnchangedLastComposedContentHash(previousHash: String) {
+    readLocalLoadoutState().lastWrite?.composedContentHash shouldBe previousHash
 }
 
 fun E2eScenario.shouldHaveLoadoutFragments(

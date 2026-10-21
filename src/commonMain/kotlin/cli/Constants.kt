@@ -13,18 +13,9 @@ object Constants {
     /** Local-only runtime state scoped to a single worktree */
     const val LOCAL_LOADOUT_STATE_FILE = ".loadout.local.json"
 
-    /** Primary output file for Claude Code */
-    const val CLAUDE_MD = "CLAUDE.md"
+    /** Copies of content Loadout replaced that belonged to the user; Loadout never deletes them */
+    const val BACKUPS_DIR = ".loadout-backups"
 
-    /** Secondary output file for other AI agents */
-    const val AGENTS_MD = "AGENTS.md"
-
-    /** Tertiary output file for Gemini-compatible agents */
-    const val GEMINI_MD = "GEMINI.md"
-
-    /** Canonical generated Markdown outputs written by Loadout */
-    val generatedMarkdownFiles = listOf(CLAUDE_MD, AGENTS_MD, GEMINI_MD)
-
-    /** Default output directory for composed .md files */
-    const val DEFAULT_OUTPUT_DIR = "."
+    /** Tracked git hooks that keep generated output in sync on checkout and merge */
+    const val HOOKS_DIR = ".githooks"
 }

@@ -1,7 +1,9 @@
 package domain.repository
 
+import domain.entity.UserConfigDirectory
+
 interface EnvironmentRepository {
-    fun getHomeDirectory(): String?
+    fun getUserConfigDirectory(): UserConfigDirectory
 
     fun currentTimeMillis(): Long
 }

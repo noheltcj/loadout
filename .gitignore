@@ -44,11 +44,3 @@ kotlin-native-prebuilt/
 # System files
 Thumbs.db
 ehthumbs.db
-
-# Loadout CLI - Shared Mode
-AGENTS.md
-CLAUDE.md
-GEMINI.md
-
-# Loadout local runtime state
-.loadout.local.json

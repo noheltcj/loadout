@@ -2,15 +2,17 @@
 
 package e2e.spec
 
-import domain.entity.LocalLoadoutState
 import e2e.support.E2eBehaviorSuite
 import e2e.support.ScenarioSeed
 import e2e.support.action
 import e2e.support.andThen
 import e2e.support.firstFragmentPath
 import e2e.support.givenConfigPointsAtDeletedLoadout
+import e2e.support.givenCurrentLoadoutFragmentWasDeleted
 import e2e.support.givenCurrentLoadoutIsSet
+import e2e.support.givenLocalStateIsUnreadable
 import e2e.support.shouldContainInOutput
+import e2e.support.shouldContainInStderr
 import e2e.support.shouldContainInStdout
 import e2e.support.shouldHaveExitCode
 import e2e.support.shouldHaveNoUnexpectedStderr
@@ -83,15 +85,10 @@ class StatusE2eSpec : E2eBehaviorSuite({
             }
 
             given("composing the current loadout fails") {
-                val brokenCurrentLoadout: ScenarioSeed = {
-                    seedLoadout(name = "broken", fragments = listOf(firstFragmentPath))
-                    writeLocalLoadoutState(
-                        LocalLoadoutState(
-                            activeLoadoutName = "broken",
-                            lastComposedContentHash = null,
-                        )
-                    )
-                }
+                val brokenCurrentLoadout: ScenarioSeed =
+                    currentLoadoutIsSet.andThen {
+                        givenCurrentLoadoutFragmentWasDeleted()
+                    }
 
                 action("loadout is run without a subcommand") {
                     val execution by memoizedAction(seed = brokenCurrentLoadout)
@@ -102,6 +99,32 @@ class StatusE2eSpec : E2eBehaviorSuite({
 
                     then("it exits with result 1") {
                         execution.result.shouldHaveExitCode(1)
+                    }
+                }
+            }
+
+            given("the local state cannot be read") {
+                val localStateIsUnreadable: ScenarioSeed =
+                    currentLoadoutIsSet.andThen {
+                        givenLocalStateIsUnreadable()
+                    }
+
+                action("loadout is run without a subcommand") {
+                    val execution by memoizedAction(seed = localStateIsUnreadable)
+
+                    then("it outputs that no current loadout is set") {
+                        execution.result.shouldContainInStdout("No current loadout set.")
+                    }
+
+                    then("it warns that the local state could not be read") {
+                        execution.result.shouldContainInStderr(
+                            "Warning: Could not read the local state in .loadout.local.json, " +
+                                "so this worktree has no current loadout."
+                        )
+                    }
+
+                    then("it exits with result 0") {
+                        execution.result.shouldHaveExitCode(0)
                     }
                 }
             }

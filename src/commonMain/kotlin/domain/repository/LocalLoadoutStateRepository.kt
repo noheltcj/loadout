@@ -5,12 +5,8 @@ import domain.entity.error.LoadoutError
 import domain.entity.packaging.Result
 
 interface LocalLoadoutStateRepository {
-    fun loadLocalState(localStatePath: String? = null): Result<LocalLoadoutState, LoadoutError>
+    /** The state is [LocalLoadoutState.Inactive] until Loadout first saves it. */
+    fun loadLocalState(): Result<LocalLoadoutState, LoadoutError.UnreadableLocalState>
 
-    fun saveLocalState(
-        localState: LocalLoadoutState,
-        localStatePath: String? = null,
-    ): Result<Unit, LoadoutError>
-
-    fun getDefaultLocalStatePath(): String
+    fun saveLocalState(localState: LocalLoadoutState): Result<Unit, LoadoutError>
 }

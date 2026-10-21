@@ -2,7 +2,6 @@ package domain.usecase
 
 import domain.entity.ComposedOutput
 import domain.entity.Loadout
-import domain.entity.WriteComposedFilesResult
 import domain.entity.error.LoadoutError
 import domain.entity.packaging.Result
 
@@ -18,7 +17,7 @@ sealed interface UseLoadoutResult {
     data class Activated(
         override val loadout: Loadout,
         override val composedOutput: ComposedOutput,
-        val writeResult: WriteComposedFilesResult,
+        val activation: LoadoutActivation,
     ) : UseLoadoutResult
 }
 
@@ -38,15 +37,12 @@ class UseLoadoutUseCase(
                         LoadoutOutputTarget.StandardOutput ->
                             Result.Success(UseLoadoutResult.PrintedToStandardOutput(loadout, composedOutput))
 
-                        is LoadoutOutputTarget.FileSystem ->
-                            activateComposedLoadout(
-                                composedOutput = composedOutput,
-                                outputPaths = outputTarget.outputPaths,
-                            ).map { writeResult ->
+                        LoadoutOutputTarget.ConfiguredOutputFiles ->
+                            activateComposedLoadout(composedOutput).map { activation ->
                                 UseLoadoutResult.Activated(
                                     loadout = loadout,
                                     composedOutput = composedOutput,
-                                    writeResult = writeResult,
+                                    activation = activation,
                                 )
                             }
                     }

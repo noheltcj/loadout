@@ -11,6 +11,7 @@ import domain.entity.Loadout
 import domain.entity.LoadoutMetadata
 import domain.entity.LocalLoadoutState
 import domain.entity.RepositorySettings
+import domain.entity.UserSettings
 import domain.entity.packaging.Result
 import e2e.platform.EnvironmentOverlay
 import e2e.platform.createTemporaryDirectory
@@ -46,9 +47,16 @@ class E2eScenario private constructor(
     private val projectRoot = currentWorkingDirectory()
     private val serializer = JsonSerializer()
     private val gitCeilingDirectories = workspaceRoot.substringBeforeLast("/", missingDelimiterValue = workspaceRoot)
+    private var userConfigDirectoryVariablesAreRemoved = false
 
-    fun runCommand(vararg args: String): CommandResult =
-        withProcessContext {
+    /** Where Loadout keeps user settings under the sandboxed `XDG_CONFIG_HOME`. */
+    val userSettingsPath: String = "$xdgConfigRoot/loadout/config.json"
+
+    fun runCommand(
+        vararg args: String,
+        workingDirectory: String = workspaceRoot,
+    ): CommandResult =
+        withProcessContext(workingDirectory) {
             withApplicationScope {
                 createLoadoutCommand(this).test(args.toList())
             }.toCommandResult()
@@ -117,6 +125,68 @@ class E2eScenario private constructor(
         }
     }
 
+    /** Lists the paths `git status` reports as untracked, expanding untracked directories to their files. */
+    fun untrackedPathsInGitStatus(workingDirectory: String = workspaceRoot): List<String> {
+        val result = runGit("status", "--porcelain", "--untracked-files=all", workingDirectory = workingDirectory)
+        result.requireSuccess("git status")
+        return result.stdout
+            .lineSequence()
+            .filter { line -> line.startsWith(UNTRACKED_STATUS_PREFIX) }
+            .map { line -> line.removePrefix(UNTRACKED_STATUS_PREFIX) }
+            .toList()
+    }
+
+    fun readGitExcludeFile(): String? = readWorkspaceFile(GIT_EXCLUDE_FILE_PATH)
+
+    /** Runs every later command without `HOME` and `XDG_CONFIG_HOME`, so no user config directory can be found. */
+    fun removeUserConfigDirectoryVariables() {
+        userConfigDirectoryVariablesAreRemoved = true
+    }
+
+    fun writeUserSettingsFile(content: String) {
+        writeFile(userSettingsPath, content)
+    }
+
+    fun readUserSettings(): UserSettings? =
+        readFile(userSettingsPath)?.let {
+            serializer.deserialize(it, UserSettings.serializer()).unwrap("deserialize user settings")
+        }
+
+    /** Lists every entry in the workspace, ignoring git's own directory. */
+    fun listWorkspaceEntries(): List<String> {
+        val result = runExternalCommand("find", ".", "-mindepth", "1", "-not", "-path", "./.git*")
+        result.requireSuccess("find workspace entries")
+        return result.stdout.lineSequence().filter(String::isNotBlank).sorted().toList()
+    }
+
+    /** The patterns in the exclude section of the worktree keyed [worktreeKey], or nothing when it has none. */
+    fun readWorktreeExcludePatterns(worktreeKey: String): List<String> =
+        readGitExcludeFile()
+            .orEmpty()
+            .lineSequence()
+            .dropWhile { line -> line != worktreeExcludeSectionStartMarker(worktreeKey) }
+            .drop(1)
+            .takeWhile { line -> !line.startsWith(EXCLUDE_SECTION_END_PREFIX) }
+            .toList()
+
+    /** Lists every file under [relativeDirectory] of the sandboxed home as an absolute path. */
+    fun listHomeFiles(relativeDirectory: String): List<String> {
+        val result = runExternalCommand("find", homePath(relativeDirectory), "-type", "f")
+        result.requireSuccess("find home files")
+        return result.stdout.lineSequence().filter(String::isNotBlank).sorted().toList()
+    }
+
+    /** Lists every file under the backups directory as a workspace-relative path. */
+    fun listBackupFiles(): List<String> {
+        if (!pathExists(Constants.BACKUPS_DIR)) return emptyList()
+
+        val result = runExternalCommand("find", Constants.BACKUPS_DIR, "-type", "f")
+        result.requireSuccess("find backups")
+        return result.stdout.lineSequence().filter(String::isNotBlank).sorted().toList()
+    }
+
+    fun currentTimeMillis(): Long = withScope { environmentRepository.currentTimeMillis() }
+
     fun loadoutHelperExecutablePath(): String =
         readEnvironmentVariable(LOADOUT_E2E_HELPER_PATH_ENVIRONMENT_VARIABLE) ?: DEFAULT_LOADOUT_HELPER_PATH
 
@@ -175,6 +245,18 @@ class E2eScenario private constructor(
 
     fun readWorkspaceFile(relativePath: String): String? = readFile(relativePath)
 
+    fun workspacePathIsSymbolicLink(relativePath: String): Boolean =
+        withScope { fileQueryRepository.isSymbolicLink(relativePath) }
+
+    fun writeHomeFile(
+        relativePath: String,
+        content: String,
+    ) {
+        writeFile(homePath(relativePath), content)
+    }
+
+    fun readHomeFile(relativePath: String): String? = readFile(homePath(relativePath))
+
     fun pathExists(path: String): Boolean = withScope { fileQueryRepository.fileExists(path) }
 
     fun readLocalLoadoutState(): LocalLoadoutState? =
@@ -193,15 +275,6 @@ class E2eScenario private constructor(
         readWorkspaceFile(Constants.REPOSITORY_SETTINGS_FILE)?.let {
             serializer.deserialize(it, RepositorySettings.serializer()).unwrap("deserialize repository settings")
         }
-
-    fun writeLocalLoadoutState(localLoadoutState: LocalLoadoutState) {
-        writeWorkspaceFile(
-            Constants.LOCAL_LOADOUT_STATE_FILE,
-            serializer
-                .serialize(localLoadoutState, LocalLoadoutState.serializer())
-                .unwrap("serialize local loadout state")
-        )
-    }
 
     fun writeRepositorySettings(repositorySettings: RepositorySettings) {
         writeWorkspaceFile(
@@ -264,19 +337,6 @@ class E2eScenario private constructor(
 
     fun readGeneratedBody(fileName: String): String? = readGeneratedFile(fileName)?.stripGeneratedMetadata()
 
-    fun readGeneratedBodyFromDirectory(
-        directory: String,
-        fileName: String,
-    ): String? = readGeneratedFileFromDirectory(directory, fileName)?.stripGeneratedMetadata()
-
-    fun createCustomOutputDirectory(name: String = "custom-output"): String {
-        val absolutePath = workspacePath(name)
-        withScope {
-            createDirectories(absolutePath)
-        }
-        return absolutePath
-    }
-
     override fun close() {
         deleteRecursively(workspaceRoot)
         deleteRecursively(homeRoot)
@@ -307,17 +367,24 @@ class E2eScenario private constructor(
             withApplicationScope(block)
         }
 
-    private fun <T> withProcessContext(block: () -> T): T =
+    private fun <T> withProcessContext(
+        workingDirectory: String = workspaceRoot,
+        block: () -> T,
+    ): T =
         withWorkingDirectoryAndEnvironment(
-            workingDirectory = workspaceRoot,
+            workingDirectory = workingDirectory,
             environment = processEnvironment(),
             block = block
         )
 
     private fun processEnvironment(): EnvironmentOverlay =
         environmentOverlay {
-            "HOME" setTo homeRoot
-            "XDG_CONFIG_HOME" setTo xdgConfigRoot
+            if (userConfigDirectoryVariablesAreRemoved) {
+                unset("HOME", "XDG_CONFIG_HOME")
+            } else {
+                "HOME" setTo homeRoot
+                "XDG_CONFIG_HOME" setTo xdgConfigRoot
+            }
             "XDG_DATA_HOME" setTo homePath(".local/share")
             "XDG_STATE_HOME" setTo homePath(".local/state")
             "XDG_CACHE_HOME" setTo homePath(".cache")
@@ -390,6 +457,9 @@ class E2eScenario private constructor(
     companion object {
         private const val LOADOUT_E2E_HELPER_PATH_ENVIRONMENT_VARIABLE = "LOADOUT_E2E_HELPER_PATH"
         private const val HELPER_PRINT_ENVIRONMENT_COMMAND = "__printenv__"
+        private const val UNTRACKED_STATUS_PREFIX = "?? "
+        private const val GIT_EXCLUDE_FILE_PATH = ".git/info/exclude"
+        private const val EXCLUDE_SECTION_END_PREFIX = "# <<< loadout ("
         private val DEFAULT_LOADOUT_HELPER_PATH =
             "${currentWorkingDirectory()}/scripts/e2e/${defaultLoadoutHelperFileName()}"
 

@@ -1,5 +1,6 @@
 package data.platform
 
+import data.environment.UserConfigDirectoryConvention
 import platform.posix.putenv
 
 internal actual fun platformSetEnv(
@@ -8,3 +9,6 @@ internal actual fun platformSetEnv(
 ): Int = putenv("$key=$value")
 
 internal actual fun platformClearEnv(key: String): Int = putenv("$key=")
+
+internal actual val platformUserConfigDirectoryConvention: UserConfigDirectoryConvention =
+    UserConfigDirectoryConvention.Windows

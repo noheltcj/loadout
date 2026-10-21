@@ -18,7 +18,19 @@ data class RepositoryMarkdownPath internal constructor(val value: String)
 @ConsistentCopyVisibility
 data class AuthorizedRepositoryFilePath internal constructor(val value: String)
 
+@ConsistentCopyVisibility
+data class OutputFilePath internal constructor(val value: String)
+
 fun normalizePathSeparators(path: String): String = path.replace('\\', '/')
+
+/** Lists the directories above a relative [path], outermost first: `a` and `a/b` for `a/b/c.md`. */
+fun parentDirectories(path: String): List<String> =
+    path.split('/').dropLast(1).runningReduce { parentDirectory, segment -> "$parentDirectory/$segment" }
+
+fun isAbsolutePath(path: String): Boolean {
+    val normalized = normalizePathSeparators(path)
+    return normalized.startsWith('/') || windowsDrivePrefix.containsMatchIn(normalized)
+}
 
 private fun isSafeRelativePath(
     path: String,
@@ -27,8 +39,7 @@ private fun isSafeRelativePath(
     val normalized = normalizePathSeparators(path)
 
     return normalized.isNotBlank() &&
-        !normalized.startsWith('/') &&
-        !windowsDrivePrefix.containsMatchIn(normalized) &&
+        !isAbsolutePath(normalized) &&
         normalized.split('/').all { segment ->
             segment.isNotBlank() &&
                 segment != "." &&
@@ -67,6 +78,37 @@ fun validateMarkdownDestination(
             LoadoutError.ValidationError(
                 field = field,
                 validationMessage = "Destination must be a safe relative Markdown path",
+            )
+        )
+    }
+}
+
+/**
+ * Accepts a repository-relative Markdown file such as `CLAUDE.md` or `.github/copilot-instructions.md`. Directories
+ * may start with a dot, as agent directories like `.github` do, but the file name must start with a letter or digit.
+ */
+fun validateOutputFilePath(
+    path: String,
+    field: String,
+): Result<OutputFilePath, LoadoutError.ValidationError> {
+    val normalized = normalizePathSeparators(path)
+    val parentDirectory = normalized.substringBeforeLast('/', missingDelimiterValue = "")
+    val fileName = normalized.substringAfterLast('/')
+    val isSafe =
+        !isAbsolutePath(normalized) &&
+            fileName.endsWith(MARKDOWN_EXTENSION, ignoreCase = true) &&
+            fileName.matches(safeFileSegment) &&
+            (parentDirectory.isEmpty() || isSafeRelativePath(parentDirectory, safeDirectorySegment))
+
+    return if (isSafe) {
+        Result.Success(OutputFilePath(normalized))
+    } else {
+        Result.Error(
+            LoadoutError.ValidationError(
+                field = field,
+                validationMessage =
+                "'$path' must be a repository-relative Markdown file, such as CLAUDE.md or " +
+                    ".github/copilot-instructions.md",
             )
         )
     }

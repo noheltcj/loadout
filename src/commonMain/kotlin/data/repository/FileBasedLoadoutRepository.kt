@@ -1,6 +1,5 @@
 package data.repository
 
-import cli.Constants
 import data.serialization.JsonSerializer
 import domain.entity.Loadout
 import domain.entity.error.LoadoutError
@@ -13,13 +12,11 @@ class FileBasedLoadoutRepository(
     private val fileQueryRepository: FileQueryRepository,
     private val fileMutationRepository: FileMutationRepository,
     private val serializer: JsonSerializer,
-    private val loadoutsDirectory: String = Constants.LOADOUTS_DIR,
+    private val loadoutsDirectory: String,
 ) : LoadoutRepository {
-    init {
-        fileMutationRepository.createDirectory(loadoutsDirectory)
-    }
-
     override fun findAll(): Result<List<Loadout>, LoadoutError> {
+        if (!fileQueryRepository.fileExists(loadoutsDirectory)) return Result.Success(emptyList())
+
         return fileQueryRepository
             .listFiles(loadoutsDirectory, "json")
             .flatMap { files ->
@@ -53,7 +50,10 @@ class FileBasedLoadoutRepository(
                     serializationException,
                 ) as LoadoutError
             }.flatMap { json ->
-                fileMutationRepository.writeFile(filePath, json)
+                // Created on the first save, so commands run outside a repository leave nothing behind.
+                fileMutationRepository
+                    .createDirectory(loadoutsDirectory)
+                    .flatMap { fileMutationRepository.writeFile(filePath, json) }
             }
     }
 

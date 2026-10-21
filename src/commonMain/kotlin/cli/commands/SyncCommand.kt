@@ -1,15 +1,13 @@
 package cli.commands
 
-import cli.commands.extension.echoComposedFilesWriteResult
+import cli.commands.extension.echoLoadoutActivation
 import cli.echoError
-import cli.outputPaths
 import com.github.ajalt.clikt.core.CliktCommand
 import com.github.ajalt.clikt.core.Context
 import com.github.ajalt.clikt.core.ProgramResult
 import com.github.ajalt.clikt.parameters.options.flag
 import com.github.ajalt.clikt.parameters.options.help
 import com.github.ajalt.clikt.parameters.options.option
-import domain.entity.error.LoadoutError
 import domain.usecase.LoadoutOutputTarget
 import domain.usecase.SyncLoadoutInput
 import domain.usecase.SyncLoadoutResult
@@ -17,7 +15,6 @@ import domain.usecase.SyncLoadoutUseCase
 
 class SyncCommand(
     private val syncLoadout: SyncLoadoutUseCase,
-    private val defaultOutputPaths: List<String>,
 ) : CliktCommand(
     name = "sync",
 ) {
@@ -27,24 +24,16 @@ class SyncCommand(
         .flag(default = false)
         .help("Print to std-out without writing files")
 
-    private val outputDir by option("--output", "-o")
-        .help("Override output directory")
-
     private val autoSync by option("--auto")
         .flag(default = false)
         .help("Resolve the repository default loadout when no current loadout is set")
 
     override fun run() {
-        if (stdOutOnly && outputDir != null) {
-            echoError(LoadoutError.ValidationError("flags", "Cannot specify both --std-out and --output"))
-            throw ProgramResult(1)
-        }
-
         val outputTarget =
             if (stdOutOnly) {
                 LoadoutOutputTarget.StandardOutput
             } else {
-                LoadoutOutputTarget.FileSystem(outputDir?.let(::outputPaths) ?: defaultOutputPaths)
+                LoadoutOutputTarget.ConfiguredOutputFiles
             }
 
         val result = syncLoadout(
@@ -70,8 +59,8 @@ class SyncCommand(
                     }
 
                     is SyncLoadoutResult.Activated ->
-                        echoComposedFilesWriteResult(
-                            result = syncResult.writeResult,
+                        echoLoadoutActivation(
+                            activation = syncResult.activation,
                             loadoutName = syncResult.loadout.name,
                             composedContentLength = syncResult.composedOutput.content.length
                         )

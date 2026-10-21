@@ -36,3 +36,12 @@ sealed class Result<out T, out E> {
             is Error -> onError(error)
         }
 }
+
+/** Applies [transform] to each element in order and stops at the first error. */
+inline fun <T, R, E> Iterable<T>.mapResults(transform: (T) -> Result<R, E>): Result<List<R>, E> {
+    val initialResult: Result<List<R>, E> = Result.Success(emptyList())
+
+    return fold(initialResult) { results, element ->
+        results.flatMap { values -> transform(element).map { value -> values + value } }
+    }
+}

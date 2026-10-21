@@ -51,7 +51,16 @@ private suspend fun BehaviorSpecWhenContainerScope.thenSettingsAreValidated(
     Then("it preserves the configured copy limit") {
         validation.accepted().maximumFragmentCopyBytes shouldBe expectedSettings.maximumFragmentCopyBytes
     }
+    Then("it returns the normalized, distinct output files in their given order") {
+        validation.accepted().outputFiles shouldBe expectedSettings.outputFiles
+    }
 }
+
+private data class OutputFilesRejection(
+    val description: String,
+    val outputFiles: List<String>,
+    val reason: String,
+)
 
 class RepositorySettingsValidationSpec : BehaviorSpec({
     Given("a repository-relative fragments home") {
@@ -185,7 +194,7 @@ class RepositorySettingsValidationSpec : BehaviorSpec({
         val settings = RepositorySettings()
 
         When("the repository settings are validated") {
-            val validation = validateRepositorySettings(settings)
+            val validation = validateRepositorySettings(settings, loadoutFileLocations)
 
             thenSettingsAreValidated(validation, settings)
         }
@@ -200,7 +209,7 @@ class RepositorySettingsValidationSpec : BehaviorSpec({
         )
 
         When("the repository settings are validated") {
-            val validation = validateRepositorySettings(settings)
+            val validation = validateRepositorySettings(settings, loadoutFileLocations)
 
             thenSettingsAreValidated(validation, settings)
         }
@@ -209,7 +218,7 @@ class RepositorySettingsValidationSpec : BehaviorSpec({
             val windowsSettings = settings.copy(fragmentsHome = "guidance\\library")
 
             When("the repository settings are validated") {
-                val validation = validateRepositorySettings(windowsSettings)
+                val validation = validateRepositorySettings(windowsSettings, loadoutFileLocations)
 
                 thenSettingsAreValidated(validation, settings)
             }
@@ -224,7 +233,7 @@ class RepositorySettingsValidationSpec : BehaviorSpec({
             )
 
             When("the repository settings are validated") {
-                val validation = validateRepositorySettings(unsortedSettings)
+                val validation = validateRepositorySettings(unsortedSettings, loadoutFileLocations)
 
                 thenSettingsAreValidated(validation, expectedSettings)
             }
@@ -237,7 +246,7 @@ class RepositorySettingsValidationSpec : BehaviorSpec({
             val expectedSettings = settings.copy(trustedFragmentSourceHosts = listOf("example.com"))
 
             When("the repository settings are validated") {
-                val validation = validateRepositorySettings(duplicateSettings)
+                val validation = validateRepositorySettings(duplicateSettings, loadoutFileLocations)
 
                 thenSettingsAreValidated(validation, expectedSettings)
             }
@@ -253,7 +262,7 @@ class RepositorySettingsValidationSpec : BehaviorSpec({
             )
 
             When("the repository settings are validated") {
-                val validation = validateRepositorySettings(mixedSettings)
+                val validation = validateRepositorySettings(mixedSettings, loadoutFileLocations)
 
                 thenSettingsAreValidated(validation, expectedSettings)
             }
@@ -263,7 +272,7 @@ class RepositorySettingsValidationSpec : BehaviorSpec({
             val unsafeSettings = settings.copy(fragmentsHome = "../outside")
 
             When("the repository settings are validated") {
-                val validation = validateRepositorySettings(unsafeSettings)
+                val validation = validateRepositorySettings(unsafeSettings, loadoutFileLocations)
 
                 thenSettingIsRejected(validation, "fragments-home", "safe repository-relative directory")
             }
@@ -275,7 +284,7 @@ class RepositorySettingsValidationSpec : BehaviorSpec({
             )
 
             When("the repository settings are validated") {
-                val validation = validateRepositorySettings(unsafeSettings)
+                val validation = validateRepositorySettings(unsafeSettings, loadoutFileLocations)
 
                 thenSettingIsRejected(validation, "fragment-source-host", "exact DNS hostname")
             }
@@ -285,9 +294,104 @@ class RepositorySettingsValidationSpec : BehaviorSpec({
             val unsafeSettings = settings.copy(maximumFragmentCopyBytes = 0)
 
             When("the repository settings are validated") {
-                val validation = validateRepositorySettings(unsafeSettings)
+                val validation = validateRepositorySettings(unsafeSettings, loadoutFileLocations)
 
                 thenSettingIsRejected(validation, "maximum-fragment-bytes", "between 1 and 200000")
+            }
+        }
+
+        Given("output files are configured in a chosen order") {
+            val outputFilesSettings = settings.copy(
+                outputFiles = listOf("GEMINI.md", ".github/copilot-instructions.md")
+            )
+
+            When("the repository settings are validated") {
+                val validation = validateRepositorySettings(outputFilesSettings, loadoutFileLocations)
+
+                thenSettingsAreValidated(validation, outputFilesSettings)
+            }
+        }
+
+        Given("the output files repeat an entry and use Windows separators") {
+            val repeatedSettings = settings.copy(
+                outputFiles = listOf("CLAUDE.md", ".github\\copilot-instructions.md", "CLAUDE.md")
+            )
+            val expectedSettings = settings.copy(outputFiles = listOf("CLAUDE.md", ".github/copilot-instructions.md"))
+
+            When("the repository settings are validated") {
+                val validation = validateRepositorySettings(repeatedSettings, loadoutFileLocations)
+
+                thenSettingsAreValidated(validation, expectedSettings)
+            }
+        }
+
+        Given("an output file is configured beside the fragments home") {
+            val besideFragmentsHomeSettings = settings.copy(outputFiles = listOf("guidance/CLAUDE.md"))
+
+            When("the repository settings are validated") {
+                val validation = validateRepositorySettings(besideFragmentsHomeSettings, loadoutFileLocations)
+
+                thenSettingsAreValidated(validation, besideFragmentsHomeSettings)
+            }
+        }
+
+        listOf(
+            OutputFilesRejection(
+                "an output file escapes the repository",
+                listOf("../outside.md"),
+                "must be a repository-relative Markdown file",
+            ),
+            OutputFilesRejection("an output file is inside the git directory", listOf(".git/notes.md"), "inside .git/"),
+            OutputFilesRejection(
+                "an output file is inside the git directory spelled in uppercase",
+                listOf(".GIT/notes.md"),
+                "inside .git/",
+            ),
+            OutputFilesRejection(
+                "an output file is inside the hooks directory",
+                listOf(".githooks/notes.md"),
+                "inside .githooks/",
+            ),
+            OutputFilesRejection(
+                "an output file is inside the loadouts directory",
+                listOf(".loadouts/notes.md"),
+                "inside .loadouts/",
+            ),
+            OutputFilesRejection(
+                "an output file is inside the backups directory",
+                listOf(".loadout-backups/CLAUDE.md"),
+                "inside .loadout-backups/",
+            ),
+            OutputFilesRejection(
+                "an output file is inside the fragments home",
+                listOf("guidance/library/notes.md"),
+                "inside guidance/library/",
+            ),
+            OutputFilesRejection(
+                "two output files differ only by case",
+                listOf("CLAUDE.md", "claude.md"),
+                "differ only by case",
+            ),
+            OutputFilesRejection("the output files list is empty", emptyList(), "List at least one output file"),
+        ).forEach { rejection ->
+            Given(rejection.description) {
+                val unsafeSettings = settings.copy(outputFiles = rejection.outputFiles)
+
+                When("the repository settings are validated") {
+                    val validation = validateRepositorySettings(unsafeSettings, loadoutFileLocations)
+
+                    thenSettingIsRejected(validation, "output-files", rejection.reason)
+                }
+            }
+        }
+
+        Given("the fragments home is moved over a configured output file") {
+            val movedSettings = settings.copy(fragmentsHome = "docs", outputFiles = listOf("docs/CLAUDE.md"))
+
+            When("the repository settings are validated") {
+                val validation = validateRepositorySettings(movedSettings, loadoutFileLocations)
+
+                thenSettingIsRejected(validation, "output-files", "inside docs/")
             }
         }
     }

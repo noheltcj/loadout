@@ -10,6 +10,7 @@ import domain.repository.LocalLoadoutStateRepository
 
 class RemoveLoadoutUseCase(
     private val loadoutRepository: LoadoutRepository,
+    private val getLocalLoadoutState: GetLocalLoadoutStateUseCase,
     private val localLoadoutStateRepository: LocalLoadoutStateRepository,
 ) {
     operator fun invoke(name: String): Result<DeleteLoadoutResult, LoadoutError> =
@@ -17,16 +18,14 @@ class RemoveLoadoutUseCase(
             removeLoadout(validName)
         }
 
-    private fun removeLoadout(validName: String): Result<DeleteLoadoutResult, LoadoutError> =
-        localLoadoutStateRepository
-            .loadLocalState()
-            .map { state -> state.removingLoadout(validName) }
-            .flatMap { localStateUpdate ->
-                loadoutRepository
-                    .delete(validName)
-                    .flatMap { persistLocalStateUpdate(localStateUpdate) }
-                    .map { localStateUpdate.toDeleteResult(validName) }
-            }
+    private fun removeLoadout(validName: String): Result<DeleteLoadoutResult, LoadoutError> {
+        val localStateUpdate = getLocalLoadoutState().state.removingLoadout(validName)
+
+        return loadoutRepository
+            .delete(validName)
+            .flatMap { persistLocalStateUpdate(localStateUpdate) }
+            .map { localStateUpdate.toDeleteResult(validName) }
+    }
 
     private fun persistLocalStateUpdate(update: LocalStateUpdateAfterLoadoutRemoval): Result<Unit, LoadoutError> =
         when (update) {
@@ -34,7 +33,7 @@ class RemoveLoadoutUseCase(
                 Result.Success(Unit)
 
             LocalStateUpdateAfterLoadoutRemoval.ClearCurrentLoadout ->
-                localLoadoutStateRepository.saveLocalState(clearedLocalLoadoutState)
+                localLoadoutStateRepository.saveLocalState(LocalLoadoutState.Inactive)
         }
 }
 
@@ -50,14 +49,8 @@ private sealed interface LocalStateUpdateAfterLoadoutRemoval {
     }
 }
 
-private val clearedLocalLoadoutState =
-    LocalLoadoutState(
-        activeLoadoutName = null,
-        lastComposedContentHash = null,
-    )
-
 private fun LocalLoadoutState.removingLoadout(loadoutName: String): LocalStateUpdateAfterLoadoutRemoval =
-    if (activeLoadoutName == loadoutName) {
+    if (this is LocalLoadoutState.Active && this.loadoutName == loadoutName) {
         LocalStateUpdateAfterLoadoutRemoval.ClearCurrentLoadout
     } else {
         LocalStateUpdateAfterLoadoutRemoval.Unchanged

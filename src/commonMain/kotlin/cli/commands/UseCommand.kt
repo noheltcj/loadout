@@ -1,7 +1,6 @@
 package cli.commands
 
-import cli.commands.extension.echoComposedFilesWriteResult
-import cli.outputPaths
+import cli.commands.extension.echoLoadoutActivation
 import com.github.ajalt.clikt.core.CliktCommand
 import com.github.ajalt.clikt.core.Context
 import com.github.ajalt.clikt.core.ProgramResult
@@ -15,7 +14,6 @@ import domain.usecase.UseLoadoutUseCase
 
 class UseCommand(
     private val useLoadout: UseLoadoutUseCase,
-    private val defaultOutputPaths: List<String>,
 ) : CliktCommand(
     name = "use",
 ) {
@@ -27,9 +25,6 @@ class UseCommand(
         .flag(default = false)
         .help("Print to std-out without writing files")
 
-    private val outputDir by option("--output", "-o")
-        .help("Override output directory")
-
     // TODO: Inherit global --config option from main CLI
 
     override fun run() {
@@ -37,7 +32,7 @@ class UseCommand(
             if (stdOutOnly) {
                 LoadoutOutputTarget.StandardOutput
             } else {
-                LoadoutOutputTarget.FileSystem(outputDir?.let(::outputPaths) ?: defaultOutputPaths)
+                LoadoutOutputTarget.ConfiguredOutputFiles
             }
 
         useLoadout(loadoutName = loadoutName, outputTarget = outputTarget).fold(
@@ -46,8 +41,8 @@ class UseCommand(
                     is UseLoadoutResult.PrintedToStandardOutput -> echo(useResult.composedOutput.content)
 
                     is UseLoadoutResult.Activated ->
-                        echoComposedFilesWriteResult(
-                            result = useResult.writeResult,
+                        echoLoadoutActivation(
+                            activation = useResult.activation,
                             loadoutName = useResult.loadout.name,
                             composedContentLength = useResult.composedOutput.content.length
                         )

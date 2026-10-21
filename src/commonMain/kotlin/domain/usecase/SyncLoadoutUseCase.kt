@@ -2,7 +2,6 @@ package domain.usecase
 
 import domain.entity.ComposedOutput
 import domain.entity.Loadout
-import domain.entity.WriteComposedFilesResult
 import domain.entity.error.LoadoutError
 import domain.entity.packaging.Result
 
@@ -22,7 +21,7 @@ sealed interface SyncLoadoutResult {
     data class Activated(
         val loadout: Loadout,
         val composedOutput: ComposedOutput,
-        val writeResult: WriteComposedFilesResult,
+        val activation: LoadoutActivation,
     ) : SyncLoadoutResult
 }
 
@@ -37,7 +36,7 @@ class SyncLoadoutUseCase(
                 onNone = { Result.Success(SyncLoadoutResult.NoCurrentLoadout) },
                 onSelected = { loadout ->
                     composeLoadout(loadout).flatMap { composedOutput ->
-                        when (val outputTarget = input.outputTarget) {
+                        when (input.outputTarget) {
                             LoadoutOutputTarget.StandardOutput ->
                                 Result.Success(
                                     SyncLoadoutResult.PrintedToStandardOutput(
@@ -46,15 +45,12 @@ class SyncLoadoutUseCase(
                                     )
                                 )
 
-                            is LoadoutOutputTarget.FileSystem ->
-                                activateComposedLoadout(
-                                    composedOutput = composedOutput,
-                                    outputPaths = outputTarget.outputPaths,
-                                ).map { writeResult ->
+                            LoadoutOutputTarget.ConfiguredOutputFiles ->
+                                activateComposedLoadout(composedOutput).map { activation ->
                                     SyncLoadoutResult.Activated(
                                         loadout = loadout,
                                         composedOutput = composedOutput,
-                                        writeResult = writeResult,
+                                        activation = activation,
                                     )
                                 }
                         }

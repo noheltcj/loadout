@@ -1,5 +1,8 @@
 package data.repository
 
+import data.environment.lookUpUserConfigDirectory
+import data.platform.platformUserConfigDirectoryConvention
+import domain.entity.UserConfigDirectory
 import domain.repository.EnvironmentRepository
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.alloc
@@ -14,7 +17,8 @@ import platform.posix.timespec
 
 @OptIn(ExperimentalForeignApi::class)
 class NativeEnvironmentRepository : EnvironmentRepository {
-    override fun getHomeDirectory(): String? = getenv("HOME")?.toKString()
+    override fun getUserConfigDirectory(): UserConfigDirectory =
+        lookUpUserConfigDirectory(platformUserConfigDirectoryConvention) { variable -> getenv(variable)?.toKString() }
 
     override fun currentTimeMillis(): Long {
         memScoped {

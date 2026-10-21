@@ -16,6 +16,26 @@ sealed interface LoadoutError {
         override val cause: Throwable? = null,
     ) : LoadoutError
 
+    data class UnreadableLocalState(
+        val path: String,
+        override val cause: Throwable? = null,
+    ) : LoadoutError {
+        override val message: String = "Could not read the local state in $path"
+    }
+
+    data class UnreadableUserSettings(
+        val path: String,
+        override val cause: Throwable? = null,
+    ) : LoadoutError {
+        override val message: String = "Could not read the user settings in $path"
+    }
+
+    data class UserConfigDirectoryNotFound(val environmentVariables: List<String>) : LoadoutError {
+        override val message: String =
+            "Cannot find a directory for user settings. " +
+                "Set ${environmentVariables.joinToString(" or ")} to an absolute path."
+    }
+
     data class LoadoutNotFound(val name: String) : LoadoutError {
         override val message: String = "Loadout '$name' not found"
     }

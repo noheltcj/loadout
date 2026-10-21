@@ -14,6 +14,8 @@ Use these commands to manage repo loadouts:
 - `loadout fragment link <fragment-path> --to <loadout>` links a fragment into a loadout
 - `loadout fragment unlink <fragment-path> --from <loadout>` unlinks a fragment from a loadout
 - `loadout sync` recomposes generated markdown after fragment changes
+- `loadout config --output-files <files>` chooses the comma-separated agent files the repository generates
+- `loadout config --user --output-files <files>` chooses your own agent files, which override the repository's
 
 ### Canonical Fragment Taxonomy
 
