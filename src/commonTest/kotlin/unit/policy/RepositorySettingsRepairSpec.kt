@@ -31,7 +31,15 @@ private suspend fun BehaviorSpecWhenContainerScope.thenRepairedSettingsHaveValue
     Then("it returns a supported copy limit") {
         repair.settings.maximumFragmentCopyBytes shouldBe expectedSettings.maximumFragmentCopyBytes
     }
+    Then("it returns only valid output files") {
+        repair.settings.outputFiles shouldBe expectedSettings.outputFiles
+    }
 }
+
+private fun RepositorySettingsRepair.removedOutputFiles(): List<String> =
+    warnings
+        .filterIsInstance<RepositorySettingsRepairWarning.InvalidOutputFileRemoved>()
+        .map(RepositorySettingsRepairWarning.InvalidOutputFileRemoved::invalidOutputFile)
 
 class RepositorySettingsRepairSpec : BehaviorSpec({
     Given("repository settings configure a project loadout and a valid custom copy policy") {
@@ -43,7 +51,7 @@ class RepositorySettingsRepairSpec : BehaviorSpec({
         )
 
         When("the repository settings are repaired") {
-            val repair = repairRepositorySettings(settings)
+            val repair = repairRepositorySettings(settings, loadoutFileLocations)
 
             thenRepairedSettingsHaveValues(repair, settings)
 
@@ -62,7 +70,7 @@ class RepositorySettingsRepairSpec : BehaviorSpec({
             )
 
             When("the repository settings are repaired") {
-                val repair = repairRepositorySettings(mixedSettings)
+                val repair = repairRepositorySettings(mixedSettings, loadoutFileLocations)
 
                 thenRepairedSettingsHaveValues(repair, expectedSettings)
 
@@ -77,7 +85,7 @@ class RepositorySettingsRepairSpec : BehaviorSpec({
             val expectedSettings = settings.copy(fragmentsHome = RepositorySettings.DEFAULT_FRAGMENTS_HOME)
 
             When("the repository settings are repaired") {
-                val repair = repairRepositorySettings(unsafeSettings)
+                val repair = repairRepositorySettings(unsafeSettings, loadoutFileLocations)
 
                 thenRepairedSettingsHaveValues(repair, expectedSettings)
 
@@ -96,7 +104,7 @@ class RepositorySettingsRepairSpec : BehaviorSpec({
             val expectedSettings = settings.copy(trustedFragmentSourceHosts = listOf("example.com"))
 
             When("the repository settings are repaired") {
-                val repair = repairRepositorySettings(unsafeSettings)
+                val repair = repairRepositorySettings(unsafeSettings, loadoutFileLocations)
 
                 thenRepairedSettingsHaveValues(repair, expectedSettings)
 
@@ -116,7 +124,7 @@ class RepositorySettingsRepairSpec : BehaviorSpec({
             )
 
             When("the repository settings are repaired") {
-                val repair = repairRepositorySettings(unsafeSettings)
+                val repair = repairRepositorySettings(unsafeSettings, loadoutFileLocations)
 
                 thenRepairedSettingsHaveValues(repair, expectedSettings)
 
@@ -135,7 +143,7 @@ class RepositorySettingsRepairSpec : BehaviorSpec({
             val expectedSettings = RepositorySettings(defaultLoadoutName = settings.defaultLoadoutName)
 
             When("the repository settings are repaired") {
-                val repair = repairRepositorySettings(unsafeSettings)
+                val repair = repairRepositorySettings(unsafeSettings, loadoutFileLocations)
 
                 thenRepairedSettingsHaveValues(repair, expectedSettings)
 
@@ -154,6 +162,87 @@ class RepositorySettingsRepairSpec : BehaviorSpec({
                 }
                 Then("it emits exactly one warning for each invalid field") {
                     repair.warnings.size shouldBe 3
+                }
+            }
+        }
+
+        Given("valid output files are configured") {
+            val outputFilesSettings = settings.copy(
+                outputFiles = listOf("CLAUDE.md", ".github/copilot-instructions.md")
+            )
+
+            When("the repository settings are repaired") {
+                val repair = repairRepositorySettings(outputFilesSettings, loadoutFileLocations)
+
+                thenRepairedSettingsHaveValues(repair, outputFilesSettings)
+
+                Then("it emits no repair warnings") {
+                    repair.warnings shouldBe emptyList()
+                }
+            }
+        }
+
+        Given("an output file escapes the repository alongside a valid one") {
+            val unsafeSettings = settings.copy(outputFiles = listOf("../outside.md", "CLAUDE.md"))
+            val expectedSettings = settings.copy(outputFiles = listOf("CLAUDE.md"))
+
+            When("the repository settings are repaired") {
+                val repair = repairRepositorySettings(unsafeSettings, loadoutFileLocations)
+
+                thenRepairedSettingsHaveValues(repair, expectedSettings)
+
+                Then("it reports the removed output file") {
+                    repair.removedOutputFiles().shouldContainExactly("../outside.md")
+                }
+            }
+        }
+
+        Given("two output files differ only by case") {
+            val caseCollisionSettings = settings.copy(outputFiles = listOf("CLAUDE.md", "claude.md"))
+            val expectedSettings = settings.copy(outputFiles = listOf("CLAUDE.md"))
+
+            When("the repository settings are repaired") {
+                val repair = repairRepositorySettings(caseCollisionSettings, loadoutFileLocations)
+
+                thenRepairedSettingsHaveValues(repair, expectedSettings)
+
+                Then("it reports the later spelling as removed") {
+                    repair.removedOutputFiles().shouldContainExactly("claude.md")
+                }
+            }
+        }
+
+        Given("every output file is invalid") {
+            val unsafeSettings = settings.copy(outputFiles = listOf("../outside.md", ".git/notes.md"))
+            val expectedSettings = settings.copy(outputFiles = null)
+
+            When("the repository settings are repaired") {
+                val repair = repairRepositorySettings(unsafeSettings, loadoutFileLocations)
+
+                thenRepairedSettingsHaveValues(repair, expectedSettings)
+
+                Then("it reports each removed output file") {
+                    repair.removedOutputFiles().shouldContainExactly("../outside.md", ".git/notes.md")
+                }
+            }
+        }
+
+        Given("the fragments home escapes the repository and an output file sits in the default fragments home") {
+            val unsafeSettings =
+                settings.copy(fragmentsHome = "../outside", outputFiles = listOf("fragments/notes.md", "CLAUDE.md"))
+            val expectedSettings =
+                settings.copy(
+                    fragmentsHome = RepositorySettings.DEFAULT_FRAGMENTS_HOME,
+                    outputFiles = listOf("CLAUDE.md")
+                )
+
+            When("the repository settings are repaired") {
+                val repair = repairRepositorySettings(unsafeSettings, loadoutFileLocations)
+
+                thenRepairedSettingsHaveValues(repair, expectedSettings)
+
+                Then("it checks the output files against the repaired fragments home") {
+                    repair.removedOutputFiles().shouldContainExactly("fragments/notes.md")
                 }
             }
         }

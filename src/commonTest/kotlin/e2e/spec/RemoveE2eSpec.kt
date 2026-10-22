@@ -2,6 +2,7 @@
 
 package e2e.spec
 
+import domain.entity.LocalLoadoutState
 import e2e.support.E2eBehaviorSuite
 import e2e.support.action
 import e2e.support.firstFragmentContent
@@ -140,12 +141,8 @@ class RemoveE2eSpec : E2eBehaviorSuite({
                     execution.scenario.readLoadout("beta").shouldNotBeNull()
                 }
 
-                then("it clears the current loadout name") {
-                    execution.scenario.shouldHaveActiveLoadoutName(null)
-                }
-
-                then("it clears the stored composition hash") {
-                    execution.scenario.readLocalLoadoutState()?.lastComposedContentHash shouldBe null
+                then("it clears the current loadout") {
+                    execution.scenario.readLocalLoadoutState() shouldBe LocalLoadoutState.Inactive
                 }
 
                 then("it leaves repository settings untouched") {

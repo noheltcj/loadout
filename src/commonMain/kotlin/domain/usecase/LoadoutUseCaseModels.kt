@@ -1,13 +1,12 @@
 package domain.usecase
 
 import domain.entity.Loadout
+import domain.entity.error.LoadoutError
 
 sealed interface LoadoutOutputTarget {
     data object StandardOutput : LoadoutOutputTarget
 
-    data class FileSystem(
-        val outputPaths: List<String>,
-    ) : LoadoutOutputTarget
+    data object ConfiguredOutputFiles : LoadoutOutputTarget
 }
 
 sealed interface CurrentLoadoutSelection {
@@ -29,6 +28,28 @@ inline fun <T> CurrentLoadoutSelection.fold(
 
 sealed interface LoadoutSyncState {
     data object NoCurrentLoadout : LoadoutSyncState
-    data object Synchronized : LoadoutSyncState
-    data object OutOfSync : LoadoutSyncState
+
+    data class UnreadableLocalState(
+        val error: LoadoutError.UnreadableLocalState,
+    ) : LoadoutSyncState
+
+    data class Active(
+        val fragments: FragmentsSyncState,
+        val outputFiles: OutputFilesSyncState,
+    ) : LoadoutSyncState
+}
+
+sealed interface FragmentsSyncState {
+    data object UpToDate : FragmentsSyncState
+
+    data object ChangedSinceLastComposition : FragmentsSyncState
+}
+
+sealed interface OutputFilesSyncState {
+    data object UpToDate : OutputFilesSyncState
+
+    data class ChangedSinceLastWrite(
+        val addedOutputFiles: List<String>,
+        val removedOutputFiles: List<String>,
+    ) : OutputFilesSyncState
 }

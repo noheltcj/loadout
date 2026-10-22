@@ -1,42 +1,28 @@
 package domain.usecase
 
 import domain.entity.ComposedOutput
+import domain.entity.RepositoryMode
 import domain.entity.RepositorySettings
 import domain.entity.WriteComposedFilesResult
 import domain.entity.error.LoadoutError
 import domain.entity.packaging.Result
-import domain.repository.FileMutationRepository
-import domain.repository.FileQueryRepository
+import domain.policy.RepositorySettingsRepairWarning
 
 sealed interface InitializeLoadoutProjectInput {
-    val gitignorePath: String
-    val fixedGitignorePatterns: List<String>
     val defaultLoadoutName: String
     val defaultLoadoutDescription: String
-    val outputPaths: List<String>
 
     data class Shared(
-        override val gitignorePath: String,
-        override val fixedGitignorePatterns: List<String>,
         override val defaultLoadoutName: String,
         override val defaultLoadoutDescription: String,
-        override val outputPaths: List<String>,
         val hooksDirectoryPath: String,
         val hooks: List<GitHookDefinition>,
     ) : InitializeLoadoutProjectInput
 
     data class Local(
-        override val gitignorePath: String,
-        override val fixedGitignorePatterns: List<String>,
         override val defaultLoadoutName: String,
         override val defaultLoadoutDescription: String,
-        override val outputPaths: List<String>,
     ) : InitializeLoadoutProjectInput
-}
-
-sealed interface GitignoreConfigurationResult {
-    data object Updated : GitignoreConfigurationResult
-    data object AlreadyConfigured : GitignoreConfigurationResult
 }
 
 sealed interface RepositoryDefaultLoadoutOutcome {
@@ -61,68 +47,50 @@ sealed interface DefaultLoadoutInitializationResult {
 }
 
 data class InitializeLoadoutProjectResult(
-    val gitignoreConfiguration: GitignoreConfigurationResult,
+    val repositorySettingsWarnings: List<RepositorySettingsRepairWarning>,
+    val outputFiles: OutputFilesResolution,
+    val ignoreRulesConfiguration: ConfigureGitIgnoreRulesResult,
     val defaultLoadoutInitialization: DefaultLoadoutInitializationResult,
     val gitHooksConfiguration: ConfigureGitHooksResult?,
 )
 
+/** Init configures ignore rules once: while activating the default loadout it creates, or on their own otherwise. */
+private data class LoadoutsInitialization(
+    val outputFiles: OutputFilesResolution,
+    val defaultLoadoutInitialization: DefaultLoadoutInitializationResult,
+    val ignoreRulesConfiguration: ConfigureGitIgnoreRulesResult,
+)
+
 class InitializeLoadoutProjectUseCase(
-    private val fileQueryRepository: FileQueryRepository,
-    private val fileMutationRepository: FileMutationRepository,
     private val listLoadouts: ListLoadoutsUseCase,
     private val createLoadout: CreateLoadoutUseCase,
     private val composeLoadout: ComposeLoadoutUseCase,
     private val activateComposedLoadout: ActivateComposedLoadoutUseCase,
-    private val getRepositorySettings: GetRepositorySettingsUseCase,
+    private val resolveOutputFiles: ResolveOutputFilesUseCase,
+    private val getRepositorySettings: GetRepairableRepositorySettingsUseCase,
     private val updateRepositorySettings: UpdateRepositorySettingsUseCase,
     private val configureGitHooks: ConfigureGitHooksUseCase,
+    private val configureGitIgnoreRules: ConfigureGitIgnoreRulesUseCase,
 ) {
     operator fun invoke(input: InitializeLoadoutProjectInput): Result<InitializeLoadoutProjectResult, LoadoutError> =
-        getRepositorySettings().flatMap { settings ->
-            configureGitignore(input, settings).flatMap { gitignoreConfiguration ->
-                initializeDefaultLoadoutIfNeeded(input, settings).flatMap { defaultLoadoutInitialization ->
-                    configureGitHooksIfNeeded(input).map { gitHooksConfiguration ->
-                        InitializeLoadoutProjectResult(
-                            gitignoreConfiguration = gitignoreConfiguration,
-                            defaultLoadoutInitialization = defaultLoadoutInitialization,
-                            gitHooksConfiguration = gitHooksConfiguration,
-                        )
-                    }
+        getRepositorySettings().flatMap { repair ->
+            initializeDefaultLoadoutIfNeeded(input, repair.settings).flatMap { loadoutsInitialization ->
+                configureGitHooksIfNeeded(input).map { gitHooksConfiguration ->
+                    InitializeLoadoutProjectResult(
+                        repositorySettingsWarnings = repair.warnings,
+                        outputFiles = loadoutsInitialization.outputFiles,
+                        ignoreRulesConfiguration = loadoutsInitialization.ignoreRulesConfiguration,
+                        defaultLoadoutInitialization = loadoutsInitialization.defaultLoadoutInitialization,
+                        gitHooksConfiguration = gitHooksConfiguration,
+                    )
                 }
             }
         }
 
-    private fun configureGitignore(
-        input: InitializeLoadoutProjectInput,
-        settings: RepositorySettings,
-    ): Result<GitignoreConfigurationResult, LoadoutError> {
-        val existingContent =
-            fileQueryRepository.readFile(input.gitignorePath).fold(
-                onSuccess = { content -> content },
-                onError = { "" },
-            )
-
-        val missingPatterns = input.gitignorePatterns(settings).missingFrom(existingContent)
-
-        if (missingPatterns.none { it.isNotBlank() }) {
-            return Result.Success(GitignoreConfigurationResult.AlreadyConfigured)
-        }
-
-        return fileMutationRepository
-            .writeFile(
-                path = input.gitignorePath,
-                content = existingContent.withLoadoutGitignoreBlock(
-                    modeName = input.modeName,
-                    patterns = missingPatterns,
-                ),
-            )
-            .map { GitignoreConfigurationResult.Updated }
-    }
-
     private fun initializeDefaultLoadoutIfNeeded(
         input: InitializeLoadoutProjectInput,
         settings: RepositorySettings,
-    ): Result<DefaultLoadoutInitializationResult, LoadoutError> =
+    ): Result<LoadoutsInitialization, LoadoutError> =
         listLoadouts().flatMap { loadouts ->
             loadouts
                 .takeIf { it.isNotEmpty() }
@@ -136,21 +104,30 @@ class InitializeLoadoutProjectUseCase(
         input: InitializeLoadoutProjectInput,
         settings: RepositorySettings,
         loadoutNames: List<String>,
-    ): Result<DefaultLoadoutInitializationResult, LoadoutError> {
+    ): Result<LoadoutsInitialization, LoadoutError> {
         val repositoryDefault =
             input.repositoryDefaultOutcome(
                 configuredDefaultLoadoutName = settings.defaultLoadoutName,
                 loadoutNames = loadoutNames,
             )
 
-        return applyRepositoryDefault(repositoryDefault).map {
-            DefaultLoadoutInitializationResult.ExistingLoadoutsPresent(repositoryDefault)
-        }
+        return applyRepositoryDefault(repositoryDefault)
+            .flatMap { resolveOutputFiles(settings) }
+            .map { resolution ->
+                LoadoutsInitialization(
+                    outputFiles = resolution,
+                    defaultLoadoutInitialization = DefaultLoadoutInitializationResult.ExistingLoadoutsPresent(
+                        repositoryDefault
+                    ),
+                    ignoreRulesConfiguration =
+                    configureGitIgnoreRules(resolution.outputFiles, input.requestedModeSelection),
+                )
+            }
     }
 
     private fun createAndActivateDefaultLoadout(
         input: InitializeLoadoutProjectInput,
-    ): Result<DefaultLoadoutInitializationResult, LoadoutError> =
+    ): Result<LoadoutsInitialization, LoadoutError> =
         createLoadout(
             CreateLoadoutInput.New(
                 name = input.defaultLoadoutName,
@@ -166,17 +143,21 @@ class InitializeLoadoutProjectUseCase(
     private fun activateDefaultLoadout(
         input: InitializeLoadoutProjectInput,
         composedOutput: ComposedOutput,
-    ): Result<DefaultLoadoutInitializationResult, LoadoutError> =
+    ): Result<LoadoutsInitialization, LoadoutError> =
         activateComposedLoadout(
             composedOutput = composedOutput,
-            outputPaths = input.outputPaths,
-        ).flatMap { writeResult ->
+            modeSelection = input.requestedModeSelection,
+        ).flatMap { activation ->
             applyRepositoryDefault(input.createdDefaultLoadoutOutcome())
-                .map { writeResult }
-        }.map { writeResult ->
-            DefaultLoadoutInitializationResult.CreatedAndActivated(
-                composedOutput = composedOutput,
-                writeResult = writeResult,
+                .map { activation }
+        }.map { activation ->
+            LoadoutsInitialization(
+                outputFiles = activation.outputFiles,
+                defaultLoadoutInitialization = DefaultLoadoutInitializationResult.CreatedAndActivated(
+                    composedOutput = composedOutput,
+                    writeResult = activation.writeResult,
+                ),
+                ignoreRulesConfiguration = activation.ignoreRules,
             )
         }
 
@@ -208,17 +189,11 @@ class InitializeLoadoutProjectUseCase(
         }
 }
 
-private fun InitializeLoadoutProjectInput.gitignorePatterns(settings: RepositorySettings): List<String> =
-    when (this) {
-        is InitializeLoadoutProjectInput.Shared -> fixedGitignorePatterns
-        is InitializeLoadoutProjectInput.Local -> fixedGitignorePatterns + "${settings.fragmentsHome}/"
-    }
-
-private val InitializeLoadoutProjectInput.modeName: String
+private val InitializeLoadoutProjectInput.requestedModeSelection: RepositoryModeSelection
     get() =
         when (this) {
-            is InitializeLoadoutProjectInput.Shared -> "Shared"
-            is InitializeLoadoutProjectInput.Local -> "Local"
+            is InitializeLoadoutProjectInput.Shared -> RepositoryModeSelection.Requested(RepositoryMode.Shared)
+            is InitializeLoadoutProjectInput.Local -> RepositoryModeSelection.Requested(RepositoryMode.Local)
         }
 
 /**
@@ -256,28 +231,3 @@ private fun InitializeLoadoutProjectInput.createdDefaultLoadoutOutcome(): Reposi
         is InitializeLoadoutProjectInput.Local ->
             RepositoryDefaultLoadoutOutcome.Unset
     }
-
-private fun List<String>.missingFrom(content: String): List<String> =
-    filter { pattern -> pattern.isBlank() || !content.contains(pattern.trim()) }
-
-private fun String.withLoadoutGitignoreBlock(
-    modeName: String,
-    patterns: List<String>,
-): String =
-    buildString {
-        appendGitignorePrefix(this@withLoadoutGitignoreBlock)
-        append("# Loadout CLI - $modeName Mode\n")
-        append(patterns.joinToString(separator = "\n", postfix = "\n"))
-    }
-
-private fun StringBuilder.appendGitignorePrefix(existingContent: String) {
-    if (existingContent.isBlank()) {
-        return
-    }
-
-    append(existingContent)
-    if (!existingContent.endsWith("\n")) {
-        append("\n")
-    }
-    append("\n")
-}

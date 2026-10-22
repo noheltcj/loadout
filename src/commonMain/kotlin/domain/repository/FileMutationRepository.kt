@@ -9,6 +9,11 @@ interface FileMutationRepository {
         content: String,
     ): Result<Unit, LoadoutError.FileSystemError>
 
+    fun copyFile(
+        sourcePath: String,
+        destinationPath: String,
+    ): Result<Unit, LoadoutError.FileSystemError>
+
     fun setExecutable(path: String): Result<Unit, LoadoutError.FileSystemError>
 
     fun createDirectory(path: String): Result<Unit, LoadoutError>

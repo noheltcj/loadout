@@ -17,14 +17,9 @@ import e2e.support.shouldContainInStdout
 import e2e.support.shouldHaveActiveLoadoutName
 import e2e.support.shouldHaveExitCode
 import e2e.support.shouldHaveGeneratedBody
-import e2e.support.shouldHaveGeneratedBodyInDirectory
 import e2e.support.shouldHaveGeneratedFiles
 import e2e.support.shouldNotHaveGeneratedFiles
 import io.kotest.matchers.nulls.shouldBeNull
-
-private data class OutputDirectoryCapture(
-    val outputDirectory: String,
-)
 
 class UseE2eSpec : E2eBehaviorSuite({
     context("loadout use spec") {
@@ -83,7 +78,7 @@ class UseE2eSpec : E2eBehaviorSuite({
                     execution.scenario.readRepositorySettings().shouldBeNull()
                 }
 
-                then("it writes CLAUDE.md, AGENTS.md, and GEMINI.md to the default output directory") {
+                then("it writes CLAUDE.md, AGENTS.md, and GEMINI.md") {
                     execution.scenario.shouldHaveGeneratedFiles()
                 }
             }
@@ -119,36 +114,6 @@ class UseE2eSpec : E2eBehaviorSuite({
                     then("it leaves the generated body unchanged") {
                         execution.scenario.shouldHaveGeneratedBody(secondFragmentContent)
                     }
-                }
-            }
-
-            action("loadout use is run with --output and a custom directory") {
-                val execution by memoizedCapturedExecution(
-                    seed = validLoadout,
-                    capture = {
-                        OutputDirectoryCapture(outputDirectory = createCustomOutputDirectory())
-                    },
-                ) { captured ->
-                    runCommand("use", "alpha", "--output", captured.outputDirectory)
-                }
-
-                then("it writes CLAUDE.md, AGENTS.md, and GEMINI.md to the requested directory") {
-                    execution.scenario.shouldHaveGeneratedFiles(directory = execution.captured.outputDirectory)
-                }
-
-                then("it writes the expected composed body to the requested directory") {
-                    execution.scenario.shouldHaveGeneratedBodyInDirectory(
-                        execution.captured.outputDirectory,
-                        firstFragmentContent,
-                    )
-                }
-
-                then("it marks that loadout as current") {
-                    execution.scenario.shouldHaveActiveLoadoutName("alpha")
-                }
-
-                then("it does not write repository settings") {
-                    execution.scenario.readRepositorySettings().shouldBeNull()
                 }
             }
         }

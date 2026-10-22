@@ -2,13 +2,14 @@
 
 package e2e.spec
 
-import cli.Constants
 import domain.entity.RepositorySettings
 import e2e.support.E2eBehaviorSuite
 import e2e.support.ScenarioSeed
 import e2e.support.action
+import e2e.support.activeLoadoutName
 import e2e.support.andThen
 import e2e.support.architectFragmentPath
+import e2e.support.claudeFilePath
 import e2e.support.givenGitRepositoryExists
 import e2e.support.shouldContainInStderr
 import e2e.support.shouldHaveExitCode
@@ -45,7 +46,7 @@ class HookE2eSpec : E2eBehaviorSuite({
 
                 then("it records the resolved current loadout in the new worktree config") {
                     val worktreeDirectory = execution.scenario.workspacePath("worktrees/prompt-sync")
-                    execution.scenario.readLocalLoadoutStateFromDirectory(worktreeDirectory)?.activeLoadoutName shouldBe
+                    execution.scenario.readLocalLoadoutStateFromDirectory(worktreeDirectory).activeLoadoutName shouldBe
                         "default"
                 }
             }
@@ -66,7 +67,7 @@ class HookE2eSpec : E2eBehaviorSuite({
                     }
 
                     then("it refreshes the generated prompt files for the checked out branch") {
-                        execution.scenario.readGeneratedBody(Constants.CLAUDE_MD) shouldBe updatedContent
+                        execution.scenario.readGeneratedBody(claudeFilePath) shouldBe updatedContent
                     }
                 }
             }
@@ -87,14 +88,14 @@ class HookE2eSpec : E2eBehaviorSuite({
                     }
 
                     then("it refreshes the generated prompt files after the merge") {
-                        execution.scenario.readGeneratedBody(Constants.CLAUDE_MD) shouldBe mergedContent
+                        execution.scenario.readGeneratedBody(claudeFilePath) shouldBe mergedContent
                     }
                 }
             }
 
             action("git checkout is run for a tracked file only") {
                 val execution by memoizedExecution(seed = initializedSharedGitRepository) {
-                    deleteWorkspaceFile(Constants.CLAUDE_MD)
+                    deleteWorkspaceFile(claudeFilePath)
                     runGit("checkout", "HEAD", "--", "tracked.txt")
                 }
 
@@ -103,7 +104,7 @@ class HookE2eSpec : E2eBehaviorSuite({
                 }
 
                 then("it does not regenerate prompt files for a file checkout event") {
-                    execution.scenario.readGeneratedFile(Constants.CLAUDE_MD) shouldBe null
+                    execution.scenario.readGeneratedFile(claudeFilePath) shouldBe null
                 }
             }
         }

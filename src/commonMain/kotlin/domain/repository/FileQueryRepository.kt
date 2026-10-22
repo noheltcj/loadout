@@ -6,6 +6,8 @@ import domain.entity.packaging.Result
 interface FileQueryRepository {
     fun readFile(path: String): Result<String, LoadoutError>
 
+    fun readFileBytes(path: String): Result<ByteArray, LoadoutError>
+
     fun readFileBytes(
         path: String,
         byteLimit: Int,
@@ -14,6 +16,10 @@ interface FileQueryRepository {
     fun fileExists(path: String): Boolean
 
     fun isRegularFile(path: String): Boolean
+
+    fun isSymbolicLink(path: String): Boolean
+
+    fun canonicalPath(path: String): Result<String, LoadoutError>
 
     fun listFiles(
         directory: String,

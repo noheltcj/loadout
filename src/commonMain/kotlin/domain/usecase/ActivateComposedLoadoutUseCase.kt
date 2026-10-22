@@ -1,49 +1,39 @@
 package domain.usecase
 
 import domain.entity.ComposedOutput
-import domain.entity.LocalLoadoutState
 import domain.entity.WriteComposedFilesResult
 import domain.entity.error.LoadoutError
 import domain.entity.packaging.Result
-import domain.repository.LocalLoadoutStateRepository
+import domain.policy.RepositorySettingsRepairWarning
+
+data class LoadoutActivation(
+    /** Repaired on read; the repair is not written back. */
+    val repositorySettingsWarnings: List<RepositorySettingsRepairWarning>,
+    val outputFiles: OutputFilesResolution,
+    val writeResult: WriteComposedFilesResult,
+    val ignoreRules: ConfigureGitIgnoreRulesResult,
+)
 
 class ActivateComposedLoadoutUseCase(
+    private val getRepositorySettings: GetRepairableRepositorySettingsUseCase,
+    private val resolveOutputFiles: ResolveOutputFilesUseCase,
     private val writeComposedFiles: WriteComposedFilesUseCase,
-    private val localLoadoutStateRepository: LocalLoadoutStateRepository,
+    private val configureGitIgnoreRules: ConfigureGitIgnoreRulesUseCase,
 ) {
     operator fun invoke(
         composedOutput: ComposedOutput,
-        outputPaths: List<String>,
-    ): Result<WriteComposedFilesResult, LoadoutError> =
-        writeComposedFiles(composedOutput, outputPaths)
-            .map { composedOutput to it }
-            .flatMap { (composedOutput, writeResult) ->
-                when (writeResult) {
-                    WriteComposedFilesResult.Overwritten -> {
-                        localLoadoutStateRepository.saveLocalState(
-                            LocalLoadoutState(
-                                activeLoadoutName = composedOutput.loadoutName,
-                                lastComposedContentHash = composedOutput.metadata.contentHash,
-                            )
-                        )
-                    }
-
-                    WriteComposedFilesResult.AlreadyUpToDate -> {
-                        localLoadoutStateRepository
-                            .loadLocalState()
-                            .flatMap { state ->
-                                if (state.activeLoadoutName == composedOutput.loadoutName) {
-                                    Result.Success(Unit)
-                                } else {
-                                    localLoadoutStateRepository.saveLocalState(
-                                        LocalLoadoutState(
-                                            activeLoadoutName = composedOutput.loadoutName,
-                                            lastComposedContentHash = composedOutput.metadata.contentHash,
-                                        )
-                                    )
-                                }
-                            }
-                    }
-                }.map { writeResult }
+        modeSelection: RepositoryModeSelection = RepositoryModeSelection.Recorded,
+    ): Result<LoadoutActivation, LoadoutError> =
+        getRepositorySettings().flatMap { repair ->
+            resolveOutputFiles(repair.settings).flatMap { resolution ->
+                writeComposedFiles(composedOutput, resolution.outputFiles).map { writeResult ->
+                    LoadoutActivation(
+                        repositorySettingsWarnings = repair.warnings,
+                        outputFiles = resolution,
+                        writeResult = writeResult,
+                        ignoreRules = configureGitIgnoreRules(resolution.outputFiles, modeSelection),
+                    )
+                }
             }
+        }
 }

@@ -1,6 +1,5 @@
 package data.repository
 
-import cli.Constants
 import data.serialization.JsonSerializer
 import domain.entity.RepositorySettings
 import domain.entity.error.LoadoutError
@@ -13,13 +12,14 @@ class FileBasedRepositorySettingsRepository(
     private val fileQueryRepository: FileQueryRepository,
     private val fileMutationRepository: FileMutationRepository,
     private val serializer: JsonSerializer,
+    private val repositorySettingsFile: String,
 ) : RepositorySettingsRepository {
     override fun loadRepositorySettings(): Result<RepositorySettings, LoadoutError> =
-        if (!fileQueryRepository.fileExists(Constants.REPOSITORY_SETTINGS_FILE)) {
+        if (!fileQueryRepository.fileExists(repositorySettingsFile)) {
             Result.Success(RepositorySettings())
         } else {
             fileQueryRepository
-                .readFile(Constants.REPOSITORY_SETTINGS_FILE)
+                .readFile(repositorySettingsFile)
                 .flatMap { content ->
                     serializer
                         .deserialize(content, RepositorySettings.serializer())
@@ -40,7 +40,7 @@ class FileBasedRepositorySettingsRepository(
             }
             .flatMap { json ->
                 fileMutationRepository
-                    .writeFile(Constants.REPOSITORY_SETTINGS_FILE, json)
+                    .writeFile(repositorySettingsFile, json)
                     .mapError {
                         LoadoutError.ConfigurationError(
                             "Failed to write repository settings file: ${it.message}",

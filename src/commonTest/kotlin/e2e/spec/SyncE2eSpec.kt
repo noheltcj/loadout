@@ -2,24 +2,26 @@
 
 package e2e.spec
 
-import cli.Constants
-import domain.entity.LocalLoadoutState
 import e2e.support.E2eBehaviorSuite
 import e2e.support.ScenarioSeed
 import e2e.support.action
+import e2e.support.andThen
+import e2e.support.claudeFilePath
 import e2e.support.firstFragmentContent
 import e2e.support.firstFragmentPath
 import e2e.support.givenConfigPointsAtDeletedLoadout
+import e2e.support.givenCurrentLoadoutFragmentWasDeleted
 import e2e.support.givenCurrentLoadoutFragmentsHaveChangedSinceLastComposition
 import e2e.support.givenCurrentLoadoutIsAlreadySynchronized
+import e2e.support.givenCurrentLoadoutIsSet
+import e2e.support.givenRepositorySettingsTrustFragmentHosts
 import e2e.support.requireGeneratedBody
 import e2e.support.requireLastComposedContentHash
 import e2e.support.shouldContainInOutput
+import e2e.support.shouldContainInStderr
 import e2e.support.shouldContainInStdout
-import e2e.support.shouldHaveActiveLoadoutName
 import e2e.support.shouldHaveExitCode
 import e2e.support.shouldHaveGeneratedBody
-import e2e.support.shouldHaveGeneratedBodyInDirectory
 import e2e.support.shouldHaveGeneratedFiles
 import e2e.support.shouldHaveStaleWarning
 import e2e.support.shouldHaveUnchangedLastComposedContentHash
@@ -28,14 +30,13 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.string.shouldNotContain
 
+private const val INVALID_TRUSTED_HOST = "169.254.169.254"
+private const val INVALID_TRUSTED_HOST_WARNING =
+    "Warning: Invalid trusted fragment host '$INVALID_TRUSTED_HOST' was removed."
+
 private data class SynchronizedLoadoutCapture(
     val generatedBody: String,
     val lastComposedContentHash: String,
-)
-
-private data class SyncOutputDirectoryCapture(
-    val outputDirectory: String,
-    val previousLastComposedContentHash: String,
 )
 
 class SyncE2eSpec : E2eBehaviorSuite({
@@ -46,20 +47,6 @@ class SyncE2eSpec : E2eBehaviorSuite({
 
                 then("it outputs that no current loadout is set") {
                     execution.result.shouldContainInOutput("No current loadout set.")
-                }
-
-                then("it exits with result 1") {
-                    execution.result.shouldHaveExitCode(1)
-                }
-            }
-        }
-
-        given("sync is run with conflicting flags") {
-            action("loadout sync is run with --std-out and --output") {
-                val execution by memoizedAction("sync", "--std-out", "--output", "dir")
-
-                then("it outputs a mutually exclusive flags error") {
-                    execution.result.shouldContainInOutput("Cannot specify both --std-out and --output")
                 }
 
                 then("it exits with result 1") {
@@ -89,13 +76,8 @@ class SyncE2eSpec : E2eBehaviorSuite({
 
         given("composing the current loadout fails") {
             val brokenCurrentLoadout: ScenarioSeed = {
-                seedLoadout(name = "broken", fragments = listOf(firstFragmentPath))
-                writeLocalLoadoutState(
-                    LocalLoadoutState(
-                        activeLoadoutName = "broken",
-                        lastComposedContentHash = null,
-                    )
-                )
+                givenCurrentLoadoutIsSet(name = "alpha")
+                givenCurrentLoadoutFragmentWasDeleted()
             }
 
             action("loadout sync is run") {
@@ -137,7 +119,7 @@ class SyncE2eSpec : E2eBehaviorSuite({
 
             action("one of the output files is manually deleted") {
                 val execution by memoizedExecution(seed = currentLoadoutIsAlreadySynchronized) {
-                    deleteWorkspaceFile(Constants.CLAUDE_MD)
+                    deleteWorkspaceFile(claudeFilePath)
                     runCommand("sync")
                 }
 
@@ -182,34 +164,30 @@ class SyncE2eSpec : E2eBehaviorSuite({
                 }
             }
 
-            action("loadout sync is run with --output and a custom directory") {
-                val execution by memoizedCapturedExecution(
-                    seed = currentLoadoutIsAlreadySynchronized,
-                    capture = {
-                        SyncOutputDirectoryCapture(
-                            outputDirectory = createCustomOutputDirectory(),
-                            previousLastComposedContentHash = requireLastComposedContentHash(),
-                        )
-                    },
-                ) { captured ->
-                    runCommand("sync", "--output", captured.outputDirectory)
+            given("the repository settings were edited by hand to trust an invalid host") {
+                val invalidTrustedHost: ScenarioSeed =
+                    currentLoadoutIsAlreadySynchronized.andThen {
+                        givenRepositorySettingsTrustFragmentHosts(INVALID_TRUSTED_HOST)
+                    }
+
+                action("loadout sync is run") {
+                    val execution by memoizedAction("sync", seed = invalidTrustedHost)
+
+                    then("it warns that the invalid trusted host was removed") {
+                        execution.result.shouldContainInStderr(INVALID_TRUSTED_HOST_WARNING)
+                    }
+
+                    then("it exits with result 0") {
+                        execution.result.shouldHaveExitCode(0)
+                    }
                 }
 
-                then("it writes CLAUDE.md, AGENTS.md, and GEMINI.md to the requested directory") {
-                    execution.scenario.shouldHaveGeneratedFiles(directory = execution.captured.outputDirectory)
-                }
+                action("loadout sync is run with --std-out") {
+                    val execution by memoizedAction("sync", "--std-out", seed = invalidTrustedHost)
 
-                then("it writes the current composed body to the requested directory") {
-                    execution.scenario.shouldHaveGeneratedBodyInDirectory(
-                        execution.captured.outputDirectory,
-                        firstFragmentContent,
-                    )
-                }
-
-                then("it leaves the stored composition hash unchanged") {
-                    execution.scenario.shouldHaveUnchangedLastComposedContentHash(
-                        execution.captured.previousLastComposedContentHash
-                    )
+                    then("it prints no repository settings warning") {
+                        execution.result.stderr shouldNotContain INVALID_TRUSTED_HOST_WARNING
+                    }
                 }
             }
         }
@@ -236,7 +214,7 @@ class SyncE2eSpec : E2eBehaviorSuite({
                     execution.scenario.shouldHaveGeneratedBody(updatedContent)
                 }
 
-                then("it writes CLAUDE.md, AGENTS.md, and GEMINI.md to the default output directory") {
+                then("it writes CLAUDE.md, AGENTS.md, and GEMINI.md") {
                     execution.scenario.shouldHaveGeneratedFiles()
                 }
 
@@ -286,53 +264,6 @@ class SyncE2eSpec : E2eBehaviorSuite({
 
                 then("it leaves the synchronization warning in place on the next command") {
                     execution.scenario.runCommand("list").shouldHaveStaleWarning()
-                }
-            }
-
-            action("loadout sync is run with --output and a custom directory") {
-                val execution by memoizedCapturedExecution(
-                    seed = {
-                        givenCurrentLoadoutFragmentsHaveChangedSinceLastComposition(
-                            name = "alpha",
-                            updatedContent = updatedContent
-                        )
-                    },
-                    capture = {
-                        SyncOutputDirectoryCapture(
-                            outputDirectory = createCustomOutputDirectory(),
-                            previousLastComposedContentHash = requireLastComposedContentHash(),
-                        )
-                    },
-                ) { captured ->
-                    runCommand("sync", "--output", captured.outputDirectory)
-                }
-
-                then("it writes CLAUDE.md, AGENTS.md, and GEMINI.md to the requested directory") {
-                    execution.scenario.shouldHaveGeneratedFiles(directory = execution.captured.outputDirectory)
-                }
-
-                then("it writes the recomposed body to the requested directory") {
-                    execution.scenario.shouldHaveGeneratedBodyInDirectory(
-                        execution.captured.outputDirectory,
-                        updatedContent,
-                    )
-                }
-
-                then("it updates the stored composition hash for the current composition") {
-                    execution.scenario.requireLastComposedContentHash() shouldNotBe
-                        execution.captured.previousLastComposedContentHash
-                }
-
-                then("it records the current loadout name") {
-                    execution.scenario.shouldHaveActiveLoadoutName("alpha")
-                }
-
-                then("the next command exits with result 0") {
-                    execution.scenario.runCommand("list").shouldHaveExitCode(0)
-                }
-
-                then("it clears the synchronization warning on the next command") {
-                    execution.scenario.runCommand("list").shouldNotHaveStaleWarning()
                 }
             }
         }

@@ -14,6 +14,7 @@ import e2e.support.repositorySettingsPath
 import e2e.support.requireRepositorySettings
 import e2e.support.shouldContainInOutput
 import e2e.support.shouldContainInStdout
+import e2e.support.shouldHaveActiveLoadoutName
 import e2e.support.shouldHaveExitCode
 import e2e.support.shouldHaveRepositoryDefaultLoadoutName
 import io.kotest.matchers.collections.shouldContainExactly
@@ -72,7 +73,7 @@ class ConfigE2eSpec : E2eBehaviorSuite({
                     }
 
                     then("it leaves local state unchanged") {
-                        execution.scenario.readLocalLoadoutState()?.activeLoadoutName shouldBe "default"
+                        execution.scenario.shouldHaveActiveLoadoutName("default")
                     }
                 }
             }

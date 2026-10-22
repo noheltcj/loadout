@@ -1,6 +1,5 @@
 package data.repository
 
-import cli.Constants
 import data.serialization.JsonSerializer
 import domain.entity.LocalLoadoutState
 import domain.entity.error.LoadoutError
@@ -13,40 +12,29 @@ class FileBasedLocalLoadoutStateRepository(
     private val fileQueryRepository: FileQueryRepository,
     private val fileMutationRepository: FileMutationRepository,
     private val serializer: JsonSerializer,
+    private val localStateFile: String,
 ) : LocalLoadoutStateRepository {
-    override fun loadLocalState(localStatePath: String?): Result<LocalLoadoutState, LoadoutError> {
-        val path = localStatePath ?: Constants.LOCAL_LOADOUT_STATE_FILE
-
-        return if (!fileQueryRepository.fileExists(path)) {
-            Result.Success(
-                LocalLoadoutState(
-                    activeLoadoutName = null,
-                    lastComposedContentHash = null,
-                )
-            )
+    override fun loadLocalState(): Result<LocalLoadoutState, LoadoutError.UnreadableLocalState> =
+        if (!fileQueryRepository.fileExists(localStateFile)) {
+            Result.Success(LocalLoadoutState.Inactive)
         } else {
             fileQueryRepository
-                .readFile(path)
+                .readFile(localStateFile)
+                .mapError { error -> LoadoutError.UnreadableLocalState(localStateFile, error.cause) }
                 .flatMap { content ->
                     serializer
                         .deserialize(content, LocalLoadoutState.serializer())
-                        .mapError { LoadoutError.ConfigurationError("Failed to parse local state: ${it.message}", it) }
+                        .mapError { error -> LoadoutError.UnreadableLocalState(localStateFile, error) }
                 }
         }
-    }
 
-    override fun saveLocalState(
-        localState: LocalLoadoutState,
-        localStatePath: String?,
-    ): Result<Unit, LoadoutError> {
-        val path = localStatePath ?: Constants.LOCAL_LOADOUT_STATE_FILE
-
-        return serializer
+    override fun saveLocalState(localState: LocalLoadoutState): Result<Unit, LoadoutError> =
+        serializer
             .serialize(localState, LocalLoadoutState.serializer())
             .mapError { LoadoutError.ConfigurationError("Failed to serialize local state: ${it.message}", it) }
             .flatMap { json ->
                 fileMutationRepository
-                    .writeFile(path, json)
+                    .writeFile(localStateFile, json)
                     .mapError {
                         LoadoutError.ConfigurationError(
                             "Failed to write local state file: ${it.message}",
@@ -54,7 +42,4 @@ class FileBasedLocalLoadoutStateRepository(
                         )
                     }
             }
-    }
-
-    override fun getDefaultLocalStatePath(): String = Constants.LOCAL_LOADOUT_STATE_FILE
 }

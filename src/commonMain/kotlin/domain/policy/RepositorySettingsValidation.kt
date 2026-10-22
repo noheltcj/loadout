@@ -1,18 +1,32 @@
 package domain.policy
 
+import domain.entity.LoadoutFileLocations
 import domain.entity.RepositorySettings
 import domain.entity.error.LoadoutError
 import domain.entity.packaging.Result
 
-fun validateRepositorySettings(settings: RepositorySettings): Result<RepositorySettings, LoadoutError> =
+/**
+ * Output files are checked against the validated fragments home, so moving the fragments home over a configured output
+ * file is rejected.
+ */
+fun validateRepositorySettings(
+    settings: RepositorySettings,
+    loadoutFileLocations: LoadoutFileLocations,
+): Result<RepositorySettings, LoadoutError> =
     validateFragmentsHome(settings.fragmentsHome).flatMap { validFragmentsHome ->
         validateFragmentSourceHosts(settings.trustedFragmentSourceHosts).flatMap { validHosts ->
-            validateMaximumFragmentCopyBytes(settings.maximumFragmentCopyBytes).map { validMaximumBytes ->
-                settings.copy(
-                    fragmentsHome = validFragmentsHome.value,
-                    trustedFragmentSourceHosts = validHosts,
-                    maximumFragmentCopyBytes = validMaximumBytes,
-                )
+            validateMaximumFragmentCopyBytes(settings.maximumFragmentCopyBytes).flatMap { validMaximumBytes ->
+                validateOutputFileList(
+                    outputFiles = settings.outputFiles,
+                    reservedDirectories = reservedOutputDirectories(loadoutFileLocations) + validFragmentsHome.value,
+                ).map { validOutputFiles ->
+                    settings.copy(
+                        fragmentsHome = validFragmentsHome.value,
+                        trustedFragmentSourceHosts = validHosts,
+                        maximumFragmentCopyBytes = validMaximumBytes,
+                        outputFiles = validOutputFiles,
+                    )
+                }
             }
         }
     }
@@ -32,9 +46,20 @@ sealed interface RepositorySettingsRepairWarning {
     data class InvalidTrustedHostRemoved(val invalidHost: String) : RepositorySettingsRepairWarning
 
     data class InvalidCopyLimitReplaced(val invalidMaximumBytes: Int) : RepositorySettingsRepairWarning
+
+    data class InvalidOutputFileRemoved(
+        val invalidOutputFile: String,
+        val error: LoadoutError.ValidationError,
+    ) : RepositorySettingsRepairWarning
 }
 
-fun repairRepositorySettings(settings: RepositorySettings): RepositorySettingsRepair {
+/**
+ * Output files are checked against the repaired fragments home, and a list left with no valid entries becomes unset.
+ */
+fun repairRepositorySettings(
+    settings: RepositorySettings,
+    loadoutFileLocations: LoadoutFileLocations,
+): RepositorySettingsRepair {
     val warnings = mutableListOf<RepositorySettingsRepairWarning>()
     val fragmentsHome =
         validateFragmentsHome(settings.fragmentsHome).fold(
@@ -62,6 +87,21 @@ fun repairRepositorySettings(settings: RepositorySettings): RepositorySettingsRe
                 RepositorySettings.DEFAULT_MAXIMUM_FRAGMENT_COPY_BYTES
             },
         )
+    val outputFiles =
+        settings.outputFiles?.let { configuredOutputFiles ->
+            val repair =
+                repairOutputFileList(
+                    configuredOutputFiles,
+                    reservedOutputDirectories(loadoutFileLocations) + fragmentsHome
+                )
+            repair.rejections.forEach { rejection ->
+                warnings += RepositorySettingsRepairWarning.InvalidOutputFileRemoved(
+                    rejection.outputFile,
+                    rejection.error
+                )
+            }
+            repair.outputFiles.map(OutputFilePath::value).ifEmpty { null }
+        }
 
     return RepositorySettingsRepair(
         settings =
@@ -69,6 +109,7 @@ fun repairRepositorySettings(settings: RepositorySettings): RepositorySettingsRe
             fragmentsHome = fragmentsHome,
             trustedFragmentSourceHosts = trustedHosts,
             maximumFragmentCopyBytes = maximumBytes,
+            outputFiles = outputFiles,
         ),
         warnings = warnings,
     )

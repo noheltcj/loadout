@@ -2,6 +2,9 @@ package cli.commands
 
 import cli.Constants
 import cli.commands.extension.echoComposedFilesWriteResult
+import cli.commands.extension.echoGitIgnoreRulesWarning
+import cli.commands.extension.echoRepositorySettingsWarnings
+import cli.commands.extension.echoUserSettingsWarnings
 import cli.echoError
 import com.github.ajalt.clikt.core.CliktCommand
 import com.github.ajalt.clikt.core.Context
@@ -12,21 +15,21 @@ import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.types.enum
 import domain.entity.error.LoadoutError
 import domain.usecase.ConfigureGitHooksResult
+import domain.usecase.ConfigureGitIgnoreRulesResult
 import domain.usecase.DefaultLoadoutInitializationResult
 import domain.usecase.GitHookDefinition
-import domain.usecase.GitignoreConfigurationResult
 import domain.usecase.InitializeLoadoutProjectInput
 import domain.usecase.InitializeLoadoutProjectUseCase
+import domain.usecase.OutputFilesSource
 import domain.usecase.RepositoryDefaultLoadoutOutcome
 
 class InitCommand(
     private val initializeLoadoutProject: InitializeLoadoutProjectUseCase,
-    private val defaultOutputPaths: List<String>,
 ) : CliktCommand(
     name = COMMAND_NAME,
 ) {
     override fun help(context: Context): String =
-        "Initialize Loadout in a project by setting up .gitignore, hooks, and an empty default loadout"
+        "Initialize Loadout in a project by setting up git ignore rules, hooks, and an empty default loadout"
 
     private val mode by option("--mode", "-m")
         .enum<InitMode>(ignoreCase = true)
@@ -36,12 +39,9 @@ class InitCommand(
     override fun run() {
         val input = when (mode) {
             InitMode.SHARED -> InitializeLoadoutProjectInput.Shared(
-                gitignorePath = GITIGNORE_PATH,
-                fixedGitignorePatterns = mode.fixedGitignorePatterns,
                 defaultLoadoutName = DEFAULT_LOADOUT_NAME,
                 defaultLoadoutDescription = DEFAULT_LOADOUT_DESCRIPTION,
-                outputPaths = defaultOutputPaths,
-                hooksDirectoryPath = HOOKS_DIRECTORY_PATH,
+                hooksDirectoryPath = Constants.HOOKS_DIR,
                 hooks = listOf(
                     GitHookDefinition(POST_CHECKOUT_HOOK_PATH, postCheckoutHookScript()),
                     GitHookDefinition(POST_MERGE_HOOK_PATH, postMergeHookScript())
@@ -49,11 +49,8 @@ class InitCommand(
             )
 
             InitMode.LOCAL -> InitializeLoadoutProjectInput.Local(
-                gitignorePath = GITIGNORE_PATH,
-                fixedGitignorePatterns = mode.fixedGitignorePatterns,
                 defaultLoadoutName = DEFAULT_LOADOUT_NAME,
                 defaultLoadoutDescription = DEFAULT_LOADOUT_DESCRIPTION,
-                outputPaths = defaultOutputPaths
             )
         }
 
@@ -61,26 +58,40 @@ class InitCommand(
 
         result.fold(
             onSuccess = { initResult ->
-                when (initResult.gitignoreConfiguration) {
-                    GitignoreConfigurationResult.AlreadyConfigured ->
-                        echo("  .gitignore already configured for Loadout (${mode.displayName} mode)")
+                echoRepositorySettingsWarnings(initResult.repositorySettingsWarnings)
+                echoUserSettingsWarnings(initResult.outputFiles.userSettingsWarnings)
 
-                    GitignoreConfigurationResult.Updated ->
-                        echo("  Added Loadout patterns to .gitignore (${mode.displayName} mode)")
+                when (val ignoreRules = initResult.ignoreRulesConfiguration) {
+                    is ConfigureGitIgnoreRulesResult.Configured ->
+                        echo(
+                            "  Configured git to ignore Loadout files in ${ignoreRules.excludeFilePath} " +
+                                "(${mode.displayName} mode)"
+                        )
+
+                    is ConfigureGitIgnoreRulesResult.AlreadyConfigured ->
+                        echo(
+                            "  Git already ignores Loadout files in ${ignoreRules.excludeFilePath} " +
+                                "(${mode.displayName} mode)"
+                        )
+
+                    ConfigureGitIgnoreRulesResult.NotAGitRepository ->
+                        echo("  Skipped git ignore rules: not a git repository")
+
+                    is ConfigureGitIgnoreRulesResult.Failed -> echoGitIgnoreRulesWarning(ignoreRules)
                 }
 
                 when (initResult.gitHooksConfiguration) {
                     ConfigureGitHooksResult.Configured ->
-                        echo("  Configured tracked Git hooks at $HOOKS_DIRECTORY_PATH")
+                        echo("  Configured tracked Git hooks at ${Constants.HOOKS_DIR}")
 
                     ConfigureGitHooksResult.AlreadyManagedByExternalTool -> {
                         echo("  Git hooks are already managed by an external tool. Skipping hook configuration.")
                         echo(
-                            "  To use Loadout-managed tracked hooks instead, point core.hooksPath at $HOOKS_DIRECTORY_PATH"
+                            "  To use Loadout-managed tracked hooks instead, point core.hooksPath at ${Constants.HOOKS_DIR}"
                         )
                     }
 
-                    ConfigureGitHooksResult.GitNotInitialized,
+                    ConfigureGitHooksResult.NotAGitRepository,
                     null,
                     -> Unit
                 }
@@ -100,6 +111,10 @@ class InitCommand(
                         echo("Loadout initialized successfully!")
                         echo("Note: ${mode.completionNote}")
                     }
+                }
+
+                if (initResult.outputFiles.source == OutputFilesSource.BuiltInDefault) {
+                    echo("Only use some of these agents? Run: loadout config --user --output-files CLAUDE.md")
                 }
             },
             onError = ::fail,
@@ -221,10 +236,8 @@ class InitCommand(
 
     companion object {
         private const val COMMAND_NAME = "init"
-        private const val GITIGNORE_PATH = ".gitignore"
-        private const val HOOKS_DIRECTORY_PATH = ".githooks"
-        private const val POST_CHECKOUT_HOOK_PATH = "$HOOKS_DIRECTORY_PATH/post-checkout"
-        private const val POST_MERGE_HOOK_PATH = "$HOOKS_DIRECTORY_PATH/post-merge"
+        private const val POST_CHECKOUT_HOOK_PATH = "${Constants.HOOKS_DIR}/post-checkout"
+        private const val POST_MERGE_HOOK_PATH = "${Constants.HOOKS_DIR}/post-merge"
         private const val DEFAULT_LOADOUT_NAME = "default"
         private const val DEFAULT_LOADOUT_DESCRIPTION = "Default loadout"
     }
@@ -242,29 +255,4 @@ enum class InitMode(
         displayName = "Local",
         completionNote = "In local mode, loadout configurations are not shared with your team."
     ),
-    ;
-
-    val fixedGitignorePatterns: List<String>
-        get() = when (this) {
-            SHARED ->
-                listOf(GITIGNORE_HEADER, Constants.LOCAL_LOADOUT_STATE_FILE) +
-                    Constants.generatedMarkdownFiles
-            LOCAL ->
-                listOf(GITIGNORE_HEADER, Constants.LOCAL_LOADOUT_STATE_FILE) +
-                    Constants.generatedMarkdownFiles +
-                    listOf(
-                        "",
-                        REPOSITORY_SETTINGS_HEADER,
-                        Constants.REPOSITORY_SETTINGS_FILE,
-                        "",
-                        LOCAL_ONLY_GITIGNORE_HEADER,
-                        "${Constants.LOADOUTS_DIR}/",
-                    )
-        }
-
-    companion object {
-        private const val GITIGNORE_HEADER = "# Loadout local runtime state"
-        private const val REPOSITORY_SETTINGS_HEADER = "# Loadout repository settings"
-        private const val LOCAL_ONLY_GITIGNORE_HEADER = "# Loadout local-only definitions"
-    }
 }

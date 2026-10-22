@@ -22,8 +22,7 @@ fun createLoadoutCommand(applicationScope: ApplicationScope): CliktCommand =
         checkLoadoutSync = applicationScope.checkLoadoutSync
     ).subcommands(
         InitCommand(
-            initializeLoadoutProject = applicationScope.initializeLoadoutProject,
-            defaultOutputPaths = applicationScope.defaultOutputPaths
+            initializeLoadoutProject = applicationScope.initializeLoadoutProject
         ),
         FragmentCommand().subcommands(
             CopyFragmentCommand(copyFragment = applicationScope.copyFragment),
@@ -37,12 +36,10 @@ fun createLoadoutCommand(applicationScope: ApplicationScope): CliktCommand =
             createLoadout = applicationScope.createLoadout
         ),
         UseCommand(
-            useLoadout = applicationScope.useLoadout,
-            defaultOutputPaths = applicationScope.defaultOutputPaths
+            useLoadout = applicationScope.useLoadout
         ),
         SyncCommand(
-            syncLoadout = applicationScope.syncLoadout,
-            defaultOutputPaths = applicationScope.defaultOutputPaths
+            syncLoadout = applicationScope.syncLoadout
         ),
         AddCommand(
             linkFragmentToLoadout = applicationScope.linkFragmentToLoadout
@@ -52,6 +49,9 @@ fun createLoadoutCommand(applicationScope: ApplicationScope): CliktCommand =
         ),
         ConfigCommand(
             getRepositorySettings = applicationScope.getRepairableRepositorySettings,
-            updateRepositorySettings = applicationScope.updateRepositorySettings
+            updateRepositorySettings = applicationScope.updateRepositorySettings,
+            resolveOutputFiles = applicationScope.resolveOutputFiles,
+            getUserSettings = applicationScope.getUserSettings,
+            updateUserSettings = applicationScope.updateUserSettings
         )
     )

@@ -1,5 +1,6 @@
 package domain.usecase
 
+import domain.entity.LoadoutFileLocations
 import domain.entity.RepositorySettings
 import domain.entity.error.LoadoutError
 import domain.entity.packaging.Result
@@ -20,12 +21,17 @@ sealed interface RepositorySettingsUpdateInput {
     data class UntrustFragmentSourceHost(val host: String) : RepositorySettingsUpdateInput
 
     data class MaximumFragmentCopyBytes(val bytes: Int) : RepositorySettingsUpdateInput
+
+    data class OutputFiles(val outputFiles: List<String>) : RepositorySettingsUpdateInput
+
+    data object UnsetOutputFiles : RepositorySettingsUpdateInput
 }
 
 class UpdateRepositorySettingsUseCase(
     private val repositorySettingsRepository: RepositorySettingsRepository,
     private val loadoutRepository: LoadoutRepository,
     private val getRepairableRepositorySettings: GetRepairableRepositorySettingsUseCase,
+    private val loadoutFileLocations: LoadoutFileLocations,
 ) {
     operator fun invoke(input: RepositorySettingsUpdateInput): Result<RepositorySettingsRepair, LoadoutError> =
         getRepairableRepositorySettings().flatMap { repair ->
@@ -39,6 +45,9 @@ class UpdateRepositorySettingsUseCase(
                     untrustFragmentSourceHost(currentSettings, input.host)
                 is RepositorySettingsUpdateInput.MaximumFragmentCopyBytes ->
                     updateMaximumFragmentCopyBytes(currentSettings, input.bytes)
+                is RepositorySettingsUpdateInput.OutputFiles ->
+                    save(currentSettings.copy(outputFiles = input.outputFiles))
+                RepositorySettingsUpdateInput.UnsetOutputFiles -> save(currentSettings.copy(outputFiles = null))
             }.map { updatedSettings -> repair.copy(settings = updatedSettings) }
         }
 
@@ -94,7 +103,7 @@ class UpdateRepositorySettingsUseCase(
     ): Result<RepositorySettings, LoadoutError> = save(currentSettings.copy(maximumFragmentCopyBytes = bytes))
 
     private fun save(settings: RepositorySettings): Result<RepositorySettings, LoadoutError> =
-        validateRepositorySettings(settings).flatMap { validSettings ->
+        validateRepositorySettings(settings, loadoutFileLocations).flatMap { validSettings ->
             repositorySettingsRepository.saveRepositorySettings(validSettings).map { validSettings }
         }
 }

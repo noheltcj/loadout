@@ -9,7 +9,6 @@ import e2e.support.ScenarioSeed
 import e2e.support.action
 import e2e.support.andThen
 import e2e.support.givenExistingLoadoutsAlreadyExistBeforeInit
-import e2e.support.givenFragmentsHomeIsConfigured
 import e2e.support.givenGitRepositoryExists
 import e2e.support.givenRepositoryDefaultLoadoutIsSet
 import e2e.support.givenTwoValidLoadoutsExist
@@ -17,22 +16,15 @@ import e2e.support.hooksDirectoryPath
 import e2e.support.postCheckoutHookPath
 import e2e.support.postMergeHookPath
 import e2e.support.requireWorkspaceFile
+import e2e.support.shouldBeVisibleToGitStatus
 import e2e.support.shouldContainInStdout
-import e2e.support.shouldContainLoadoutGitignorePatterns
-import e2e.support.shouldContainLocalModeGitignorePatternsExactlyOnce
-import e2e.support.shouldContainLocalOnlyGitignorePatterns
-import e2e.support.shouldContainRepositorySettingsGitignorePatterns
-import e2e.support.shouldContainSharedModeGitignorePatternsExactlyOnce
 import e2e.support.shouldHaveActiveLoadoutName
 import e2e.support.shouldHaveExecutableWorkspaceFile
 import e2e.support.shouldHaveExitCode
 import e2e.support.shouldHaveGeneratedFiles
 import e2e.support.shouldHaveGitLocalConfig
-import e2e.support.shouldHaveGitignoreEntries
 import e2e.support.shouldHaveNoUnexpectedStderr
 import e2e.support.shouldHaveRepositoryDefaultLoadoutName
-import e2e.support.shouldNotHaveGitignoreEntries
-import e2e.support.shouldNotIgnoreRepoManagedLoadoutFiles
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
@@ -51,15 +43,8 @@ class InitE2eSpec : E2eBehaviorSuite({
             action("loadout init is run in shared mode") {
                 val execution by memoizedAction("init")
 
-                then(
-                    "it adds local runtime state and generated markdown outputs to .gitignore"
-                ) {
-                    execution.scenario.shouldContainLoadoutGitignorePatterns()
+                then("it prints no warnings or errors") {
                     execution.result.shouldHaveNoUnexpectedStderr()
-                }
-
-                then("it does not ignore repository-managed files") {
-                    execution.scenario.shouldNotIgnoreRepoManagedLoadoutFiles()
                 }
 
                 then("it does not generate an initial fragment") {
@@ -80,7 +65,7 @@ class InitE2eSpec : E2eBehaviorSuite({
                     execution.scenario.shouldHaveActiveLoadoutName("default")
                 }
 
-                then("it writes CLAUDE.md, AGENTS.md, and GEMINI.md to the default output directory") {
+                then("it writes CLAUDE.md, AGENTS.md, and GEMINI.md") {
                     execution.scenario.shouldHaveGeneratedFiles()
                 }
 
@@ -91,53 +76,8 @@ class InitE2eSpec : E2eBehaviorSuite({
                 }
             }
 
-            given(".gitignore already contains the shared-mode Loadout patterns") {
-                val sharedModeGitignoreAlreadyConfigured: ScenarioSeed = {
-                    writeWorkspaceFile(
-                        ".gitignore",
-                        """
-                        # Loadout local runtime state
-                        ${Constants.LOCAL_LOADOUT_STATE_FILE}
-                        ${Constants.CLAUDE_MD}
-                        ${Constants.AGENTS_MD}
-                        ${Constants.GEMINI_MD}
-                        """.trimIndent()
-                    )
-                }
-
-                action("loadout init is run in shared mode") {
-                    val execution by memoizedAction("init", seed = sharedModeGitignoreAlreadyConfigured)
-
-                    then("it reports that .gitignore is already configured for shared mode") {
-                        execution.result.stdout.shouldContain("already configured for Loadout (Shared mode)")
-                    }
-
-                    then("it does not duplicate the shared-mode patterns") {
-                        execution.scenario.shouldContainSharedModeGitignorePatternsExactlyOnce()
-                    }
-                }
-            }
-
             action("loadout init is run in local mode") {
                 val execution by memoizedAction("init", "--mode", "local")
-
-                then(
-                    "it adds local runtime state and generated markdown outputs to .gitignore"
-                ) {
-                    execution.scenario.shouldContainLoadoutGitignorePatterns()
-                }
-
-                then("it adds repository settings to .gitignore") {
-                    execution.scenario.shouldContainRepositorySettingsGitignorePatterns()
-                }
-
-                then("it adds the local-only definitions header to .gitignore") {
-                    execution.scenario.shouldHaveGitignoreEntries("# Loadout local-only definitions")
-                }
-
-                then("it adds `.loadouts/` and `fragments/` to .gitignore") {
-                    execution.scenario.shouldContainLocalOnlyGitignorePatterns()
-                }
 
                 then("it creates the default loadout") {
                     execution.scenario.readLoadout("default").shouldNotBeNull()
@@ -147,7 +87,7 @@ class InitE2eSpec : E2eBehaviorSuite({
                     execution.scenario.shouldHaveActiveLoadoutName("default")
                 }
 
-                then("it writes CLAUDE.md, AGENTS.md, and GEMINI.md to the default output directory") {
+                then("it writes CLAUDE.md, AGENTS.md, and GEMINI.md") {
                     execution.scenario.shouldHaveGeneratedFiles()
                 }
 
@@ -155,45 +95,6 @@ class InitE2eSpec : E2eBehaviorSuite({
                     execution.result.stdout.shouldContain(
                         "Note: In local mode, loadout configurations are not shared with your team."
                     )
-                }
-            }
-
-            given(".gitignore already contains the local-mode Loadout patterns") {
-                val localModeGitignoreAlreadyConfigured: ScenarioSeed = {
-                    writeWorkspaceFile(
-                        ".gitignore",
-                        """
-                        # Loadout local runtime state
-                        ${Constants.LOCAL_LOADOUT_STATE_FILE}
-                        ${Constants.CLAUDE_MD}
-                        ${Constants.AGENTS_MD}
-                        ${Constants.GEMINI_MD}
-
-                        # Loadout repository settings
-                        ${Constants.REPOSITORY_SETTINGS_FILE}
-
-                        # Loadout local-only definitions
-                        ${Constants.LOADOUTS_DIR}/
-                        ${RepositorySettings.DEFAULT_FRAGMENTS_HOME}/
-                        """.trimIndent()
-                    )
-                }
-
-                action("loadout init is run in local mode") {
-                    val execution by memoizedAction(
-                        "init",
-                        "--mode",
-                        "local",
-                        seed = localModeGitignoreAlreadyConfigured
-                    )
-
-                    then("it reports that .gitignore is already configured for local mode") {
-                        execution.result.stdout.shouldContain("already configured for Loadout (Local mode)")
-                    }
-
-                    then("it does not duplicate the local-mode patterns") {
-                        execution.scenario.shouldContainLocalModeGitignorePatternsExactlyOnce()
-                    }
                 }
             }
 
@@ -262,26 +163,6 @@ class InitE2eSpec : E2eBehaviorSuite({
                     }
                 }
             }
-
-            given("repository settings use a custom fragments home") {
-                val customFragmentsHome: ScenarioSeed = {
-                    givenFragmentsHomeIsConfigured("guidance/library")
-                }
-
-                action("loadout init is run in local mode") {
-                    val execution by memoizedAction("init", "--mode", "local", seed = customFragmentsHome)
-
-                    then("it git-ignores the configured fragments home") {
-                        execution.scenario.shouldHaveGitignoreEntries("guidance/library/")
-                    }
-
-                    then("it does not git-ignore the default fragments directory") {
-                        execution.scenario.shouldNotHaveGitignoreEntries(
-                            "${RepositorySettings.DEFAULT_FRAGMENTS_HOME}/"
-                        )
-                    }
-                }
-            }
         }
 
         given("an isolated git repository") {
@@ -310,8 +191,8 @@ class InitE2eSpec : E2eBehaviorSuite({
                     execution.scenario.shouldHaveRepositoryDefaultLoadoutName("default")
                 }
 
-                then("it does not add the tracked hooks directory to .gitignore") {
-                    execution.scenario.shouldNotHaveGitignoreEntries("$hooksDirectoryPath/")
+                then("it leaves the tracked hooks visible to git status") {
+                    execution.scenario.shouldBeVisibleToGitStatus(postCheckoutHookPath)
                 }
             }
 

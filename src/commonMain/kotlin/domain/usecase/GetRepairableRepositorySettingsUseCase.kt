@@ -1,5 +1,6 @@
 package domain.usecase
 
+import domain.entity.LoadoutFileLocations
 import domain.entity.RepositorySettings
 import domain.entity.error.LoadoutError
 import domain.entity.packaging.Result
@@ -10,10 +11,11 @@ import domain.repository.RepositorySettingsRepository
 
 class GetRepairableRepositorySettingsUseCase(
     private val repositorySettingsRepository: RepositorySettingsRepository,
+    private val loadoutFileLocations: LoadoutFileLocations,
 ) {
     operator fun invoke(): Result<RepositorySettingsRepair, LoadoutError> =
         when (val result = repositorySettingsRepository.loadRepositorySettings()) {
-            is Result.Success -> Result.Success(repairRepositorySettings(result.value))
+            is Result.Success -> Result.Success(repairRepositorySettings(result.value, loadoutFileLocations))
             is Result.Error ->
                 when (val error = result.error) {
                     is LoadoutError.RepairableRepositorySettingsError ->
