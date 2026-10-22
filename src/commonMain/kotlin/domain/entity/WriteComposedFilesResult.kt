@@ -6,11 +6,21 @@ sealed interface WriteComposedFilesResult {
     data class Written(
         val writtenFiles: List<String>,
         val backups: List<OutputFileBackup>,
-        val removedFiles: List<String>,
+        val removedFiles: List<RemovedOutputFile>,
         /** Kept on disk because they changed after Loadout wrote them, and left unmanaged and unignored. */
         val releasedFiles: List<String>,
     ) : WriteComposedFilesResult
 }
+
+/**
+ * An output file Loadout removed because it is no longer configured.
+ *
+ * [trackedByGit] is true when git's index still records the path, so git status reports the removal.
+ */
+data class RemovedOutputFile(
+    val path: String,
+    val trackedByGit: Boolean,
+)
 
 data class OutputFileBackup(
     val originalPath: String,

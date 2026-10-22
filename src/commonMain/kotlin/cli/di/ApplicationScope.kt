@@ -5,6 +5,7 @@ import data.filesystem.CanonicalPathResolver
 import data.repository.FileBasedFragmentRepository
 import data.repository.FileBasedGitConfigRepository
 import data.repository.FileBasedGitExcludeRepository
+import data.repository.FileBasedGitIndexRepository
 import data.repository.FileBasedGitRepositoryLayoutRepository
 import data.repository.FileBasedLoadoutRepository
 import data.repository.FileBasedLocalLoadoutStateRepository
@@ -102,6 +103,11 @@ fun <T> withApplicationScope(scopedBlock: ApplicationScope.() -> T): T {
         FileBasedGitRepositoryLayoutRepository(
             fileQueryRepository = fileQueryRepository,
         )
+    val gitIndexRepository =
+        FileBasedGitIndexRepository(
+            fileQueryRepository = fileQueryRepository,
+            gitRepositoryLayoutRepository = gitRepositoryLayoutRepository,
+        )
     val gitExcludeRepository =
         FileBasedGitExcludeRepository(
             fileQueryRepository = fileQueryRepository,
@@ -186,6 +192,7 @@ fun <T> withApplicationScope(scopedBlock: ApplicationScope.() -> T): T {
             inspectOutputPath = inspectOutputPath,
             backUpOutputFiles = backUpOutputFiles,
             pruneOutputFiles = pruneOutputFiles,
+            gitIndexRepository = gitIndexRepository,
         )
     val activateComposedLoadout =
         ActivateComposedLoadoutUseCase(

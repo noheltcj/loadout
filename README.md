@@ -351,6 +351,8 @@ git add -f AGENTS.md
 
 Ignore rules don't apply to tracked files. Loadout keeps regenerating `AGENTS.md`, so commit it again when your guidance changes.
 
+If you later remove `AGENTS.md` from your output files, the next `loadout sync` deletes it from disk, and git status reports the deletion because git still tracks the file. Run `git rm AGENTS.md` to remove it from the repository.
+
 ---
 
 ## Why Fragments?

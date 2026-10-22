@@ -3,6 +3,7 @@ package cli.commands.extension
 import com.github.ajalt.clikt.core.CliktCommand
 import domain.entity.OutputFileBackup
 import domain.entity.OutputFileBackupReason
+import domain.entity.RemovedOutputFile
 import domain.entity.ReplacedFile
 import domain.entity.RepositorySettings
 import domain.entity.UserSettingsLocation
@@ -47,12 +48,42 @@ fun CliktCommand.echoComposedFilesWriteResult(
     }
 }
 
-private fun CliktCommand.echoRemovedFiles(removedFiles: List<String>) {
+private fun CliktCommand.echoRemovedFiles(removedFiles: List<RemovedOutputFile>) {
     if (removedFiles.isEmpty()) return
 
     echo("Removed output files that are no longer configured:")
-    removedFiles.forEach { path -> echo("  • $path") }
+    removedFiles.forEach { removed -> echo("  • ${removed.path}") }
+    echoTrackedRemovalsNote(removedFiles.filter { removed -> removed.trackedByGit })
 }
+
+private fun CliktCommand.echoTrackedRemovalsNote(removedFiles: List<RemovedOutputFile>) {
+    if (removedFiles.isEmpty()) return
+    val paths = removedFiles.map(RemovedOutputFile::path)
+
+    // Warnings go to stderr so they survive the auto-sync hooks, which discard stdout.
+    when {
+        paths.size == 1 -> {
+            echo("Warning: ${paths.single()} is tracked by git, and git status now reports the deletion.", err = true)
+            echo("Run `git rm ${paths.single()}` to remove it from the repository.", err = true)
+        }
+
+        else -> {
+            echo(
+                "Warning: ${paths.joinWithConjunction()} are tracked by git, " +
+                    "and git status now reports the deletions.",
+                err = true,
+            )
+            echo("Run `git rm ${paths.joinToString(" ")}` to remove them from the repository.", err = true)
+        }
+    }
+}
+
+private fun List<String>.joinWithConjunction(): String =
+    when {
+        isEmpty() -> ""
+        size == 1 -> single()
+        else -> dropLast(1).joinToString(", ") + " and " + last()
+    }
 
 private fun CliktCommand.echoReleasedFiles(releasedFiles: List<String>) {
     if (releasedFiles.isEmpty()) return

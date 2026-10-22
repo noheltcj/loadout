@@ -289,6 +289,12 @@ fun E2eScenario.givenCurrentLoadoutWasSynced() {
     requireSetupCommand("sync")
 }
 
+/** Commits the output files the way the README workaround suggests, so git tracks them. */
+fun E2eScenario.givenOutputFilesWereCommitted(vararg outputFiles: String) {
+    requireSetupGit("add", "-f", *outputFiles)
+    requireSetupGit("commit", "-m", "commit ${outputFiles.joinToString(", ")}")
+}
+
 /** Writes the list as a hand edit would, bypassing validation. */
 fun E2eScenario.givenRepositorySettingsListOutputFiles(vararg outputFiles: String) {
     editRepositorySettingsByHand { settings -> settings.copy(outputFiles = outputFiles.toList()) }

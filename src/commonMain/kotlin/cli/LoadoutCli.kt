@@ -68,9 +68,6 @@ class LoadoutCli(
     }
 
     private fun warnIfNotSynchronized() {
-        val subcommandName = currentContext.invokedSubcommand?.name
-        if (subcommandName in setOf("config", "list")) return
-
         checkLoadoutSync().fold(
             onSuccess = { syncState ->
                 when (syncState) {

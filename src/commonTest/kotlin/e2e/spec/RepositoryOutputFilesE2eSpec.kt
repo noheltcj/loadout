@@ -15,6 +15,7 @@ import e2e.support.givenCurrentLoadoutWasSynced
 import e2e.support.givenHandWrittenAgentFileExists
 import e2e.support.givenInitializedGitRepository
 import e2e.support.givenOutputFileWasEdited
+import e2e.support.givenOutputFilesWereCommitted
 import e2e.support.givenRepositoryOutputFilesAreSet
 import e2e.support.givenRepositorySettingsListOutputFiles
 import e2e.support.handWrittenAgentGuidance
@@ -34,6 +35,7 @@ import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.string.shouldNotContain
 import io.kotest.matchers.string.shouldStartWith
 
 // Init creates an empty default loadout, so its composed body is empty.
@@ -208,11 +210,70 @@ class RepositoryOutputFilesE2eSpec : E2eBehaviorSuite({
                         )
                     }
 
+                    then("it does not warn that the removed files are tracked by git") {
+                        execution.result.stderr.shouldNotContain("tracked by git")
+                    }
+
                     then("it lists only /CLAUDE.md in this worktree's exclude section") {
                         execution.scenario.shouldListOnlyInWorktreeExcludeSection(
                             MAIN_WORKTREE_EXCLUDE_KEY,
                             "/CLAUDE.md",
                         )
+                    }
+                }
+
+                given("AGENTS.md was committed to the repository") {
+                    val trackedAgentsFile: ScenarioSeed =
+                        outputFilesAreClaudeOnly.andThen {
+                            givenOutputFilesWereCommitted(agentsFilePath)
+                        }
+
+                    action("loadout sync is run") {
+                        val execution by memoizedAction("sync", seed = trackedAgentsFile)
+
+                        then("it deletes AGENTS.md") {
+                            execution.scenario.readWorkspaceFile(agentsFilePath).shouldBeNull()
+                        }
+
+                        then("it warns that AGENTS.md is tracked by git") {
+                            execution.result.shouldContainInStderr(
+                                "Warning: AGENTS.md is tracked by git, and git status now reports the deletion."
+                            )
+                        }
+
+                        then("it tells the user to git rm AGENTS.md") {
+                            execution.result.shouldContainInStderr(
+                                "Run `git rm AGENTS.md` to remove it from the repository."
+                            )
+                        }
+
+                        then("it leaves GEMINI.md out of the tracked-file warning") {
+                            execution.result.stderr.shouldNotContain(geminiFilePath)
+                        }
+                    }
+                }
+
+                given("AGENTS.md and GEMINI.md were committed to the repository") {
+                    val trackedRemovedFiles: ScenarioSeed =
+                        outputFilesAreClaudeOnly.andThen {
+                            givenOutputFilesWereCommitted(agentsFilePath, geminiFilePath)
+                        }
+
+                    action("loadout sync is run") {
+                        val execution by memoizedAction("sync", seed = trackedRemovedFiles)
+
+                        then("it warns that both removed files are tracked by git") {
+                            execution.result.shouldContainInStderr(
+                                "Warning: AGENTS.md and GEMINI.md are tracked by git, " +
+                                    "and git status now reports the deletions."
+                            )
+                        }
+
+                        then("it tells the user to git rm both files") {
+                            execution.result.shouldContainInStderr(
+                                "Run `git rm AGENTS.md GEMINI.md` to remove them from the repository."
+                            )
+                        }
                     }
                 }
 

@@ -4,6 +4,7 @@ import domain.entity.ComposedOutput
 import domain.entity.LocalLoadoutState
 import domain.entity.OutputFileBackup
 import domain.entity.OutputFilesWrite
+import domain.entity.RemovedOutputFile
 import domain.entity.WriteComposedFilesResult
 import domain.entity.error.LoadoutError
 import domain.entity.packaging.Result
@@ -12,6 +13,7 @@ import domain.policy.OutputFilePath
 import domain.repository.FileDigestRepository
 import domain.repository.FileMutationRepository
 import domain.repository.FileQueryRepository
+import domain.repository.GitIndexRepository
 import domain.repository.LocalLoadoutStateRepository
 
 class WriteComposedFilesUseCase(
@@ -23,6 +25,7 @@ class WriteComposedFilesUseCase(
     private val inspectOutputPath: InspectOutputPathUseCase,
     private val backUpOutputFiles: BackUpOutputFilesUseCase,
     private val pruneOutputFiles: PruneOutputFilesUseCase,
+    private val gitIndexRepository: GitIndexRepository,
 ) {
     /**
      * Every backup is made before any output is written, so a failed backup leaves every output untouched. The outputs
@@ -70,12 +73,23 @@ class WriteComposedFilesUseCase(
                             WriteComposedFilesResult.Written(
                                 writtenFiles = writtenFiles,
                                 backups = backups,
-                                removedFiles = pruned.removedFiles,
+                                removedFiles = removedFilesWithTracking(pruned.removedFiles),
                                 releasedFiles = pruned.releasedFiles,
                             )
                         }
                     }
             }
+
+    // The lookup only informs a warning, so an index Loadout cannot read simply withholds the warning.
+    private fun removedFilesWithTracking(removedFiles: List<String>): List<RemovedOutputFile> =
+        removedFiles.map { path ->
+            val trackedByGit =
+                gitIndexRepository.isTracked(path).fold(
+                    onSuccess = { it },
+                    onError = { false },
+                )
+            RemovedOutputFile(path = path, trackedByGit = trackedByGit)
+        }
 
     private fun requireReplaceable(occupant: OutputPathOccupant): Result<Unit, LoadoutError> =
         when (occupant) {
